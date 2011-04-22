@@ -90,23 +90,20 @@ func (s Particles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s *Swarm) evaluate(black *Particle, white *Particle) {
+func (s *Swarm) evaluate(p *Particle) {
 	defer func() { recover() }()
-	var b, w PatternMatcher
+	var m PatternMatcher
 	if *tablepat {
-		b = black
-		w = white
+		m = p
 	} else {
-		b = &NeuralNet{s.Arch, black.Position}
-		w = &NeuralNet{s.Arch, white.Position}
+		m = &NeuralNet{s.Arch, p.Position}
 	}
-	
 	t := NewTracker(*size)
 	passes := 0
 	var vertex int
 	for {
 		br := NewRoot(BLACK, t)
-		genmove(br, t, b)
+		genmove(br, t, m)
 		if br == nil || br.Best() == nil {
 			vertex = -1
 			passes++
@@ -119,7 +116,7 @@ func (s *Swarm) evaluate(black *Particle, white *Particle) {
 			break
 		}
 		wr := NewRoot(WHITE, t)
-		genmove(wr, t, w)
+		genmove(wr, t, m)
 		if wr == nil || wr.Best() == nil {
 			vertex = -1
 			passes++
@@ -132,13 +129,10 @@ func (s *Swarm) evaluate(black *Particle, white *Particle) {
 			break
 		}
 	}
-	
 	if t.Winner() == BLACK {
-		black.Fitness += 1
-		white.Fitness -= 1
+		p.Fitness += 1
 	} else if t.Winner() == WHITE {
-		white.Fitness += 1
-		black.Fitness -= 1
+		p.Fitness -= 1
 	}
 }
 
@@ -173,7 +167,7 @@ func (s *Swarm) Step() {
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
 		for j := uint(0); j < s.Samples; j++ {
-			s.evaluate(children[i], randParticle(children, nil))
+			s.evaluate(children[i])
 			log.Printf("%d / %d\n", i*s.Samples+j, s.Lambda*s.Samples)
 		}
 	}
@@ -294,7 +288,7 @@ func Train() {
 	}
 	max := 1
 	for i := range names {
-		if strings.Contains(names[i], "swarm") && strings.HasSuffix(names[i], "gob") {
+		if strings.HasPrefix(names[i], "swarm") && strings.HasSuffix(names[i], "gob") {
 			j, err := strconv.Atoi(strings.Split(strings.Split(names[i], "-", -1)[1], ".", -1)[0])
 			if err != nil {
 				panic(err)
