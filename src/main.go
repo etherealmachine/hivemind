@@ -51,11 +51,11 @@ func main() {
 	var f *os.File
 	var err os.Error
 	if *logFile == "" && *modeGTP && *gfx {
-		f, err = os.Create("/dev/null")
+		f, err = os.Open("/dev/null", os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
 	} else if *logFile == "" {
 		f = os.Stderr
 	} else {
-		f, err = os.Create(*logFile)
+		f, err = os.Open(*logFile, os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
 	}
 	if err != nil {
 		panic("could not create log file")
@@ -77,7 +77,7 @@ func main() {
 		matcher = &NullMatcher{}
 		log.Println("loaded null pattern matcher")
 	}
-	SetupCluster()
+	//SetupCluster()
 	if *help {
 		flag.Usage()
 		os.Exit(0)

@@ -100,11 +100,43 @@ func (s *Swarm) evaluate(black *Particle, white *Particle) {
 		b = &NeuralNet{s.Arch, black.Position}
 		w = &NeuralNet{s.Arch, white.Position}
 	}
-	res := Farm(b, w)
-	if res.Winner() == BLACK {
+	
+	t := NewTracker(*size)
+	passes := 0
+	var vertex int
+	for {
+		br := NewRoot(BLACK, t)
+		genmove(br, t, b)
+		if br == nil || br.Best() == nil {
+			vertex = -1
+			passes++
+		} else {
+			passes = 0
+			vertex = br.Best().vertex
+		}
+		t.Play(BLACK, vertex)
+		if (*hex && t.Winner() != EMPTY) || passes == 2 {
+			break
+		}
+		wr := NewRoot(WHITE, t)
+		genmove(wr, t, w)
+		if wr == nil || wr.Best() == nil {
+			vertex = -1
+			passes++
+		} else {
+			passes = 0
+			vertex = wr.Best().vertex
+		}
+		t.Play(WHITE, vertex)
+		if (*hex && t.Winner() != EMPTY) || passes == 2 {
+			break
+		}
+	}
+	
+	if t.Winner() == BLACK {
 		black.Fitness += 1
 		white.Fitness -= 1
-	} else if res.Winner() == WHITE {
+	} else if t.Winner() == WHITE {
 		white.Fitness += 1
 		black.Fitness -= 1
 	}
@@ -209,7 +241,7 @@ func (s *Swarm) Best() (best *Particle) {
 }
 
 func (s *Swarm) SaveSwarm(filename string) {
-	f, err := os.Create(filename)
+	f, err := os.Open(filename, os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
 	if err != nil {
 		log.Println("failed to save swarm")
 		return
@@ -220,7 +252,7 @@ func (s *Swarm) SaveSwarm(filename string) {
 }
 
 func (s *Swarm) LoadSwarm(filename string) os.Error {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename, os.O_RDONLY, 0)
 	if err != nil {
 		log.Println("failed to load swarm")
 		return err
@@ -252,7 +284,7 @@ func Train() {
 		net := NewNeuralNet([]int{inputsize + 1, inputsize, 1})
 		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, len(net.Config), net.Arch)
 	}
-	f, err := os.Open(".")
+	f, err := os.Open(".", os.O_RDONLY, 0)
 	if err != nil {
 		panic(err)
 	}

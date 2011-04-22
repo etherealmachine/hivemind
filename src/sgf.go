@@ -38,7 +38,7 @@ func (p *Property) String() string {
 
 func Load(filename string) (Tracker, byte) {
 	t := NewTracker(*size)
-	file, _ := os.Open(filename)
+	file, _ := os.Open(filename, os.O_RDONLY, 0)
 	defer func() { file.Close() }()
 	reader := bufio.NewReader(file)
 	// consume opening '('

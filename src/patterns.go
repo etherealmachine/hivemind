@@ -260,7 +260,7 @@ func LoadTablePatternMatcher(filename string) PatternMatcher {
 }
 
 func LoadHandPatternMatcher(filename string) PatternMatcher {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename, os.O_RDONLY, 0)
 	if err != nil {
 		log.Println("failed to load", filename)
 		return nil
@@ -474,7 +474,7 @@ func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []floa
 
 func ShowPatterns() {
 	if *hex {
-		f, err := os.Create("pats.svg")
+		f, err := os.Open("pats.svg", os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
 		if err != nil { panic(err) }
 		defer func() { f.Close() }()
 		s := svg.New(f)

@@ -42,7 +42,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	if (*hex || *ttt) && t.Winner() != EMPTY {
 		root.child = nil
 	}
-	workers, jid := Scatter(Reverse(root.color), t.Copy())
+	//workers, jid := Scatter(Reverse(root.color), t.Copy())
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
 	if *uct {
@@ -50,7 +50,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	} else {
 		noTreeSearch(root, t, m)
 	}
-	Gather(workers, jid, root)
+	//Gather(workers, jid, root)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
 	if *stats {
 		pps := float64(root.visits) / elapsed
@@ -73,7 +73,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 			matches, queries = 0, 0
 		}
 	}
-	save(t, root)
+	//save(t, root)
 }
 
 func treeSearch(root *Node, t Tracker, m PatternMatcher) {
