@@ -1,0 +1,8 @@
+#!/bin/sh
+./make
+java -jar gogui-twogtp.jar -auto -size 9 \
+	-white \
+	"./gogo -gtp -t 3 -p=10000 -hex" \
+	-black \
+	"./gogo -gtp -t 3 -p=10000 -stats -hex" \
+	-verbose -games 100 -sgffile test 2>err

@@ -1,0 +1,10 @@
+%section server
+    server cgos.boardspace.net
+    port 6867
+
+%section player
+     name      GoGo-30k-Pat
+     password  macinam
+     invoke    ./gogo -gtp -stats -uct -p=30000 -c=0.5 -e=50 -k=1000 -log cgos.log -tablepat -file swarm-1.gob
+     priority  7
+

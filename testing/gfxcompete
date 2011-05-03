@@ -1,0 +1,8 @@
+#!/bin/sh
+make
+BLACK="./gogo -gtp -stats -gfx -uct -p=30000 -k=1000 -c=0.5 -e=50 -log gfx.log -tablepat -file swarm-1.gob"
+WHITE="$HOME/code/gnugo-3.8/interface/gnugo --level 6 --min-level 6 --max-level 6 --mode gtp --capture-all-dead --chinese-rules --never-resign"
+gogui-twogtp \
+	-black "gogui-display \"$BLACK\"" \
+	-white "$WHITE" \
+	-games 1 -size 9 -sgffile test -auto

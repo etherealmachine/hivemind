@@ -430,7 +430,7 @@ func drawHex(xoff, yoff, width float64, pos int, style1, style2 string, s *svg.S
 	}
 }
 
-func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []float64, s *svg.SVG) {
+func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []float64, index int, s *svg.SVG) {
 	sum := 0.0
 	for i := range pat {
 		sum += weights[i]
@@ -470,6 +470,7 @@ func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []floa
 		}
 	}
 	s.Text(int(xoff+5*width+10), int(yoff+20), ws)
+	s.Text(int(xoff+5*width+10), int(yoff+40), fmt.Sprintf("%d", index))
 }
 
 func ShowPatterns() {
@@ -479,13 +480,15 @@ func ShowPatterns() {
 		defer func() { f.Close() }()
 		s := svg.New(f)
 		
-		max_pats := 1000
-		s.Start(1000, 40*6*max_pats+40)
+		pats := []int {
+16033,
+		}
+		s.Start(1000, 40*6*len(pats)+40)
 		p := matcher.(*Particle)
 		y := 0
-		for i := 0; i < max_pats; i++ {
+		for i := range pats {
 			pat := make([]uint8, 7)
-			bits := fmt.Sprintf("%.14b", i)
+			bits := fmt.Sprintf("%.14b", pats[i])
 			legal := true
 			off := 0
 			for j := 0; j < 7; j++ {
@@ -499,7 +502,7 @@ func ShowPatterns() {
 			}
 			if off % 2 != 0 { legal = false }
 			if legal {
-				drawPat(bits, 10, 40*6*float64(y)+40, 40, pat, p.Position[i*7:i*7+7], s)
+				drawPat(bits, 10, 40*6*float64(y)+40, 40, pat, p.Position[pats[i]*7:pats[i]*7+7], i, s)
 				y++
 			}
 		}

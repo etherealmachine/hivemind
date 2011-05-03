@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"container/vector"
 )
 
 type Swarm struct {
@@ -161,6 +162,7 @@ func (s *Swarm) Step() {
 		children[i] = s.recombine(p)
 		s.mutate(children[i])
 	}
+	// propagate the 2 last best particles without change
 	children[0] = s.Particles[0].Copy()
 	children[1] = s.Particles[1].Copy()
 
@@ -174,11 +176,23 @@ func (s *Swarm) Step() {
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
+	
+	f, err := os.Open(fmt.Sprintf("children-%d.gob", s.Generation), os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
+	if err != nil {
+		log.Println("failed to save swarm")
+		return
+	}
+	defer func() { f.Close() }()
+	e := gob.NewEncoder(f)
+	e.Encode(children)
+	
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
 
 	s.Generation++
+	
+	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 }
 
 func randParticle(p Particles, e Particles) (r *Particle) {
@@ -302,7 +316,6 @@ func Train() {
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
 		s.Step()
-		s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)
@@ -311,6 +324,49 @@ func Train() {
 
 func ShowSwarm(filename string) {
 	s := new(Swarm)
-	s.LoadSwarm(filename)
-	log.Println(s.Generation)
+	f, _ := os.Open("swarm-1.gob", os.O_RDONLY, 0)
+	defer func() { f.Close() }()
+	d := gob.NewDecoder(f)
+	d.Decode(s)
+	children := make(Particles, s.Lambda)
+	f, _ = os.Open("children-0.gob", os.O_RDONLY, 0)
+	defer func() { f.Close() }()
+	d = gob.NewDecoder(f)
+	d.Decode(&children)
+	
+	f, _ = os.Open("swarm.arff", os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
+	defer func() { f.Close() }()
+	
+	fmt.Fprintln(f, "@RELATION swarm")
+	fmt.Fprintln(f, "@ATTRIBUTE fitness NUMERIC")
+	p := 0
+	i := 0
+	valid := new(vector.IntVector)
+	dim := children[0].Dim
+	for i < (dim/7) {
+		all_zero := true
+		for j := 0; j < 7; j++ {
+			all_zero = all_zero && children[0].Position[i*7+j] != 0
+		}
+		if !all_zero {
+			for j := 0; j < 7; j++ {
+				fmt.Fprintf(f, "@ATTRIBUTE weight-%d-%d NUMERIC\n", p, j)
+				valid.Push(i*7+j)
+			}
+			p++
+		}
+		i++
+	}
+	log.Println(valid.Len())
+	fmt.Fprintln(f, "@DATA")
+	for i := range children {
+		log.Printf("%d / %d\n", i, len(children))
+		fmt.Fprintf(f, "%.0f,", children[i].Fitness)
+		for j := 0; j < valid.Len(); j++ {
+			fmt.Fprintf(f, "%.6f", children[i].Position[valid.At(j)])
+			if j != valid.Len()-1 { fmt.Fprintf(f, ",") }
+		}
+		fmt.Fprintln(f)
+		f.Sync()
+	}
 }

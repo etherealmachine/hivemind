@@ -1,0 +1,10 @@
+%section server
+    server cgos.boardspace.net
+    port 6867
+
+%section player
+     name      GoGo-10k
+     password  macinam
+     invoke    ./gogo -gtp -stats -p 10000
+     priority  7
+
