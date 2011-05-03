@@ -16,7 +16,7 @@ class GUI(object):
 		gtk.settings_get_default().props.gtk_button_images = True
 		
 		self.builder = gtk.Builder()
-		self.builder.add_from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
+		self.builder.add_from_file(get_resource_path("gui.glade"))
 		self.builder.connect_signals(self)
 		
 		self.builder.get_object("sgf_file_filter").add_pattern("*.sgf")
@@ -32,7 +32,10 @@ class GUI(object):
 		self.screen = pygame.display.get_surface()
 		self.size = None
 		self.last = None
+		self.font = pygame.font.Font(get_resource_path("DroidSansMono.ttf"), 16)
 		gobject.idle_add(self.draw)
+		if len(sys.argv) == 2:
+			self.set_file(sys.argv[1])
 		
 	def set_size(self, size):
 		self.size = size
@@ -90,13 +93,16 @@ class GUI(object):
 			self.builder.get_object("forward").set_sensitive(False)
 		
 	def on_file_set(self, chooser):
-		self.tree = sgflib.SGFParser(open(chooser.get_filename()).read()).parse()[0]
-		self.set_size(int(self.tree[0]['SZ'][0]))
-		self.cur = self.tree.cursor()
-		self.builder.get_object("forward").set_sensitive(True)
+		self.set_file(chooser.get_filename())
 		
 	def on_window_destroy(self, widget):
 		gtk.main_quit()
+		
+	def set_file(self, filename):
+		self.tree = sgflib.SGFParser(open(filename).read()).parse()[0]
+		self.set_size(int(self.tree[0]['SZ'][0]))
+		self.cur = self.tree.cursor()
+		self.builder.get_object("forward").set_sensitive(True)
 
 	def draw(self):
 		gobject.idle_add(self.draw)
@@ -109,6 +115,8 @@ class GUI(object):
 		black = (0, 0, 0)
 		white = (255, 255, 255)
 		gray = (200, 200, 200)
+		red = (255, 0, 0)
+		blue = (67, 83, 255)
 
 		C = 12
 		A = 0.5*C
@@ -139,18 +147,27 @@ class GUI(object):
 		ly.pop(len(ly)-1)
 		rx.pop(0)
 		ry.pop(0)
-		pygame.draw.lines(self.screen, black, False, zip(map(lambda x: x+x_margin, tx), map(lambda y: y+y_margin, ty)), 6)
-		pygame.draw.lines(self.screen, black, False, zip(map(lambda x: x+x_margin, bx), map(lambda y: y+y_margin, by)), 6)
-		pygame.draw.lines(self.screen, white, False, zip(map(lambda x: x+x_margin, lx), map(lambda y: y+y_margin, ly)), 6)
-		pygame.draw.lines(self.screen, white, False, zip(map(lambda x: x+x_margin, rx), map(lambda y: y+y_margin, ry)), 6)
+		pygame.draw.lines(self.screen, red, False, zip(map(lambda x: x+x_margin, tx), map(lambda y: y+y_margin, ty)), 6)
+		pygame.draw.lines(self.screen, red, False, zip(map(lambda x: x+x_margin, bx), map(lambda y: y+y_margin, by)), 6)
+		pygame.draw.lines(self.screen, blue, False, zip(map(lambda x: x+x_margin, lx), map(lambda y: y+y_margin, ly)), 6)
+		pygame.draw.lines(self.screen, blue, False, zip(map(lambda x: x+x_margin, rx), map(lambda y: y+y_margin, ry)), 6)
+		for i in range(self.size):
+			if chr(97+i) >= 'i':
+				c = chr(97+i+1)
+			else:
+				c = chr(97+i)
+			col = self.font.render(c, True, black)
+			self.screen.blit(col, (x_margin + i*width, y_margin-col.get_height()))
+			row = self.font.render(str(i+1), True, black)
+			self.screen.blit(row, (x_margin-row.get_width()-5+i*(width/2.0), y_margin+i*(2*C-A)+5))
 		
 		for i in range(self.size):
 			for j in range(self.size):
 				color = None
 				if self.board[i][j] == 'black':
-					color = black
+					color = red
 				elif self.board[i][j] == 'white':
-					color = white
+					color = blue
 				xoff = x_margin + i * width + j*width/2.0
 				yoff = y_margin + j * (A+C)
 				pygame.gfxdraw.filled_polygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), gray)
@@ -162,10 +179,13 @@ class GUI(object):
 				if self.last:
 					if i == self.last[0] and j == self.last[1]:
 						mx, my = int(width/2.0+xoff), int(height/2.0+yoff)
-						pygame.gfxdraw.filled_circle(self.screen, mx, my, 3, (255, 50, 50))
-						pygame.gfxdraw.aacircle(self.screen, mx, my, 3, (255, 50, 50))
+						pygame.gfxdraw.filled_circle(self.screen, mx, my, 3, black)
+						pygame.gfxdraw.aacircle(self.screen, mx, my, 3, black)
 
 		pygame.display.flip()
+		
+def get_resource_path(filename):
+	return os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
 
 if __name__ == '__main__':
 	gui = GUI()
