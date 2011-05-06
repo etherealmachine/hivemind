@@ -14,6 +14,7 @@ var server *string = flag.String("server", "", "Connect to redis server")
 var maxPlayouts *uint = flag.Uint("p", 10000, "Max number of playouts")
 var file *string = flag.String("file", "", "Load data from file")
 var showSwarm *bool = flag.Bool("showswarm", false, "show info on swarm")
+var testSwarm *bool = flag.Bool("testswarm", false, "run swarm tests")
 var showPatterns *bool = flag.Bool("showpat", false, "show patterns")
 var sgf *string = flag.String("sgf", "", "Load sgf file and generate move")
 var stats *bool = flag.Bool("stats", false, "Print out tree search statistics")
@@ -102,6 +103,8 @@ func main() {
 		TestPPS()
 	} else if *file != "" && *showSwarm {
 		ShowSwarm(*file)
+	}else if *file != "" && *testSwarm {
+		TestSwarm(*file)
 	} else if matcher != nil && *showPatterns {
 		ShowPatterns()
 	}

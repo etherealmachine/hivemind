@@ -91,20 +91,13 @@ func (s Particles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s *Swarm) evaluate(p *Particle) {
-	defer func() { recover() }()
-	var m PatternMatcher
-	if *tablepat {
-		m = p
-	} else {
-		m = &NeuralNet{s.Arch, p.Position}
-	}
+func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 	t := NewTracker(*size)
 	passes := 0
 	var vertex int
 	for {
 		br := NewRoot(BLACK, t)
-		genmove(br, t, m)
+		genmove(br, t, black)
 		if br == nil || br.Best() == nil {
 			vertex = -1
 			passes++
@@ -117,7 +110,7 @@ func (s *Swarm) evaluate(p *Particle) {
 			break
 		}
 		wr := NewRoot(WHITE, t)
-		genmove(wr, t, m)
+		genmove(wr, t, white)
 		if wr == nil || wr.Best() == nil {
 			vertex = -1
 			passes++
@@ -130,6 +123,18 @@ func (s *Swarm) evaluate(p *Particle) {
 			break
 		}
 	}
+	return t
+}
+
+func (s *Swarm) evaluate(p *Particle) {
+	defer func() { recover() }()
+	var m PatternMatcher
+	if *tablepat {
+		m = p
+	} else {
+		m = &NeuralNet{s.Arch, p.Position}
+	}
+	t := playOneGame(m, m)
 	if t.Winner() == BLACK {
 		p.Fitness += 1
 	} else if t.Winner() == WHITE {
@@ -322,6 +327,7 @@ func Train() {
 	}
 }
 
+// converts gob file to arff for machine learning
 func ShowSwarm(filename string) {
 	s := new(Swarm)
 	f, _ := os.Open("swarm-1.gob", os.O_RDONLY, 0)
@@ -369,4 +375,31 @@ func ShowSwarm(filename string) {
 		fmt.Fprintln(f)
 		f.Sync()
 	}
+}
+
+// runs input swarm against random (generation 0)
+func TestSwarm(filename string) {
+	swarm := LoadTablePatternMatcher(filename)
+	rand := &RandomMatcher{}
+	swarm_black_wins, swarm_white_wins, rand_black_wins, rand_white_wins := 0.0, 0.0, 0.0, 0.0
+	rounds := 10
+	for i := 0; i < rounds; i++ {
+		t := playOneGame(swarm, rand)
+		if t.Winner() == BLACK {
+			swarm_black_wins++
+		} else if t.Winner() == WHITE {
+			rand_white_wins++
+		}
+		t = playOneGame(rand, swarm)
+		if t.Winner() == BLACK {
+			rand_black_wins++
+		} else if t.Winner() == WHITE {
+			swarm_white_wins++
+		}
+		log.Printf("finished round %d / %d\n", i+1, rounds)
+	}
+	log.Printf("swarm as black: %.0f%%\n", (swarm_black_wins / float64(rounds)) * 100.0)
+	log.Printf("swarm as white: %.0f%%\n", (swarm_white_wins / float64(rounds)) * 100.0)
+	log.Printf("rand as black: %.0f%%\n", (rand_black_wins / float64(rounds)) * 100.0)
+	log.Printf("rand as white: %.0f%%\n", (rand_white_wins / float64(rounds)) * 100.0)
 }
