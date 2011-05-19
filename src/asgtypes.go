@@ -114,6 +114,7 @@ func Bwgoboard(board []byte, boardsize int, label bool) (s string) {
 		s += "  "
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
+			if alpha >= 'I' { alpha++ }
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "
@@ -143,6 +144,7 @@ func Bwgoboard(board []byte, boardsize int, label bool) (s string) {
 		s += "\n  "
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
+			if alpha >= 'I' { alpha++ }
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "
@@ -160,6 +162,7 @@ func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
 		if boardsize > 9 { s += " " }
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
+			if alpha >= 'I' { alpha++ }
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "
@@ -196,6 +199,7 @@ func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
 		}
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
+			if alpha >= 'I' { alpha++ }
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "

@@ -43,7 +43,6 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	if (*hex || *ttt) && t.Winner() != EMPTY {
 		root.child = nil
 	}
-	//workers, jid := Scatter(Reverse(root.color), t.Copy())
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
 	if *uct {
@@ -80,13 +79,11 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 			matches, queries = 0, 0
 		}
 	}
-	//save(t, root)
 }
 
 func treeSearch(root *Node, t Tracker, m PatternMatcher) {
 	start := time.Nanoseconds()
-	timeleft := true;
-	for i := 0; root.visits < float64(*maxPlayouts) || timeleft; i++ {
+	for i := 0;; i++ {
 		cp := t.Copy()
 		root.step(cp, m)
 		if *gfx {
@@ -98,9 +95,14 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher) {
 			}
 			EmitGFX(root, cp)
 		}
-		elapsed := time.Nanoseconds() - start
-		timeleft = *timelimit == 0 || uint64(elapsed) < uint64(*timelimit) * uint64(1e9)
-		if !timeleft { break }
+		if *timelimit != 0 {
+			elapsed := time.Nanoseconds() - start
+			if uint64(elapsed) > uint64(*timelimit) * uint64(1e9) {
+				break
+			}
+		} else if root.visits >= float64(*maxPlayouts) {
+			break
+		}
 	}
 }
 

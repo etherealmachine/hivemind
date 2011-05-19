@@ -1,6 +1,6 @@
 #!/bin/bash
 MOHEX="/home/jpettit/Downloads/benzene-0.9.0/src/mohex/mohex"
-GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -c=0.5 -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/analysis/swarm-1-1.gob"
+GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -c=0.5 -k=10000 -t=10 -stats -hex -tablepat -file /home/jpettit/code/gogo/analysis/swarm-1-1.gob"
 function play {
 	BLACK=$GOGO
 	WHITE=$MOHEX
