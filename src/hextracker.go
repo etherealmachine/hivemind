@@ -1,6 +1,9 @@
 package main
 
-import "container/vector"
+import (
+	"container/vector"
+	"log"
+)
 
 type HexTracker struct {
 	boardsize int

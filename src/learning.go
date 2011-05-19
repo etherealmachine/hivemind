@@ -11,6 +11,7 @@ import (
 	"strings"
 	"strconv"
 	"container/vector"
+	"log"
 )
 
 type Swarm struct {
@@ -134,7 +135,7 @@ func (s *Swarm) evaluate(p *Particle) {
 	} else {
 		m = &NeuralNet{s.Arch, p.Position}
 	}
-	t := playOneGame(m, m)
+	t := playOneGame(m, nil)
 	if t.Winner() == BLACK {
 		p.Fitness += 1
 	} else if t.Winner() == WHITE {
@@ -181,8 +182,8 @@ func (s *Swarm) Step() {
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
-	
-	f, err := os.Open(fmt.Sprintf("children-%d.gob", s.Generation), os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
+
+	f, err := os.Create(fmt.Sprintf("children-%d.gob", s.Generation))
 	if err != nil {
 		log.Println("failed to save swarm")
 		return
@@ -190,13 +191,13 @@ func (s *Swarm) Step() {
 	defer func() { f.Close() }()
 	e := gob.NewEncoder(f)
 	e.Encode(children)
-	
+
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
 
 	s.Generation++
-	
+
 	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 }
 
@@ -231,7 +232,7 @@ func (s *Swarm) recombine(p Particles) (r *Particle) {
 
 func (s *Swarm) mutate(p *Particle) {
 	tau := (1 / math.Sqrt(2*float64(p.Dim))) * (1.0 - float64(s.Generation)/float64(s.Generations))
-	p.Strategy *= math.Exp(tau*rand.NormFloat64())
+	p.Strategy *= math.Exp(tau * rand.NormFloat64())
 	for i := 0; i < p.Dim; i++ {
 		if p.Position[i] > 0 {
 			p.Position[i] += p.Strategy * rand.NormFloat64()
@@ -254,7 +255,7 @@ func (s *Swarm) Best() (best *Particle) {
 }
 
 func (s *Swarm) SaveSwarm(filename string) {
-	f, err := os.Open(filename, os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
+	f, err := os.Create(filename)
 	if err != nil {
 		log.Println("failed to save swarm")
 		return
@@ -265,7 +266,7 @@ func (s *Swarm) SaveSwarm(filename string) {
 }
 
 func (s *Swarm) LoadSwarm(filename string) os.Error {
-	f, err := os.Open(filename, os.O_RDONLY, 0)
+	f, err := os.Open(filename)
 	if err != nil {
 		log.Println("failed to load swarm")
 		return err
@@ -297,7 +298,7 @@ func Train() {
 		net := NewNeuralNet([]int{inputsize + 1, inputsize, 1})
 		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, len(net.Config), net.Arch)
 	}
-	f, err := os.Open(".", os.O_RDONLY, 0)
+	f, err := os.Open(".")
 	if err != nil {
 		panic(err)
 	}
@@ -329,77 +330,133 @@ func Train() {
 
 // converts gob file to arff for machine learning
 func ShowSwarm(filename string) {
-	s := new(Swarm)
-	f, _ := os.Open("swarm-1.gob", os.O_RDONLY, 0)
+	var children Particles
+	f, _ := os.Open(filename)
 	defer func() { f.Close() }()
 	d := gob.NewDecoder(f)
-	d.Decode(s)
-	children := make(Particles, s.Lambda)
-	f, _ = os.Open("children-0.gob", os.O_RDONLY, 0)
-	defer func() { f.Close() }()
-	d = gob.NewDecoder(f)
 	d.Decode(&children)
-	
-	f, _ = os.Open("swarm.arff", os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
+
+	f, _ = os.Create("swarm.arff")
 	defer func() { f.Close() }()
-	
+
 	fmt.Fprintln(f, "@RELATION swarm")
 	fmt.Fprintln(f, "@ATTRIBUTE fitness NUMERIC")
-	p := 0
 	i := 0
 	valid := new(vector.IntVector)
 	dim := children[0].Dim
-	for i < (dim/7) {
+	for i < (dim / 7) {
 		all_zero := true
 		for j := 0; j < 7; j++ {
 			all_zero = all_zero && children[0].Position[i*7+j] != 0
 		}
 		if !all_zero {
-			for j := 0; j < 7; j++ {
-				fmt.Fprintf(f, "@ATTRIBUTE weight-%d-%d NUMERIC\n", p, j)
-				valid.Push(i*7+j)
-			}
-			p++
+			fmt.Fprintf(f, "@ATTRIBUTE pattern-%d NUMERIC\n", i)
+			valid.Push(i)
 		}
 		i++
 	}
 	log.Println(valid.Len())
 	fmt.Fprintln(f, "@DATA")
-	for i := range children {
-		log.Printf("%d / %d\n", i, len(children))
-		fmt.Fprintf(f, "%.0f,", children[i].Fitness)
-		for j := 0; j < valid.Len(); j++ {
-			fmt.Fprintf(f, "%.6f", children[i].Position[valid.At(j)])
-			if j != valid.Len()-1 { fmt.Fprintf(f, ",") }
+	for child := range children {
+		log.Printf("%d / %d\n", child, len(children))
+		fmt.Fprintf(f, "%.0f,", children[child].Fitness)
+		for i := 0; i < valid.Len(); i++ {
+			sum := 0.0
+			for j := 0; j < 7; j++ {
+				sum += children[child].Position[valid.At(i)*7+j]
+			}
+
+			entropy := 0.0
+			for j := 0; j < 7; j++ {
+				weight := children[child].Position[valid.At(i)*7+j]
+				if weight > 0.0 {
+					p := weight / sum
+					entropy += p * math.Log2(p)
+				}
+			}
+			entropy = -entropy
+			fmt.Fprintf(f, "%.6f", entropy)
+			if i != valid.Len()-1 {
+				fmt.Fprintf(f, ",")
+			}
 		}
 		fmt.Fprintln(f)
 		f.Sync()
 	}
 }
 
-// runs input swarm against random (generation 0)
-func TestSwarm(filename string) {
-	swarm := LoadTablePatternMatcher(filename)
-	rand := &RandomMatcher{}
-	swarm_black_wins, swarm_white_wins, rand_black_wins, rand_white_wins := 0.0, 0.0, 0.0, 0.0
-	rounds := 10
+func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
+	p1_black_wins, p1_white_wins, p2_black_wins, p2_white_wins := 0.0, 0.0, 0.0, 0.0
+	rounds := 100000
+	log.Printf("running %d playouts\n", rounds)
 	for i := 0; i < rounds; i++ {
-		t := playOneGame(swarm, rand)
+		t := NewTracker(*size)
+		t.Playout(BLACK, -1, &ColorDuplexingMatcher{p1, p2})
 		if t.Winner() == BLACK {
-			swarm_black_wins++
-		} else if t.Winner() == WHITE {
-			rand_white_wins++
+			p1_black_wins++
+		} else {
+			p2_white_wins++
 		}
-		t = playOneGame(rand, swarm)
+		t = NewTracker(*size)
+		t.Playout(BLACK, -1, &ColorDuplexingMatcher{p2, p1})
 		if t.Winner() == BLACK {
-			rand_black_wins++
+			p2_black_wins++
+		} else {
+			p1_white_wins++
+		}
+	}
+	log.Printf("stats from playouts:\n")
+	log.Printf("%s as black: %.0f%%\n", name1, (p1_black_wins/float64(rounds))*100.0)
+	log.Printf("%s as white: %.0f%%\n", name1, (p1_white_wins/float64(rounds))*100.0)
+	log.Printf("%s overall: %.0f%%\n", name1, ((p1_black_wins+p1_white_wins)/float64(2*rounds))*100.0)
+	log.Printf("%s as black: %.0f%%\n", name2, (p2_black_wins/float64(rounds))*100.0)
+	log.Printf("%s as white: %.0f%%\n", name2, (p2_white_wins/float64(rounds))*100.0)
+	log.Printf("%s overall: %.0f%%\n", name2, ((p2_black_wins+p2_white_wins)/float64(2*rounds))*100.0)
+
+	p1_black_wins, p1_white_wins, p2_black_wins, p2_white_wins = 0.0, 0.0, 0.0, 0.0
+	rounds = 100
+	log.Printf("running %d full games, relevant settings: UCT? %t, UCT coefficient: %.2f, RAVE cutoff: %.0f, playouts: %d, expand after: %.0f\n", rounds, *uct, *c, *k, *maxPlayouts, *expandAfter)
+	for i := 0; i < rounds; i++ {
+		t := playOneGame(p1, p2)
+		if t.Winner() == BLACK {
+			p1_black_wins++
 		} else if t.Winner() == WHITE {
-			swarm_white_wins++
+			p2_white_wins++
+		}
+		t = playOneGame(p2, p1)
+		if t.Winner() == BLACK {
+			p2_black_wins++
+		} else if t.Winner() == WHITE {
+			p1_white_wins++
 		}
 		log.Printf("finished round %d / %d\n", i+1, rounds)
 	}
-	log.Printf("swarm as black: %.0f%%\n", (swarm_black_wins / float64(rounds)) * 100.0)
-	log.Printf("swarm as white: %.0f%%\n", (swarm_white_wins / float64(rounds)) * 100.0)
-	log.Printf("rand as black: %.0f%%\n", (rand_black_wins / float64(rounds)) * 100.0)
-	log.Printf("rand as white: %.0f%%\n", (rand_white_wins / float64(rounds)) * 100.0)
+	log.Printf("stats from full game:\n")
+	log.Printf("%s as black: %.0f%%\n", name1, (p1_black_wins/float64(rounds))*100.0)
+	log.Printf("%s as white: %.0f%%\n", name1, (p1_white_wins/float64(rounds))*100.0)
+	log.Printf("%s overall: %.0f%%\n", name1, ((p1_black_wins+p1_white_wins)/float64(2*rounds))*100.0)
+	log.Printf("%s as black: %.0f%%\n", name2, (p2_black_wins/float64(rounds))*100.0)
+	log.Printf("%s as white: %.0f%%\n", name2, (p2_white_wins/float64(rounds))*100.0)
+	log.Printf("%s overall: %.0f%%\n", name2, ((p2_black_wins+p2_white_wins)/float64(2*rounds))*100.0)
+}
+
+// runs input against random
+func TestSwarm() {
+	if strings.Contains(*file, "children") {
+		var children Particles
+		f, _ := os.Open(*file)
+		defer func() { f.Close() }()
+		d := gob.NewDecoder(f)
+		d.Decode(&children)
+		log.Println("Loaded children from swarm")
+		rand := &RandomMatcher{}
+		for i := range children {
+			Compare(children[i], rand, fmt.Sprintf("child-%d(fitness=%.0f)", i, children[i].Fitness), "rand")
+		}
+	} else {
+		log.Println("Comparing given swarm to random pattern matcher")
+		swarm := LoadTablePatternMatcher(*file, false)
+		rand := &RandomMatcher{}
+		Compare(swarm, rand, "swarm", "rand")
+	}
 }

@@ -1,0 +1,9 @@
+#!/bin/bash
+MOHEX="/home/jpettit/Downloads/benzene-0.9.0/src/mohex/mohex"
+GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -c=0.5 -k=1000 -p=1000 -stats -hex"
+function play {
+	BLACK=$GOGO
+	WHITE=$MOHEX
+	gogui-twogtp -auto -size 11 -black "$BLACK" -white "$WHITE" -games 1 -sgffile mohex -verbose
+}
+play

@@ -46,15 +46,19 @@ class GUI(object):
 			self.cur.previous()
 			self.builder.get_object("forward").set_sensitive(True)
 			self.cur.next()
+			i, j = -1, -1
 			if 'B' in self.cur.node.data:
-				i = self.cur.node['B'][0][0]
-				j = self.cur.node['B'][0][1]
+				if self.cur.node['B'][0] != '':
+					i = self.cur.node['B'][0][0]
+					j = self.cur.node['B'][0][1]
 			elif 'W' in self.cur.node.data:
-				i = self.cur.node['W'][0][0]
-				j = self.cur.node['W'][0][1]
+				if self.cur.node['W'][0] != '':
+					i = self.cur.node['W'][0][0]
+					j = self.cur.node['W'][0][1]
 			else:
 				print 'error'
-			i, j = ord(i)-97, ord(j)-97
+			if i != -1 and j != -1:
+				i, j = ord(i)-97, ord(j)-97
 			if i < self.size and j < self.size:
 				self.board[i][j] = 'empty'
 			self.cur.previous()
@@ -67,7 +71,9 @@ class GUI(object):
 			else:
 				self.last = None
 				return
-			i, j = ord(i)-97, ord(j)-97
+			if i != -1 and j != -1:
+				i, j = ord(i)-97, ord(j)-97
+				j = self.size - j
 			self.last = (i, j)
 		except sgflib.GameTreeEndError:
 			self.builder.get_object("back").set_sensitive(False)
@@ -78,13 +84,18 @@ class GUI(object):
 			self.builder.get_object("back").set_sensitive(True)
 			if 'B' in self.cur.node.data:
 				color = 'black'
+				if self.cur.node['B'][0] == '':
+					raise sgflib.GameTreeEndError
 				i = self.cur.node['B'][0][0]
 				j = self.cur.node['B'][0][1]
 			elif 'W' in self.cur.node.data:
 				color = 'white'
+				if self.cur.node['W'][0] == '':
+					raise sgflib.GameTreeEndError
 				i = self.cur.node['W'][0][0]
 				j = self.cur.node['W'][0][1]
 			i, j = ord(i)-97, ord(j)-97
+			j = self.size - j
 			if color != 'empty':
 				if i < self.size and j < self.size:
 					self.last = (i, j)
@@ -101,6 +112,8 @@ class GUI(object):
 	def set_file(self, filename):
 		self.tree = sgflib.SGFParser(open(filename).read()).parse()[0]
 		self.set_size(int(self.tree[0]['SZ'][0]))
+		self.pb = self.tree[0]['PB'][0]
+		self.pw = self.tree[0]['PW'][0]
 		self.cur = self.tree.cursor()
 		self.builder.get_object("forward").set_sensitive(True)
 
@@ -118,12 +131,11 @@ class GUI(object):
 		red = (255, 0, 0)
 		blue = (67, 83, 255)
 
-		C = 12
+		C = 10
 		A = 0.5*C
 		B = math.sin(1.04719755)*C
 		width = 2*B
 		height = 2*C
-		w, h = self.screen.get_size()
 		tot_width = self.size * width + self.size*width/2.0
 		tot_height = self.size * (A+C)
 		x_margin = (w - tot_width) / 2.0
@@ -181,6 +193,11 @@ class GUI(object):
 						mx, my = int(width/2.0+xoff), int(height/2.0+yoff)
 						pygame.gfxdraw.filled_circle(self.screen, mx, my, 3, black)
 						pygame.gfxdraw.aacircle(self.screen, mx, my, 3, black)
+
+		pb = self.font.render('Red: {0}'.format(self.pb), True, red)
+		self.screen.blit(pb, (4, 0))
+		pw = self.font.render('Blue: {0}'.format(self.pw), True, blue)
+		self.screen.blit(pw, (4, 20))
 
 		pygame.display.flip()
 		

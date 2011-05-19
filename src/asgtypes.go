@@ -28,28 +28,29 @@ func Atov(s string, boardsize int) int {
 	// pull apart into alpha and int pair
 	col := byte(strings.ToUpper(s)[0])
 	row, err := strconv.Atoi(s[1:len(s)])
+	if *cgo {
+		row = boardsize - row
+	} else {
+		row--
+	}
+	if col >= 'I' { col-- }
 	if err != nil {
 		panic("Failed to convert string to vertex")
 	}
-	row = boardsize - row
-	switch {
-		case col < 'I':
-			col = col - 'A'
-		case col >= 'I':
-			col = col - 'A' - 1
-	}
-	return row * boardsize + int(col)
+	return row * boardsize + int(col - 'A')
 }
 
 // convert a vertex to a string
 func Vtoa(v int, boardsize int) string {
 	if v == -1 { return "PASS" }
 	alpha, num := v % boardsize, v / boardsize
-	num = boardsize - num
-	alpha = alpha + 'A'
-	if alpha >= 'I' {
-		alpha = alpha + 1
+	if *cgo {
+		num = boardsize - num
+	} else {
+		num++
 	}
+	alpha = alpha + 'A'
+	if alpha >= 'I' { alpha++ }
 	return fmt.Sprintf("%s%d", string(alpha), num)
 }
 
@@ -113,9 +114,6 @@ func Bwgoboard(board []byte, boardsize int, label bool) (s string) {
 		s += "  "
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "
@@ -125,60 +123,6 @@ func Bwgoboard(board []byte, boardsize int, label bool) (s string) {
 	}
 	for row := 0; row < boardsize; row++ {
 		if label {
-			s += fmt.Sprintf("%d ", boardsize - row)
-		}
-		for col := 0; col < boardsize; col++ {
-			v := row * boardsize + col
-			s += Ctoa(board[v])
-			if col != boardsize - 1 {
-				s += " "
-			}
-		}
-		if label {
-		s += fmt.Sprintf(" %d", boardsize - row)
-		}
-		if row != boardsize - 1 {
-			s += "\n"
-		}
-	}
-	if label {
-		s += "\n  "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-	}
-	return
-}
-
-// puts the internal board representation into a string using "b", "w", and "."
-// newlines seperate rows
-func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
-	if label {
-		s += " "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-		s += "\n"
-	}
-	for row := 0; row < boardsize; row++ {
-		if label {
-			for i := 0; i < row; i++ {
-				s += " "
-			}
 			s += fmt.Sprintf("%d ", boardsize - row)
 		}
 		for col := 0; col < boardsize; col++ {
@@ -197,14 +141,61 @@ func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
 	}
 	if label {
 		s += "\n  "
+		for col := 0; col < boardsize; col++ {
+			alpha := col + 'A'
+			s += string(alpha)
+			if col != boardsize - 1 {
+					s += " "
+			}
+		}
+	}
+	return
+}
+
+// puts the internal board representation into a string using "b", "w", and "."
+// newlines seperate rows
+func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
+	if label {
+		s += " "
+		if boardsize > 9 { s += " " }
+		for col := 0; col < boardsize; col++ {
+			alpha := col + 'A'
+			s += string(alpha)
+			if col != boardsize - 1 {
+					s += " "
+			}
+		}
+		s += "\n"
+	}
+	for row := 0; row < boardsize; row++ {
+		if label {
+			for i := 0; i < row; i++ {
+				s += " "
+			}
+			s += fmt.Sprintf("%2.d ", row+1)
+		}
+		for col := 0; col < boardsize; col++ {
+			v := row * boardsize + col
+			s += Ctoa(board[v])
+			if col != boardsize - 1 {
+				s += " "
+			}
+		}
+		if label {
+			s += fmt.Sprintf(" %2.d", row+1)
+		}
+		if row != boardsize - 1 {
+			s += "\n"
+		}
+	}
+	if label {
+		s += "\n  "
+		if boardsize > 9 { s += " " }
 		for i := 0; i < boardsize; i++ {
 			s += " "
 		}
 		for col := 0; col < boardsize; col++ {
 			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
 			s += string(alpha)
 			if col != boardsize - 1 {
 					s += " "
@@ -241,7 +232,7 @@ func Fboard(board []float64, boardsize int, label bool) (s string) {
 			}
 		}
 		if label {
-		s += fmt.Sprintf(" %d", boardsize - row)
+			s += fmt.Sprintf(" %d", boardsize - row)
 		}
 		if row != boardsize - 1 {
 			s += "\n"

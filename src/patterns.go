@@ -9,6 +9,7 @@ import (
 	"rand"
 	"github.com/ajstarks/svgo"
 	"fmt"
+	"log"
 )
 
 var inputsize int
@@ -26,9 +27,14 @@ type HandCraftedMatcher struct {
 	patterns [][]byte
 }
 
-type RandomMatcher struct {}
+type RandomMatcher struct{}
 
-type NullMatcher struct {}
+type NullMatcher struct{}
+
+type ColorDuplexingMatcher struct {
+	black PatternMatcher
+	white PatternMatcher
+}
 
 func detectCut(i int, j int, c byte, board []byte, s2 int) bool {
 	return i >= 0 && i < s2 && j >= 0 && j < s2 && board[i] == c && board[j] == c
@@ -61,26 +67,37 @@ func compute_index(board []uint8, adj []int) uint16 {
 		} else if board[adj[i]] == WHITE {
 			m0, m1 = 1, 0
 		}
-		index |= (m0<<(2*uint(len(adj)-1-i)+1))
-		index |= (m1<<(2*uint(len(adj)-1-i)))
+		index |= (m0 << (2*uint(len(adj)-1-i) + 1))
+		index |= (m1 << (2 * uint(len(adj)-1-i)))
 	}
 	/*
-	sym := off
-	swap(12, 6, &sym)
-	swap(13, 7, &sym)
-	swap(10, 4, &sym)
-	swap(11, 5, &sym)
-	swap(8, 2, &sym)
-	swap(9, 3, &sym)
-	if sym < off { off = sym }
+		sym := off
+		swap(12, 6, &sym)
+		swap(13, 7, &sym)
+		swap(10, 4, &sym)
+		swap(11, 5, &sym)
+		swap(8, 2, &sym)
+		swap(9, 3, &sym)
+		if sym < off { off = sym }
 	*/
 	return index
+}
+
+func (m *ColorDuplexingMatcher) Match(color byte, v int, t Tracker) int {
+	if color == BLACK {
+		return m.black.Match(color, v, t)
+	} else if color == WHITE {
+		return m.white.Match(color, v, t)
+	}
+	panic("can't duplex onto empty")
 }
 
 func (m *NullMatcher) Match(color byte, v int, t Tracker) int {
 	queries++
 	index := compute_index(t.Board(), hexSliceMap[t.Boardsize()][v])
-	if *logpat { patternLog[index]++ }
+	if *logpat {
+		patternLog[index]++
+	}
 	return -1
 }
 
@@ -95,16 +112,22 @@ func (m *Particle) Match(color byte, v int, t Tracker) int {
 		adj = goSliceMap[s][v]
 	}
 	index := compute_index(b, adj)
-	if *logpat { patternLog[index]++ }
-	pat := m.Position[int(index)*len(adj):(int(index)+1)*len(adj)]
+	if *logpat {
+		patternLog[index]++
+	}
+	pat := m.Position[int(index)*len(adj) : (int(index)+1)*len(adj)]
 	for i := 0; i < len(adj); i++ {
-		if adj[i] == -1 || b[adj[i]] != EMPTY || !t.Legal(color, adj[i]) { pat[i] = 0 }
+		if adj[i] == -1 || b[adj[i]] != EMPTY || !t.Legal(color, adj[i]) {
+			pat[i] = 0
+		}
 	}
 	sum := 0.0
 	for i := range pat {
 		sum += pat[i]
 	}
-	if sum == 0 { return -1 }
+	if sum == 0 {
+		return -1
+	}
 	r := rand.Float64()
 	for i := range pat {
 		r -= pat[i] / sum
@@ -219,17 +242,23 @@ func (m *RandomMatcher) Match(color byte, v int, t Tracker) int {
 	adj := hexSliceMap[s][v]
 
 	index := compute_index(b, adj)
-	if *logpat { patternLog[index]++ }
+	if *logpat {
+		patternLog[index]++
+	}
 	pat := make([]float64, 7)
 	for i := 0; i < 7; i++ {
 		pat[i] = 1
-		if adj[i] == -1 || b[adj[i]] != EMPTY { pat[i] = 0 }
+		if adj[i] == -1 || b[adj[i]] != EMPTY {
+			pat[i] = 0
+		}
 	}
 	sum := 0.0
 	for i := range pat {
 		sum += pat[i]
 	}
-	if sum == 0 { return -1 }
+	if sum == 0 {
+		return -1
+	}
 	r := rand.Float64()
 	for i := range pat {
 		r -= pat[i] / sum
@@ -254,13 +283,21 @@ func LoadNNPatternMatcher(filename string) PatternMatcher {
 	return net
 }
 
-func LoadTablePatternMatcher(filename string) PatternMatcher {
+func LoadTablePatternMatcher(filename string, disable bool) PatternMatcher {
 	particle := LoadBest(filename)
+	if disable {
+		for i := range disabled {
+			for j := 0; j < 7; j++ {
+				particle.Position[i*7+j] = 0
+			}
+			log.Printf("disabled pattern %d\n", i)
+		}
+	}
 	return particle
 }
 
 func LoadHandPatternMatcher(filename string) PatternMatcher {
-	f, err := os.Open(filename, os.O_RDONLY, 0)
+	f, err := os.Open(filename)
 	if err != nil {
 		log.Println("failed to load", filename)
 		return nil
@@ -399,31 +436,33 @@ func setupHexSliceMap(size int) {
 }
 
 func drawHex(xoff, yoff, width float64, pos int, style1, style2 string, s *svg.SVG) {
-	if style1 == "" { return }
+	if style1 == "" {
+		return
+	}
 	C := width
-  A := 0.5*C
-  B := math.Sin(1.04719755)*C
-  switch pos {
-  	case 0:
-  	case 1:
-  		xoff += 1.5*C
-  		yoff -= B
-  	case 2:
-  		xoff += 3*C
-  	case 3:
-  		xoff += 3*C
-  		yoff += 2*B
-  	case 4:
-  		xoff += 1.5*C
-  		yoff += 3*B
-  	case 5:
-  		yoff += 2*B
-  	case 6:
-  		xoff += 1.5*C
-  		yoff += B
-  }
-	x := []int {int(xoff), int(A+xoff), int(A+C+xoff), int(2*C+xoff), int(A+C+xoff), int(A+xoff)}
-	y := []int {int(B+yoff), int(yoff), int(yoff), int(B+yoff), int(2*B+yoff), int(2*B+yoff)}
+	A := 0.5 * C
+	B := math.Sin(1.04719755) * C
+	switch pos {
+	case 0:
+	case 1:
+		xoff += 1.5 * C
+		yoff -= B
+	case 2:
+		xoff += 3 * C
+	case 3:
+		xoff += 3 * C
+		yoff += 2 * B
+	case 4:
+		xoff += 1.5 * C
+		yoff += 3 * B
+	case 5:
+		yoff += 2 * B
+	case 6:
+		xoff += 1.5 * C
+		yoff += B
+	}
+	x := []int{int(xoff), int(A + xoff), int(A + C + xoff), int(2*C + xoff), int(A + C + xoff), int(A + xoff)}
+	y := []int{int(B + yoff), int(yoff), int(yoff), int(B + yoff), int(2*B + yoff), int(2*B + yoff)}
 	s.Polygon(x, y, style1)
 	if style2 != "" {
 		s.Circle(int(xoff+C), int(yoff+B), int(width/2), style2)
@@ -439,23 +478,23 @@ func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []floa
 		w := weights[i]
 		color := "white"
 		if w > 0.1 {
-			c := 255 - int(255 * (w / sum))
+			c := 255 - int(255*(w/sum))
 			color = fmt.Sprintf("#%.2X%.2X%.2X", c, c, c)
 		}
 		var style1, style2 string
 		switch pat[i] {
-			case EMPTY:
-				style1 = "fill:"+color+";stroke:#464646;stroke-width:2"
-				style2 = ""
-			case BLACK:
-				style1 = "fill:"+color+";stroke:#464646;stroke-width:2"
-				style2 = "fill:black;stroke:white;stroke-width:2"
-			case WHITE :
-				style1 = "fill:"+color+";stroke:#464646;stroke-width:2"
-				style2 = "fill:white;stroke:black;stroke-width:2"
-			case 3:
-				style1 = ""
-				style2 = ""
+		case EMPTY:
+			style1 = "fill:" + color + ";stroke:#464646;stroke-width:2"
+			style2 = ""
+		case BLACK:
+			style1 = "fill:" + color + ";stroke:#464646;stroke-width:2"
+			style2 = "fill:black;stroke:white;stroke-width:2"
+		case WHITE:
+			style1 = "fill:" + color + ";stroke:#464646;stroke-width:2"
+			style2 = "fill:white;stroke:black;stroke-width:2"
+		case 3:
+			style1 = ""
+			style2 = ""
 		}
 		drawHex(xoff, yoff, width, i, style1, style2, s)
 	}
@@ -475,13 +514,15 @@ func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []floa
 
 func ShowPatterns() {
 	if *hex {
-		f, err := os.Open("pats.svg", os.O_RDWR|os.O_TRUNC|os.O_CREAT, 0666)
-		if err != nil { panic(err) }
+		f, err := os.Create("pats.svg")
+		if err != nil {
+			panic(err)
+		}
 		defer func() { f.Close() }()
 		s := svg.New(f)
-		
-		pats := []int {
-16033,
+
+		pats := []int{
+			16033,
 		}
 		s.Start(1000, 40*6*len(pats)+40)
 		p := matcher.(*Particle)
@@ -492,15 +533,30 @@ func ShowPatterns() {
 			legal := true
 			off := 0
 			for j := 0; j < 7; j++ {
-				bits2 := bits[2*j:2*j+2]
-				if bits2 == "00" { pat[j] = EMPTY }
-				if bits2 == "01" { pat[j] = BLACK }
-				if bits2 == "10" { pat[j] = WHITE }
-				if bits2 == "11" { pat[j] = 3; off++ }
-				if bits2 == "11" && j == 6 { legal = false }
-				if bits2 == "00" && j == 6 { legal = false }
+				bits2 := bits[2*j : 2*j+2]
+				if bits2 == "00" {
+					pat[j] = EMPTY
+				}
+				if bits2 == "01" {
+					pat[j] = BLACK
+				}
+				if bits2 == "10" {
+					pat[j] = WHITE
+				}
+				if bits2 == "11" {
+					pat[j] = 3
+					off++
+				}
+				if bits2 == "11" && j == 6 {
+					legal = false
+				}
+				if bits2 == "00" && j == 6 {
+					legal = false
+				}
 			}
-			if off % 2 != 0 { legal = false }
+			if off%2 != 0 {
+				legal = false
+			}
 			if legal {
 				drawPat(bits, 10, 40*6*float64(y)+40, 40, pat, p.Position[pats[i]*7:pats[i]*7+7], i, s)
 				y++

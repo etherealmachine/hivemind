@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 	"rand"
+	"log"
 )
 
 type Node struct {
