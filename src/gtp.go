@@ -134,7 +134,11 @@ func GTP() {
 					if root != nil {
 						root = root.Play(color, vertex, t)
 					}
-					res = Vtoa(vertex, t.Boardsize())
+					if vertex == -1 && *hex && t.Winner() == Reverse(color) {
+						res = "resign"
+					} else {
+						res = Vtoa(vertex, t.Boardsize())
+					}
 				}
 			case "final_score":
 				res = FormatScore(t)

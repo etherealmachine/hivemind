@@ -51,11 +51,17 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	} else {
 		noTreeSearch(root, t, m)
 	}
-	//Gather(workers, jid, root)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
 	if *stats {
 		pps := float64(root.visits) / elapsed
 		log.Printf("%.0f playouts in %.2f s, %.2f pps", root.visits, elapsed, pps)
+		if *timelimit > 0 {
+			if elapsed > float64(*timelimit) {
+				log.Printf("%.2f seconds overtime\n", elapsed - float64(*timelimit))
+			} else {
+				log.Printf("%.2f seconds left\n", float64(*timelimit) - elapsed)
+			}
+		}
 		log.Printf("winrate: %.2f", root.wins / root.visits)
 		if m != nil {
 			log.Printf("patterns stats: %.2f", float64(matches) / float64(queries))
@@ -78,7 +84,9 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 }
 
 func treeSearch(root *Node, t Tracker, m PatternMatcher) {
-	for i := 0; root.visits < float64(*maxPlayouts); i++ {
+	start := time.Nanoseconds()
+	timeleft := true;
+	for i := 0; root.visits < float64(*maxPlayouts) || timeleft; i++ {
 		cp := t.Copy()
 		root.step(cp, m)
 		if *gfx {
@@ -90,6 +98,9 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher) {
 			}
 			EmitGFX(root, cp)
 		}
+		elapsed := time.Nanoseconds() - start
+		timeleft = *timelimit == 0 || uint64(elapsed) < uint64(*timelimit) * uint64(1e9)
+		if !timeleft { break }
 	}
 }
 

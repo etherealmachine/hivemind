@@ -11,6 +11,7 @@ import (
 var help *bool = flag.Bool("h", false, "Print this usage message")
 var modeGTP *bool = flag.Bool("gtp", false, "Listen on stdin for GTP commands")
 var maxPlayouts *uint = flag.Uint("p", 10000, "Max number of playouts")
+var timelimit *uint = flag.Uint("t", 0, "Max number of seconds")
 var file *string = flag.String("file", "", "Load data from file")
 var configFile *string = flag.String("config", "", "Load config from file")
 var showSwarm *bool = flag.Bool("showswarm", false, "show info on swarm")
