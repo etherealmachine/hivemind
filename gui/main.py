@@ -73,7 +73,7 @@ class GUI(object):
 				return
 			if i != -1 and j != -1:
 				i, j = ord(i)-97, ord(j)-97
-				j = self.size - j
+				j = self.size - j - 1
 			self.last = (i, j)
 		except sgflib.GameTreeEndError:
 			self.builder.get_object("back").set_sensitive(False)
@@ -95,7 +95,7 @@ class GUI(object):
 				i = self.cur.node['W'][0][0]
 				j = self.cur.node['W'][0][1]
 			i, j = ord(i)-97, ord(j)-97
-			j = self.size - j
+			j = self.size - j - 1
 			if color != 'empty':
 				if i < self.size and j < self.size:
 					self.last = (i, j)

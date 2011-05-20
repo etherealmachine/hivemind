@@ -21,6 +21,7 @@ komi
 play
 genmove
 final_score
+showboard
 gogui-analyze_commands`
 var gogui_commands = `bwboard/Occupied Points/occupied
 dboard/Visits/visits
@@ -75,6 +76,11 @@ func GTP() {
 				if err != nil {
 					res = fmt.Sprintf("Could not convert %s to integer", cmds[1])
 					fail = true
+				}
+				if *hex {
+					t = NewTracker(boardsize)
+					color = WHITE
+					passcount = 0
 				}
 			case "clear_board":
 				t = NewTracker(boardsize)
@@ -142,6 +148,8 @@ func GTP() {
 				}
 			case "final_score":
 				res = FormatScore(t)
+			case "showboard":
+				res = ""
 			case "gogui-analyze_commands":
 				res = gogui_commands
 			case "occupied":
@@ -173,8 +181,8 @@ func GTP() {
 			case fail:
 				fmt.Fprintf(os.Stdout, "? %s\n\n", res)
 			case res == "":
-				fmt.Fprint(os.Stdout, "=\n\n")
-			case true:
+				fmt.Fprint(os.Stdout, "= \n\n")
+			default:
 				fmt.Fprintf(os.Stdout, "= %s\n\n", res)
 		}
 	}

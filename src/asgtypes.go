@@ -61,6 +61,10 @@ func Atoc(s string) (c byte) {
 			c = BLACK
 		case "W":
 			c = WHITE
+		case "BLACK":
+			c = BLACK
+		case "WHITE":
+			c = WHITE
 	}	
 	return
 }

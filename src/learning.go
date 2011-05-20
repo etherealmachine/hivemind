@@ -295,7 +295,7 @@ func Train() {
 			s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, 0.01, 100, 2359296, nil)
 		}
 	} else {
-		net := NewNeuralNet([]int{inputsize + 1, inputsize, 1})
+		net := NewNeuralNet([]int{inputsize, 20, 1})
 		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, len(net.Config), net.Arch)
 	}
 	f, err := os.Open(".")
