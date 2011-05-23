@@ -5,6 +5,6 @@ function play {
 	BLACK=$GOGO
 	WHITE=$MOHEX
 	gogui-twogtp -auto -size 13 -black "$BLACK" -white "$WHITE" \
-		-games 500 -sgffile mohex -verbose -alternate -openings openings
+		-games 500 -sgffile mohex -verbose -alternate -openings openings13
 }
 play

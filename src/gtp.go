@@ -110,7 +110,7 @@ func GTP() {
 			case "genmove":
 				if len(cmds) != 2 {
 					res = "missing argument"
-				} else if passcount >= 3 {
+				} else if *cgo && passcount >= 3 {
 					res = Vtoa(-1, t.Boardsize())
 				} else {
 					color = Atoc(cmds[1])

@@ -40,49 +40,6 @@ func detectCut(i int, j int, c byte, board []byte, s2 int) bool {
 	return i >= 0 && i < s2 && j >= 0 && j < s2 && board[i] == c && board[j] == c
 }
 
-func index(location []int, bounds []int) (i int) {
-	m := 1
-	for j := 0; j < len(location); j++ {
-		i += location[j] * m
-		m *= bounds[j]
-	}
-	return i
-}
-
-func swap(i, j uint16, b *uint16) {
-	x := ((*b >> i) ^ (*b >> j)) & 1 // XOR temporary
-	*b ^= ((x << i) | (x << j))
-}
-
-func compute_index(board []uint8, adj []int) uint16 {
-	index := uint16(0)
-	for i := 0; i < len(adj); i++ {
-		// set the 2*i, 2*i+1 bits of the offset
-		m0 := uint16(0)
-		m1 := uint16(0)
-		if adj[i] == -1 {
-			m0, m1 = 1, 1
-		} else if board[adj[i]] == BLACK {
-			m0, m1 = 0, 1
-		} else if board[adj[i]] == WHITE {
-			m0, m1 = 1, 0
-		}
-		index |= (m0 << (2*uint(len(adj)-1-i) + 1))
-		index |= (m1 << (2 * uint(len(adj)-1-i)))
-	}
-	/*
-		sym := off
-		swap(12, 6, &sym)
-		swap(13, 7, &sym)
-		swap(10, 4, &sym)
-		swap(11, 5, &sym)
-		swap(8, 2, &sym)
-		swap(9, 3, &sym)
-		if sym < off { off = sym }
-	*/
-	return index
-}
-
 func (m *ColorDuplexingMatcher) Match(color byte, v int, t Tracker) int {
 	if color == BLACK {
 		return m.black.Match(color, v, t)
@@ -111,11 +68,8 @@ func (m *Particle) Match(color byte, v int, t Tracker) int {
 	} else {
 		adj = goSliceMap[s][v]
 	}
-	index := compute_index(b, adj)
-	if *logpat {
-		patternLog[index]++
-	}
-	pat := m.Position[int(index)*len(adj) : (int(index)+1)*len(adj)]
+	// todo: patternLog?
+	pat := m.Get(b, adj)
 	for i := 0; i < len(adj); i++ {
 		if adj[i] == -1 || b[adj[i]] != EMPTY || !t.Legal(color, adj[i]) {
 			pat[i] = 0

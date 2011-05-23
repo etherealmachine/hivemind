@@ -1,9 +1,9 @@
 #!/bin/bash
-SIX="/home/jpettit/code/six-0.5.3/six/gtp beginner"
-GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -c=0.5 -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/analysis/swarm-1-1.gob -config disabled.json"
+SIX="/home/jpettit/code/six-0.5.3/six/gtp expert"
+GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/swarm-4.gob"
 function play {
 	BLACK=$GOGO
 	WHITE=$SIX
-	gogui-twogtp -auto -size 10 -black "$BLACK" -white "$WHITE" -games 1 -sgffile disabled_$1 -verbose
+	gogui-twogtp -auto -size 11 -black "$BLACK" -white "$WHITE" -games 1 -sgffile six -verbose -openings openings11 -alternate
 }
 play reduced

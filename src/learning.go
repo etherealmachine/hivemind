@@ -21,10 +21,13 @@ type Swarm struct {
 	Generations   uint
 	Particles     Particles
 	Arch          []int
-	Max, Min      float64
+	Min, Max      float64
+	VMax					float64
+	GBest					[]float64
+	GBestFit			float64
 }
 
-func NewSwarm(mu, p, lambda, samples, generations uint, min, max float64, dim int, arch []int) *Swarm {
+func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, dim int, arch []int) *Swarm {
 	s := new(Swarm)
 	s.Mu = mu
 	s.P = p
@@ -37,13 +40,17 @@ func NewSwarm(mu, p, lambda, samples, generations uint, min, max float64, dim in
 	}
 	s.Samples = samples
 	s.Generations = generations
-	s.Max = max
 	s.Min = min
+	s.Max = max
+	s.VMax = vMax
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(dim)
+		s.Particles[i] = NewParticle(dim, s)
 	}
 	s.Arch = arch
+	s.GBest = make([]float64, dim)
+	copy(s.GBest, s.Particles[0].Position)
+	s.GBestFit = 0
 	return s
 }
 
@@ -51,21 +58,25 @@ type Particle struct {
 	Dim      int
 	Strategy float64
 	Position []float64
+	Velocity []float64
+	PBest		 []float64
+	PBestFit float64
 	Fitness  float64
 }
 
-func NewParticle(dim int) *Particle {
+func NewParticle(dim int, s *Swarm) *Particle {
 	p := new(Particle)
 	p.Dim = dim
 	p.Strategy = rand.Float64() * 0.05
 	p.Position = make([]float64, dim)
+	p.Velocity = make([]float64, dim)
 	for i := 0; i < p.Dim; i++ {
-		if *tablepat {
-			p.Position[i] = rand.Float64()
-		} else {
-			p.Position[i] = rand.Float64()*0.4 - 0.2
-		}
+		p.Position[i] = s.Min + (s.Max - s.Min) * rand.Float64()
+		p.Velocity[i] = -s.VMax + s.VMax * rand.Float64()
 	}
+	p.PBest = make([]float64, dim)
+	copy(p.PBest, p.Position)
+	p.PBestFit = 0
 	return p
 }
 
@@ -75,7 +86,11 @@ func (p *Particle) Copy() *Particle {
 	cp.Strategy = p.Strategy
 	cp.Position = make([]float64, len(p.Position))
 	copy(cp.Position, p.Position)
+	cp.Velocity = make([]float64, len(p.Velocity))
+	copy(cp.Velocity, p.Velocity)
 	cp.Fitness = 0
+	cp.PBest = make([]float64, len(p.PBest))
+	copy(cp.PBest, p.PBest)
 	return cp
 }
 
@@ -88,8 +103,53 @@ func (s Particles) Len() int {
 func (s Particles) Less(i, j int) bool {
 	return s[i].Fitness > s[j].Fitness
 }
+
 func (s Particles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+func swap(i, j uint16, b *uint16) {
+	x := ((*b >> i) ^ (*b >> j)) & 1 // XOR temporary
+	*b ^= ((x << i) | (x << j))
+}
+
+func compute_index(board []uint8, adj []int) uint16 {
+	index := uint16(0)
+	for i := 0; i < len(adj); i++ {
+		// set the 2*i, 2*i+1 bits of the offset
+		m0 := uint16(0)
+		m1 := uint16(0)
+		if adj[i] == -1 {
+			m0, m1 = 1, 1
+		} else if board[adj[i]] == BLACK {
+			m0, m1 = 0, 1
+		} else if board[adj[i]] == WHITE {
+			m0, m1 = 1, 0
+		}
+		index |= (m0 << (2*uint(len(adj)-1-i) + 1))
+		index |= (m1 << (2 * uint(len(adj)-1-i)))
+	}
+	if *hex {
+		sym := index
+		swap(12, 6, &sym)
+		swap(13, 7, &sym)
+		swap(10, 4, &sym)
+		swap(11, 5, &sym)
+		swap(8, 2, &sym)
+		swap(9, 3, &sym)
+		if sym < index { index = sym }
+	}
+	return index
+}
+
+func (p *Particle) Get(board []byte, adj []int) []float64 {
+	i := compute_index(board, adj)
+	if *cgo {
+		return p.Position[i*9 : (i+1)*9]
+	} else if *hex {
+		return p.Position[i*7 : (i+1)*7]
+	}
+	panic("Learning not supported for current game")
 }
 
 func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
@@ -144,6 +204,7 @@ func (s *Swarm) evaluate(p *Particle) {
 }
 
 /**
+Evolution Strategies update
 (mu/p ,+ lambda)-ES
 fitness function F
 individual a_k = (y_k, s_k, F(y_k))
@@ -155,7 +216,7 @@ B_o offspring, lambda = |B_o|
 		2. evaluate either B_o (,) or B_o + B_p (+) for fitness
 		3. select mu parents from either B_o (,) or B_o + B_p (+)
 */
-func (s *Swarm) Step() {
+func (s *Swarm) ESStep() {
 
 	// generate lambda (lambda >= mu for comma) children
 	children := make(Particles, s.Lambda)
@@ -201,6 +262,56 @@ func (s *Swarm) Step() {
 	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 }
 
+/**
+	Particle swarm update
+*/
+func (s *Swarm) PSStep() {
+
+	s.GBestFit *= 0.9
+
+	for i := uint(0); i < s.Mu; i++ {
+		s.update_particle(i)
+	}
+
+	s.Generation++
+
+	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
+}
+
+func (s *Swarm) update_particle(i uint) {
+	s.Particles[i].PBestFit *= 0.9
+	ch := make(chan bool)
+	for j := uint(0); j < s.Samples; j++ {
+		go func() {
+			s.evaluate(s.Particles[i])
+			log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
+			ch <- true
+		}()
+	}
+	for j := uint(0); j < s.Samples; j++ { <-ch }
+	s.update_gbest(i)
+	s.update_pbest(i)
+}
+
+func (s *Swarm) update_gbest(i uint) {
+	if s.Particles[i].Fitness > s.GBestFit {
+		s.GBestFit = s.Particles[i].Fitness
+		copy(s.GBest, s.Particles[i].Position)
+		log.Println("updated gbest")
+	}
+}
+
+func (s *Swarm) update_pbest(i uint) {
+	if s.Particles[i].Fitness > s.Particles[i].PBestFit {
+		s.Particles[i].PBestFit = s.Particles[i].Fitness
+		copy(s.Particles[i].PBest, s.Particles[i].Position)
+		log.Printf("updated pbest of particle %d\n", i)
+	}
+}
+
+/*
+	return a random particle from p that is not in e
+*/
 func randParticle(p Particles, e Particles) (r *Particle) {
 	contains := true
 	for contains {
@@ -215,6 +326,9 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	return
 }
 
+/*
+	return a new particle that is the average of the given p particles
+*/
 func (s *Swarm) recombine(p Particles) (r *Particle) {
 	r = p[0].Copy()
 	for i := 0; i < r.Dim; i++ {
@@ -223,13 +337,20 @@ func (s *Swarm) recombine(p Particles) (r *Particle) {
 		for j := 0; j < len(p); j++ {
 			r.Strategy += p[j].Strategy
 			r.Position[i] += p[j].Position[i]
+			r.Velocity[i] += p[j].Velocity[i]
+			r.PBest[i] += p[j].PBest[i]
 		}
 		r.Strategy /= float64(len(p))
 		r.Position[i] /= float64(len(p))
+		r.Velocity[i] /= float64(len(p))
+		r.PBest[i] /= float64(len(p))
 	}
 	return
 }
 
+/*
+	randomly permute particle's position and strategy using evolution strategies method
+*/
 func (s *Swarm) mutate(p *Particle) {
 	tau := (1 / math.Sqrt(2*float64(p.Dim))) * (1.0 - float64(s.Generation)/float64(s.Generations))
 	p.Strategy *= math.Exp(tau * rand.NormFloat64())
@@ -241,6 +362,29 @@ func (s *Swarm) mutate(p *Particle) {
 			} else if p.Position[i] < s.Min {
 				p.Position[i] = s.Min
 			}
+		}
+	}
+}
+
+/*
+	update position and velocity of particle using particle swarm method
+*/
+func (s *Swarm) ps_update(p *Particle) {
+	w := 0.4 + 0.5 * (1.0 - float64(s.Generation)/float64(s.Generations))
+	for i := 0; i < p.Dim; i++ {
+		p.Velocity[i] = w * p.Velocity[i] +
+			2 * rand.Float64() * (p.PBest[i] - p.Position[i]) +
+			2 * rand.Float64() * (s.GBest[i] - p.Position[i])
+		if p.Velocity[i] < -s.VMax {
+			p.Velocity[i] = -s.VMax
+		} else if (p.Velocity[i] > s.VMax) {
+			p.Velocity[i] = s.VMax
+		}
+		p.Position[i] += p.Velocity[i]
+		if p.Position[i] < s.Min {
+			p.Position[i] = s.Min
+		} else if (p.Position[i] > s.Max) {
+			p.Position[i] = s.Max
 		}
 	}
 }
@@ -290,13 +434,13 @@ func Train() {
 	var s *Swarm
 	if *tablepat {
 		if *hex {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, 0.01, 100, 114688, nil)
+			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, 114688, nil)
 		} else {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, 0.01, 100, 2359296, nil)
+			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, 2359296, nil)
 		}
 	} else {
 		net := NewNeuralNet([]int{inputsize, 20, 1})
-		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, len(net.Config), net.Arch)
+		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, 4, len(net.Config), net.Arch)
 	}
 	f, err := os.Open(".")
 	if err != nil {
@@ -321,7 +465,11 @@ func Train() {
 	s.LoadSwarm(fmt.Sprintf("swarm-%d.gob", max))
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
-		s.Step()
+		if *esswarm {
+			s.ESStep()
+		} else if *pswarm {
+			s.PSStep();
+		}
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)

@@ -26,7 +26,9 @@ var test *bool = flag.Bool("test", false, "Just generate a single move")
 var size *int = flag.Int("size", 9, "Boardsize")
 var testPPS *bool = flag.Bool("pps", false, "Gather data on the playouts per second")
 var train *bool = flag.Bool("train", false, "Do crazy unsupervised training stuff")
-var pswarm *bool = flag.Bool("pswarm", false, "Train using particle swarm")
+var pswarm *bool = flag.Bool("pswarm", false, "Train with particle swarm")
+var esswarm *bool = flag.Bool("esswarm", false, "Train with evolution strategies")
+var generations *uint = flag.Uint("gens", 100, "Generations to train for")
 var mu *uint = flag.Uint("mu", 30, "(Training) Children to keep")
 var parents *uint = flag.Uint("parents", 2, "(Training) Parents per child")
 var lambda *uint = flag.Uint("lambda", 50, "(Training) Children")
@@ -68,6 +70,9 @@ func config() {
 	if *cgo { *hex = false; *ttt = false }
 	if *hex { *cgo = false; *ttt = false }
 	if *ttt { *cgo = false; *hex = false }
+	if !(*pswarm || *esswarm) { *esswarm = true }
+	if *pswarm { *esswarm = false }
+	if *esswarm { *pswarm = false }
 	if strings.HasSuffix(*configFile, ".json") {
 		buf, err := ioutil.ReadFile(*configFile)
 		if err != nil { log.Println(err); return }
