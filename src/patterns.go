@@ -233,19 +233,23 @@ func LoadNNPatternMatcher(filename string) PatternMatcher {
 		return nil
 	}
 	net := new(NeuralNet)
-	net.Config = particle.Position
+	//net.Config = particle.Position
+	panic("not supported")
 	return net
 }
 
 func LoadTablePatternMatcher(filename string, disable bool) PatternMatcher {
 	particle := LoadBest(filename)
 	if disable {
+		/*
 		for i := range disabled {
 			for j := 0; j < 7; j++ {
 				particle.Position[i*7+j] = 0
 			}
 			log.Printf("disabled pattern %d\n", i)
 		}
+		*/
+		panic("not supported")
 	}
 	return particle
 }
@@ -468,6 +472,8 @@ func drawPat(bits string, xoff, yoff, width float64, pat []uint8, weights []floa
 
 func ShowPatterns() {
 	if *hex {
+		panic("not supported")
+		/*
 		f, err := os.Create("pats.svg")
 		if err != nil {
 			panic(err)
@@ -517,5 +523,6 @@ func ShowPatterns() {
 			}
 		}
 		s.End()
+		*/
 	}
 }

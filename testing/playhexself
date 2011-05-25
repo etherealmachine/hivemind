@@ -1,7 +1,7 @@
 #!/bin/sh
 gogui-twogtp -auto -size 11 \
 	-black \
-	"/home/jpettit/code/gogo/gogo -gtp -t 5 -k 1000 -uct -hex -tablepat -file /home/jpettit/code/gogo/swarm-7.gob" \
+	"/home/jpettit/code/gogo/gogo -gtp -t 5 -k 1000 -uct -hex -tablepat -file /home/jpettit/code/gogo/swarm-1.gob" \
 	-white \
-	"/home/jpettit/code/gogo/gogo -gtp -t 5 -k 1000 -uct -hex -tablepat -file /home/jpettit/code/gogo/analysis/swarm-1-1.gob" \
+	"/home/jpettit/code/gogo/gogo -gtp -t 5 -k 1000 -uct -hex" \
 	-verbose -games 100 -sgffile selfplay -openings openings11 -alternate

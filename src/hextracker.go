@@ -14,8 +14,6 @@ type HexTracker struct {
 	empty *vector.IntVector
 	winner byte
 	played []byte
-	record []int
-	moveCount int
 	adj []int
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
@@ -49,9 +47,6 @@ func NewHexTracker(boardsize int) *HexTracker {
 	t.winner = EMPTY
 	
 	t.played = make([]byte, t.sqsize)
-	
-	t.moveCount = 0
-	t.record = make([]int, t.sqsize)
 	
 	return t
 }
@@ -113,19 +108,13 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		} else {
 			t.played[vertex] = BOTH
 		}
-		if t.record != nil {
-			if t.moveCount < 0 || t.moveCount > len(t.record) { panic(t.moveCount) }
-			t.record[t.moveCount] = vertex
-			t.moveCount++
-		}
 	}
 	if *verbose {
 		log.Println(Bwboard(t.board, t.boardsize, true))
 	}
 }
 
-func (t *HexTracker) Playout(color byte, max int, m PatternMatcher) {
-	depth := 0
+func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	for {
 		if vertex == -1 { vertex = t.nextLegal(color) }
@@ -134,10 +123,6 @@ func (t *HexTracker) Playout(color byte, max int, m PatternMatcher) {
 			return
 		}
 		color = Reverse(color)
-		depth++
-		if max != -1 && depth >= max {
-			return
-		}
 		if m != nil {
 			suggestion := m.Match(color, vertex, t)
 			vertex = suggestion
@@ -203,20 +188,6 @@ func (t *HexTracker) Board() []byte {
 
 func (t *HexTracker) Territory() []byte {
 	return t.board
-}
-
-func (t *HexTracker) Record() []int {
-	return t.record
-}
-
-func (t *HexTracker) MoveCount() int {
-	return 0
-}
-
-func (t *HexTracker) SetMaxMoves(max int) {
-}
-
-func (t *HexTracker) Finish() {
 }
 
 func (t *HexTracker) Verify() {

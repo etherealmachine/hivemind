@@ -5,6 +5,7 @@ import (
 	"os"
 	"container/vector"
 	"rand"
+	"log"
 )
 
 // Tracks a game of Go
@@ -24,9 +25,7 @@ type GoTracker struct {
 	koVertex int
 	koColor byte
 	played []byte
-	record []int
 	empty *vector.IntVector
-	moveCount, maxMoves int
 	adj [][]int
 	mask [][4]uint64
 }
@@ -58,9 +57,6 @@ func NewGoTracker(boardsize int) (t *GoTracker) {
 	t.komi = 6.5
 	t.koVertex = -1
 	t.koColor = EMPTY
-	t.maxMoves = 3 * t.sqsize
-	t.moveCount = 0
-	t.record = make([]int, t.maxMoves)
 	return
 }
 
@@ -87,9 +83,6 @@ func (t *GoTracker) Copy() Tracker {
 	cp.komi = t.komi
 	cp.koVertex = t.koVertex
 	cp.koColor = t.koColor
-	
-	cp.moveCount = t.moveCount
-	cp.maxMoves = t.maxMoves
 	
 	cp.played = make([]byte, t.sqsize)
 	
@@ -163,22 +156,13 @@ func (t *GoTracker) Play(color byte, vertex int) {
 			}
 		}
 	}
-	if t.record != nil {
-		if t.moveCount >= len(t.record) {
-			panic("record too long, lost move")
-		} else {
-			t.record[t.moveCount] = vertex
-		}
-	}
-	t.moveCount++
 	if *verbose {
-		t.Verify()
+		log.Println(Bwboard(t.Board(), t.Boardsize(), true))
 	}
 }
 
 // playout simulated game, call Winner() to retrive winner based on final territory
-func (t *GoTracker) Playout(color byte, max int, m PatternMatcher) {
-	depth := 0
+func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	passes := 0
 	vertex := -1
 	for {	
@@ -192,11 +176,6 @@ func (t *GoTracker) Playout(color byte, max int, m PatternMatcher) {
 		
 		passes = 0
 		t.Play(color, vertex)
-		
-		depth++
-		if depth > 2 * t.sqsize || (max != -1 && depth >= max) {
-			return
-		}
 		color = Reverse(color)
 		if m != nil {
 			suggestion := m.Match(color, vertex, t)
@@ -327,18 +306,6 @@ func (t *GoTracker) Territory() []byte {
 		}
 	}
 	return cp
-}
-
-func (t *GoTracker) Record() []int {
-	return t.record
-}
-
-func (t *GoTracker) MoveCount() int {
-	return t.moveCount
-}
-
-func (t *GoTracker) Finish() {
-	//sgfLog <- SGF(t)
 }
 
 func (t *GoTracker) reaches(vertex int, checked []bool) (reachesBlack bool, reachesWhite bool) {

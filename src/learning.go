@@ -1,7 +1,7 @@
 package main
 
 import (
-	"math"
+	//"math"
 	"gob"
 	"os"
 	"rand"
@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
-	"container/vector"
+	//"container/vector"
 	"log"
 )
 
@@ -21,13 +21,10 @@ type Swarm struct {
 	Generations   uint
 	Particles     Particles
 	Arch          []int
-	Min, Max      float64
-	VMax					float64
-	GBest					[]float64
-	GBestFit			float64
+	GBest					*Particle
 }
 
-func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, dim int, arch []int) *Swarm {
+func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, arch []int) *Swarm {
 	s := new(Swarm)
 	s.Mu = mu
 	s.P = p
@@ -40,57 +37,48 @@ func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, 
 	}
 	s.Samples = samples
 	s.Generations = generations
-	s.Min = min
-	s.Max = max
-	s.VMax = vMax
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(dim, s)
+		s.Particles[i] = NewParticle(min, max, vMax)
 	}
 	s.Arch = arch
-	s.GBest = make([]float64, dim)
-	copy(s.GBest, s.Particles[0].Position)
-	s.GBestFit = 0
+	s.GBest = s.Particles[0].Copy()
 	return s
 }
 
 type Particle struct {
-	Dim      int
 	Strategy float64
-	Position []float64
-	Velocity []float64
-	PBest		 []float64
-	PBestFit float64
+	Position map[int][]float64
+	Velocity map[int][]float64
+	Min, Max, VMax	float64
+	PBest		 *Particle
 	Fitness  float64
 }
 
-func NewParticle(dim int, s *Swarm) *Particle {
+func NewParticle(min, max, vMax float64) *Particle {
 	p := new(Particle)
-	p.Dim = dim
 	p.Strategy = rand.Float64() * 0.05
-	p.Position = make([]float64, dim)
-	p.Velocity = make([]float64, dim)
-	for i := 0; i < p.Dim; i++ {
-		p.Position[i] = s.Min + (s.Max - s.Min) * rand.Float64()
-		p.Velocity[i] = -s.VMax + s.VMax * rand.Float64()
-	}
-	p.PBest = make([]float64, dim)
-	copy(p.PBest, p.Position)
-	p.PBestFit = 0
+	p.Position = make(map[int][]float64)
+	p.Min = min
+	p.Max = max
+	p.Velocity = make(map[int][]float64)
+	p.VMax = vMax
+	p.PBest = p.Copy()
 	return p
 }
 
 func (p *Particle) Copy() *Particle {
 	cp := new(Particle)
-	cp.Dim = p.Dim
 	cp.Strategy = p.Strategy
-	cp.Position = make([]float64, len(p.Position))
-	copy(cp.Position, p.Position)
-	cp.Velocity = make([]float64, len(p.Velocity))
-	copy(cp.Velocity, p.Velocity)
+	cp.Position = make(map[int][]float64)
+	for i := range p.Position {
+		cp.Position[i] = p.Position[i]
+	}
+	cp.Velocity = make(map[int][]float64)
+	for i := range p.Velocity {
+		cp.Velocity[i] = p.Velocity[i]
+	}
 	cp.Fitness = 0
-	cp.PBest = make([]float64, len(p.PBest))
-	copy(cp.PBest, p.PBest)
 	return cp
 }
 
@@ -108,17 +96,27 @@ func (s Particles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func swap(i, j uint16, b *uint16) {
+func swap(i, j uint32, b *uint32) {
 	x := ((*b >> i) ^ (*b >> j)) & 1 // XOR temporary
 	*b ^= ((x << i) | (x << j))
 }
 
-func compute_index(board []uint8, adj []int) uint16 {
-	index := uint16(0)
+// set the ith bit of b to j
+func set(i, j uint32, b *uint32) {
+	*b ^= j << i
+}
+
+// get the ith bit of b
+func get(i, b uint32) uint32 {
+ return b >> i & 0x00000001
+}
+
+func compute_index(board []uint8, adj []int) int {
+	index := uint32(0)
 	for i := 0; i < len(adj); i++ {
-		// set the 2*i, 2*i+1 bits of the offset
-		m0 := uint16(0)
-		m1 := uint16(0)
+		// set the 2*i, 2*i+1 bits of the index
+		m0 := uint32(0)
+		m1 := uint32(0)
 		if adj[i] == -1 {
 			m0, m1 = 1, 1
 		} else if board[adj[i]] == BLACK {
@@ -126,35 +124,134 @@ func compute_index(board []uint8, adj []int) uint16 {
 		} else if board[adj[i]] == WHITE {
 			m0, m1 = 1, 0
 		}
-		index |= (m0 << (2*uint(len(adj)-1-i) + 1))
-		index |= (m1 << (2 * uint(len(adj)-1-i)))
+		set(uint32(2*i), m0, &index)
+		set(uint32(2*i+1), m1, &index)
 	}
 	if *hex {
-		sym := index
-		swap(12, 6, &sym)
-		swap(13, 7, &sym)
-		swap(10, 4, &sym)
-		swap(11, 5, &sym)
-		swap(8, 2, &sym)
-		swap(9, 3, &sym)
+		/*
+		sym := uint32(0)
+		set(0, get(6, index), &sym)
+		set(1, get(7, index), &sym)
+		set(2, get(8, index), &sym)
+		set(3, get(9, index), &sym)
+		set(4, get(10, index), &sym)
+		set(5, get(11, index), &sym)
+		set(6, get(0, index), &sym)
+		set(7, get(1, index), &sym)
+		set(8, get(2, index), &sym)
+		set(9, get(3, index), &sym)
+		set(10, get(4, index), &sym)
+		set(11, get(5, index), &sym)
+		set(12, get(12, index), &sym)
+		set(13, get(13, index), &sym)
 		if sym < index { index = sym }
+		*/
+	} else if *cgo {
+		/*
+		sym := uint32(0)
+		set(0, get(16, index), &sym)
+		set(1, get(17, index), &sym)
+		set(2, get(14, index), &sym)
+		set(3, get(15, index), &sym)
+		set(4, get(12, index), &sym)
+		set(5, get(13, index), &sym)
+		set(6, get(10, index), &sym)
+		set(7, get(11, index), &sym)
+		set(8, get(8, index), &sym)
+		set(9, get(9, index), &sym)
+		set(10, get(6, index), &sym)
+		set(11, get(7, index), &sym)
+		set(12, get(4, index), &sym)
+		set(13, get(5, index), &sym)
+		set(14, get(2, index), &sym)
+		set(15, get(3, index), &sym)
+		set(16, get(0, index), &sym)
+		set(17, get(1, index), &sym)
+		if sym < index { index = sym }
+		sym = uint32(0)
+		set(0, get(4, index), &sym)
+		set(1, get(5, index), &sym)
+		set(2, get(10, index), &sym)
+		set(3, get(11, index), &sym)
+		set(4, get(16, index), &sym)
+		set(5, get(17, index), &sym)
+		set(6, get(2, index), &sym)
+		set(7, get(3, index), &sym)
+		set(8, get(8, index), &sym)
+		set(9, get(9, index), &sym)
+		set(10, get(14, index), &sym)
+		set(11, get(15, index), &sym)
+		set(12, get(0, index), &sym)
+		set(13, get(1, index), &sym)
+		set(14, get(6, index), &sym)
+		set(15, get(7, index), &sym)
+		set(16, get(12, index), &sym)
+		set(17, get(13, index), &sym)
+		if sym < index { index = sym }
+		sym = uint32(0)
+		set(0, get(12, index), &sym)
+		set(1, get(13, index), &sym)
+		set(2, get(6, index), &sym)
+		set(3, get(7, index), &sym)
+		set(4, get(0, index), &sym)
+		set(5, get(1, index), &sym)
+		set(6, get(14, index), &sym)
+		set(7, get(15, index), &sym)
+		set(8, get(8, index), &sym)
+		set(9, get(9, index), &sym)
+		set(10, get(2, index), &sym)
+		set(11, get(3, index), &sym)
+		set(12, get(16, index), &sym)
+		set(13, get(17, index), &sym)
+		set(14, get(10, index), &sym)
+		set(15, get(11, index), &sym)
+		set(16, get(4, index), &sym)
+		set(17, get(5, index), &sym)
+		if sym < index { index = sym }
+		*/
 	}
-	return index
+	return int(index)
 }
 
 func (p *Particle) Get(board []byte, adj []int) []float64 {
 	i := compute_index(board, adj)
+	if p.Position[i] == nil {
+		p.Init(i)
+	}
+	return p.Position[i]
+	/*
 	if *cgo {
 		return p.Position[i*9 : (i+1)*9]
 	} else if *hex {
 		return p.Position[i*7 : (i+1)*7]
 	}
-	panic("Learning not supported for current game")
+	*/
+}
+
+func (p *Particle) Init(i int) {
+	var size int
+	if *cgo {
+		size = 9
+	} else if *hex {
+		size = 7
+	} else {
+		panic("Learning not supported for current game")
+	}
+	p.Position[i] = make([]float64, size)
+	for j := 0; j < size; j++ {
+		p.Position[i][j] = p.Min + (p.Max - p.Min) * rand.Float64()
+	}
+	p.Velocity[i] = make([]float64, size)
+	for j := 0; j < size; j++ {
+		p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
+	}
 }
 
 func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 	t := NewTracker(*size)
 	passes := 0
+	move := 0
+	maxMoves := 2 * t.Boardsize()
 	var vertex int
 	for {
 		br := NewRoot(BLACK, t)
@@ -167,7 +264,8 @@ func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 			vertex = br.Best().vertex
 		}
 		t.Play(BLACK, vertex)
-		if (*hex && t.Winner() != EMPTY) || passes == 2 {
+		move++
+		if (*hex && t.Winner() != EMPTY) || move >= maxMoves || passes == 2 {
 			break
 		}
 		wr := NewRoot(WHITE, t)
@@ -180,7 +278,8 @@ func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 			vertex = wr.Best().vertex
 		}
 		t.Play(WHITE, vertex)
-		if (*hex && t.Winner() != EMPTY) || passes == 2 {
+		move++
+		if (*hex && t.Winner() != EMPTY) || move >= maxMoves || passes == 2 {
 			break
 		}
 	}
@@ -188,12 +287,12 @@ func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 }
 
 func (s *Swarm) evaluate(p *Particle) {
-	defer func() { recover() }()
 	var m PatternMatcher
 	if *tablepat {
 		m = p
 	} else {
-		m = &NeuralNet{s.Arch, p.Position}
+		panic("only support table patterns right now") 
+		//m = &NeuralNet{s.Arch, p.Position}
 	}
 	t := playOneGame(m, nil)
 	if t.Winner() == BLACK {
@@ -267,7 +366,7 @@ func (s *Swarm) ESStep() {
 */
 func (s *Swarm) PSStep() {
 
-	s.GBestFit *= 0.9
+	s.GBest.Fitness *= 0.9
 
 	for i := uint(0); i < s.Mu; i++ {
 		s.update_particle(i)
@@ -279,32 +378,25 @@ func (s *Swarm) PSStep() {
 }
 
 func (s *Swarm) update_particle(i uint) {
-	s.Particles[i].PBestFit *= 0.9
-	ch := make(chan bool)
+	s.Particles[i].PBest.Fitness *= 0.9
 	for j := uint(0); j < s.Samples; j++ {
-		go func() {
-			s.evaluate(s.Particles[i])
-			log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
-			ch <- true
-		}()
+		s.evaluate(s.Particles[i])
+		log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
 	}
-	for j := uint(0); j < s.Samples; j++ { <-ch }
 	s.update_gbest(i)
 	s.update_pbest(i)
 }
 
 func (s *Swarm) update_gbest(i uint) {
-	if s.Particles[i].Fitness > s.GBestFit {
-		s.GBestFit = s.Particles[i].Fitness
-		copy(s.GBest, s.Particles[i].Position)
+	if s.Particles[i].Fitness > s.GBest.Fitness {
+		s.GBest = s.Particles[i].Copy()
 		log.Println("updated gbest")
 	}
 }
 
 func (s *Swarm) update_pbest(i uint) {
-	if s.Particles[i].Fitness > s.Particles[i].PBestFit {
-		s.Particles[i].PBestFit = s.Particles[i].Fitness
-		copy(s.Particles[i].PBest, s.Particles[i].Position)
+	if s.Particles[i].Fitness > s.Particles[i].PBest.Fitness {
+		s.Particles[i].PBest = s.Particles[i].Copy()
 		log.Printf("updated pbest of particle %d\n", i)
 	}
 }
@@ -331,20 +423,18 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 */
 func (s *Swarm) recombine(p Particles) (r *Particle) {
 	r = p[0].Copy()
+	/*
 	for i := 0; i < r.Dim; i++ {
 		r.Strategy = 0
 		r.Position[i] = 0
 		for j := 0; j < len(p); j++ {
 			r.Strategy += p[j].Strategy
 			r.Position[i] += p[j].Position[i]
-			r.Velocity[i] += p[j].Velocity[i]
-			r.PBest[i] += p[j].PBest[i]
 		}
 		r.Strategy /= float64(len(p))
 		r.Position[i] /= float64(len(p))
-		r.Velocity[i] /= float64(len(p))
-		r.PBest[i] /= float64(len(p))
 	}
+	*/
 	return
 }
 
@@ -352,6 +442,7 @@ func (s *Swarm) recombine(p Particles) (r *Particle) {
 	randomly permute particle's position and strategy using evolution strategies method
 */
 func (s *Swarm) mutate(p *Particle) {
+	/*
 	tau := (1 / math.Sqrt(2*float64(p.Dim))) * (1.0 - float64(s.Generation)/float64(s.Generations))
 	p.Strategy *= math.Exp(tau * rand.NormFloat64())
 	for i := 0; i < p.Dim; i++ {
@@ -364,6 +455,7 @@ func (s *Swarm) mutate(p *Particle) {
 			}
 		}
 	}
+	*/
 }
 
 /*
@@ -371,20 +463,41 @@ func (s *Swarm) mutate(p *Particle) {
 */
 func (s *Swarm) ps_update(p *Particle) {
 	w := 0.4 + 0.5 * (1.0 - float64(s.Generation)/float64(s.Generations))
-	for i := 0; i < p.Dim; i++ {
-		p.Velocity[i] = w * p.Velocity[i] +
-			2 * rand.Float64() * (p.PBest[i] - p.Position[i]) +
-			2 * rand.Float64() * (s.GBest[i] - p.Position[i])
-		if p.Velocity[i] < -s.VMax {
-			p.Velocity[i] = -s.VMax
-		} else if (p.Velocity[i] > s.VMax) {
-			p.Velocity[i] = s.VMax
+	superset := make(map[int]bool)
+	for i := range p.Position {
+		superset[i] = true
+	}
+	for i := range p.PBest.Position {
+		superset[i] = true
+	}
+	for i := range s.GBest.Position {
+		superset[i] = true
+	}
+	for i := range superset {
+		if p.Velocity[i] == nil {
+			p.Init(i)
 		}
-		p.Position[i] += p.Velocity[i]
-		if p.Position[i] < s.Min {
-			p.Position[i] = s.Min
-		} else if (p.Position[i] > s.Max) {
-			p.Position[i] = s.Max
+		for j := range p.Velocity[i] {
+			delta_pbest := 0.0
+			if p.PBest.Position[i] != nil {
+				delta_pbest = 2 * rand.Float64() * (p.PBest.Position[i][j] - p.Position[i][j])
+			}
+			delta_gbest := 0.0
+			if s.GBest.Position[i] != nil {
+				delta_gbest = 2 * rand.Float64() * (s.GBest.Position[i][j] - p.Position[i][j])
+			}
+			p.Velocity[i][j] = w * (p.Velocity[i][j] + delta_pbest + delta_gbest)
+			if p.Velocity[i][j] < -p.VMax {
+				p.Velocity[i][j] = -p.VMax
+			} else if (p.Velocity[i][j] > p.VMax) {
+				p.Velocity[i][j] = p.VMax
+			}
+			p.Position[i][j] += p.Velocity[i][j]
+			if p.Position[i][j] < p.Min {
+				p.Position[i][j] = p.Min
+			} else if (p.Position[i][j] > p.Max) {
+				p.Position[i][j] = p.Max
+			}
 		}
 	}
 }
@@ -434,13 +547,14 @@ func Train() {
 	var s *Swarm
 	if *tablepat {
 		if *hex {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, 114688, nil)
+			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, nil)
 		} else {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, 2359296, nil)
+			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, nil)
 		}
 	} else {
-		net := NewNeuralNet([]int{inputsize, 20, 1})
-		s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, 4, len(net.Config), net.Arch)
+		panic("neural nets not supported")
+		//net := NewNeuralNet([]int{inputsize, 20, 1})
+		//s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, 4, len(net.Config), net.Arch)
 	}
 	f, err := os.Open(".")
 	if err != nil {
@@ -478,6 +592,7 @@ func Train() {
 
 // converts gob file to arff for machine learning
 func ShowSwarm(filename string) {
+	/*
 	var children Particles
 	f, _ := os.Open(filename)
 	defer func() { f.Close() }()
@@ -531,6 +646,7 @@ func ShowSwarm(filename string) {
 		fmt.Fprintln(f)
 		f.Sync()
 	}
+	*/
 }
 
 func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
@@ -539,14 +655,14 @@ func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
 	log.Printf("running %d playouts\n", rounds)
 	for i := 0; i < rounds; i++ {
 		t := NewTracker(*size)
-		t.Playout(BLACK, -1, &ColorDuplexingMatcher{p1, p2})
+		t.Playout(BLACK, &ColorDuplexingMatcher{p1, p2})
 		if t.Winner() == BLACK {
 			p1_black_wins++
 		} else {
 			p2_white_wins++
 		}
 		t = NewTracker(*size)
-		t.Playout(BLACK, -1, &ColorDuplexingMatcher{p2, p1})
+		t.Playout(BLACK, &ColorDuplexingMatcher{p2, p1})
 		if t.Winner() == BLACK {
 			p2_black_wins++
 		} else {

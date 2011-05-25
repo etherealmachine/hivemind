@@ -22,6 +22,8 @@ play
 genmove
 final_score
 showboard
+time_settings
+time_left
 gogui-analyze_commands`
 var gogui_commands = `bwboard/Occupied Points/occupied
 dboard/Visits/visits
@@ -42,11 +44,23 @@ func known_command(command_name string) string {
 	return "false"
 }
 
+func set_timelimit(timeleft int) uint {
+	if timeleft < 60 {
+		return 1
+	} else if timeleft < 120 {
+		return 3
+	}
+	return *timelimit
+}
+
 func GTP() {
 	var boardsize int
 	var t Tracker
 	var root *Node
 	var color byte
+	main_time := -1
+	time_left_color := EMPTY
+	time_left_time := -1
 	passcount := 0
 	r := bufio.NewReader(os.Stdin)
 	for {
@@ -113,7 +127,9 @@ func GTP() {
 				} else if *cgo && passcount >= 3 {
 					res = Vtoa(-1, t.Boardsize())
 				} else {
+					saved_timelimit := *timelimit
 					color = Atoc(cmds[1])
+					if color == time_left_color { *timelimit = set_timelimit(time_left_time) }
 					var vertex int
 					if !(*hex && t.Winner() != EMPTY) {
 						if *pat {
@@ -145,6 +161,7 @@ func GTP() {
 					} else {
 						res = Vtoa(vertex, t.Boardsize())
 					}
+					*timelimit = saved_timelimit
 				}
 			case "final_score":
 				res = FormatScore(t)
@@ -172,6 +189,16 @@ func GTP() {
 				}
 			case "legal":
 				res = LegalBoard(t)
+			case "time_settings":
+				main_time, _ = strconv.Atoi(cmds[1])
+				byo_yomi_time, _ := strconv.Atoi(cmds[2])
+				byo_yomi_stones, _ := strconv.Atoi(cmds[3])
+				log.Printf("Time settings: m: %d, b: %d, s: %d\n", main_time, byo_yomi_time, byo_yomi_stones)
+			case "time_left":
+				time_left_color = Atoc(cmds[1])
+				time_left_time, _ = strconv.Atoi(cmds[2])
+				time_left_stones, _ := strconv.Atoi(cmds[3])
+				log.Printf("Time Left: %s, %d, %d\n", Ctoa(time_left_color), time_left_time, time_left_stones)
 		}
 		if known_command(cmds[0]) == "false" {
 			fail = true

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"bufio"
-	"fmt"
+	//"fmt"
 )
 
 const (
@@ -82,6 +82,8 @@ func SGFMove(color byte, vertex int, size int) (s string) {
 }
 
 func SGF(t Tracker) string {
+	panic("broken")
+	/*
 	sgf := fmt.Sprintf("(;FF[4]CA[UTF-8]SZ[%d]KM[%.1f]!RE[%s]", t.Boardsize(), t.GetKomi(), FormatScore(t))
 	color := BLACK
 	record := t.Record()
@@ -92,4 +94,6 @@ func SGF(t Tracker) string {
 	}
 	sgf += ")"
 	return sgf
+	*/
+	return ""
 }

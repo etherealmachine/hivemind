@@ -37,7 +37,7 @@ func NewNode(parent *Node, color byte, vertex int, t Tracker) *Node {
 
 // step through the tree for some number of playouts
 func genmove(root *Node, t Tracker, m PatternMatcher) {
-	if *stats { log.Printf("kept %.0f visits", root.visits) }
+	if *stats { log.Printf("kept %.0f visits\n", root.visits) }
 	root.wins = 0
 	root.visits = 0
 	if (*hex || *ttt) && t.Winner() != EMPTY {
@@ -53,7 +53,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
 	if *stats {
 		pps := float64(root.visits) / elapsed
-		log.Printf("%.0f playouts in %.2f s, %.2f pps", root.visits, elapsed, pps)
+		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.visits, elapsed, pps)
 		if *timelimit > 0 {
 			if elapsed > float64(*timelimit) {
 				log.Printf("%.2f seconds overtime\n", elapsed - float64(*timelimit))
@@ -61,9 +61,9 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 				log.Printf("%.2f seconds left\n", float64(*timelimit) - elapsed)
 			}
 		}
-		log.Printf("winrate: %.2f", root.wins / root.visits)
+		log.Printf("winrate: %.2f\n", root.wins / root.visits)
 		if m != nil {
-			log.Printf("patterns stats: %.2f", float64(matches) / float64(queries))
+			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if *logpat {
 				if *tablepat {
 					log.Println("tablepat hist:", patternLog)
@@ -121,7 +121,7 @@ func noTreeSearch(root *Node, t Tracker, m PatternMatcher) {
 			cp := trackers[i]
 			i++
 			cp.Play(child.color, child.vertex)
-			cp.Playout(Reverse(child.color), -1, m)
+			cp.Playout(Reverse(child.color), m)
 			if cp.Winner() == child.color {
 				child.visits++
 			}
@@ -155,7 +155,7 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
-			t.Playout(Reverse(curr.color), -1, m)
+			t.Playout(Reverse(curr.color), m)
 			break
 		}
 		next := curr.Next(root, t)
@@ -293,7 +293,7 @@ func TestPPS() {
 	for i := 0; i < int(*maxPlayouts); i++ {
 		cp := t.Copy()
 		start1 := time.Nanoseconds()
-		cp.Playout(BLACK, -1, matcher)
+		cp.Playout(BLACK, matcher)
 		end1 := time.Nanoseconds()
 		playoutTime += end1 - start1
 	}

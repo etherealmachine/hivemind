@@ -22,7 +22,7 @@ var SIDE_RIGHT int
 type Tracker interface {
 	Copy() Tracker
 	Play(color byte, vertex int)
-	Playout(color byte, max int, m PatternMatcher)
+	Playout(color byte, m PatternMatcher)
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
 	Score(komi float64) (float64, float64)
@@ -33,9 +33,6 @@ type Tracker interface {
 	Sqsize() int
 	Board() []byte
 	Territory() []byte
-	Record() []int
-	MoveCount() int
-	Finish()
 	Verify()
 }
 

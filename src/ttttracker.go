@@ -118,18 +118,13 @@ func (t *TTTTracker) count(vertex int, d1 int, d2 int) int {
 	return 1
 }
 
-func (t *TTTTracker) Playout(color byte, max int, m PatternMatcher) {
-	depth := 0
+func (t *TTTTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	for {
 		if vertex == -1 { vertex = t.nextLegal(color) }
 		if vertex == -1 { return }
 		t.Play(color, vertex)
 		if t.winner != EMPTY {
-			return
-		}
-		depth++
-		if max != -1 && depth >= max {
 			return
 		}
 		color = Reverse(color)

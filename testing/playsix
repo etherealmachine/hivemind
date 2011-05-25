@@ -1,6 +1,6 @@
 #!/bin/bash
 SIX="/home/jpettit/code/six-0.5.3/six/gtp expert"
-GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/swarm-4.gob"
+GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/swarm-6.gob"
 function play {
 	BLACK=$GOGO
 	WHITE=$SIX

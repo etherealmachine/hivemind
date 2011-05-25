@@ -30,7 +30,7 @@ func main() {
 		matcher = LoadHandPatternMatcher(*file)
 		log.Println("loaded hand crafted pattern matcher")
 	} else if *tablepat {
-		matcher = LoadTablePatternMatcher(*file, true)
+		matcher = LoadTablePatternMatcher(*file, *disable)
 		log.Println("loaded table pattern matcher")
 	} else if *nnpat {
 		matcher = LoadNNPatternMatcher(*file)

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"json"
-	"strings"
 	"io/ioutil"
 	"log"
 )
@@ -48,6 +47,7 @@ var c *float64 = flag.Float64("c", 0.5, "UCT coefficient")
 var k *float64 = flag.Float64("k", 0, "AMAF equivalency cutoff")
 var expandAfter *float64 = flag.Float64("e", 50, "Expand after")
 var compare *bool = flag.Bool("compare", false, "Compare pattern matchers")
+var disable *bool = flag.Bool("disable", false, "Disable selected patterns")
 var disabled []int // disabled pattern indices
 
 type Config struct {
@@ -73,7 +73,7 @@ func config() {
 	if !(*pswarm || *esswarm) { *esswarm = true }
 	if *pswarm { *esswarm = false }
 	if *esswarm { *pswarm = false }
-	if strings.HasSuffix(*configFile, ".json") {
+	if *disable {
 		buf, err := ioutil.ReadFile(*configFile)
 		if err != nil { log.Println(err); return }
 		var conf Config
