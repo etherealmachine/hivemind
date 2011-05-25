@@ -1,5 +1,5 @@
 #!/bin/sh
-BLACK="/home/jpettit/code/gogo/gogo -gtp -go -stats -gfx -uct -t=5 -k=1000 -log gfx.log -tablepat -file /home/jpettit/code/gogo/swarm-100.gob"
+BLACK="/home/jpettit/code/gogo/gogo -gtp -go -stats -gfx -uct -t=5 -k=1000 -log gfx.log -tablepat -file $1"
 WHITE="$HOME/code/gnugo-3.8/interface/gnugo --level 6 --min-level 6 --max-level 6 --mode gtp --capture-all-dead --chinese-rules --never-resign"
 gogui-twogtp \
 	-black "gogui-display \"$BLACK\"" \

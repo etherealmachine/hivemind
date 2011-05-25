@@ -1,7 +1,7 @@
 package main
 
 import (
-	//"math"
+	"math"
 	"gob"
 	"os"
 	"rand"
@@ -26,9 +26,9 @@ type Swarm struct {
 
 func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, arch []int) *Swarm {
 	s := new(Swarm)
+	s.Lambda = lambda
 	s.Mu = mu
 	s.P = p
-	s.Lambda = lambda
 	if mu >= lambda {
 		panic("illegal argument to NewSwarm - mu must be less than lambda")
 	}
@@ -53,6 +53,7 @@ type Particle struct {
 	Min, Max, VMax	float64
 	PBest		 *Particle
 	Fitness  float64
+	Stride	int
 }
 
 func NewParticle(min, max, vMax float64) *Particle {
@@ -64,6 +65,13 @@ func NewParticle(min, max, vMax float64) *Particle {
 	p.Velocity = make(map[int][]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
+	if *hex {
+		p.Stride = 7
+	} else if *cgo {
+		p.Stride = 9
+	} else {
+		panic("game not supported")
+	}
 	return p
 }
 
@@ -72,13 +80,21 @@ func (p *Particle) Copy() *Particle {
 	cp.Strategy = p.Strategy
 	cp.Position = make(map[int][]float64)
 	for i := range p.Position {
-		cp.Position[i] = p.Position[i]
+		cp.Position[i] = make([]float64, p.Stride)
+		copy(cp.Position[i], p.Position[i])
 	}
-	cp.Velocity = make(map[int][]float64)
-	for i := range p.Velocity {
-		cp.Velocity[i] = p.Velocity[i]
+	if *pswarm {
+		cp.Velocity = make(map[int][]float64)
+		for i := range p.Velocity {
+			cp.Velocity[i] = make([]float64, p.Stride)
+			copy(cp.Velocity[i], p.Velocity[i])
+		}
 	}
-	cp.Fitness = 0
+	cp.Fitness = p.Fitness
+	cp.Min = p.Min
+	cp.Max = p.Max
+	cp.VMax = p.VMax
+	cp.Stride = p.Stride
 	return cp
 }
 
@@ -219,31 +235,18 @@ func (p *Particle) Get(board []byte, adj []int) []float64 {
 		p.Init(i)
 	}
 	return p.Position[i]
-	/*
-	if *cgo {
-		return p.Position[i*9 : (i+1)*9]
-	} else if *hex {
-		return p.Position[i*7 : (i+1)*7]
-	}
-	*/
 }
 
 func (p *Particle) Init(i int) {
-	var size int
-	if *cgo {
-		size = 9
-	} else if *hex {
-		size = 7
-	} else {
-		panic("Learning not supported for current game")
-	}
-	p.Position[i] = make([]float64, size)
-	for j := 0; j < size; j++ {
+	p.Position[i] = make([]float64, p.Stride)
+	for j := 0; j < p.Stride; j++ {
 		p.Position[i][j] = p.Min + (p.Max - p.Min) * rand.Float64()
 	}
-	p.Velocity[i] = make([]float64, size)
-	for j := 0; j < size; j++ {
-		p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
+	if *pswarm {
+		p.Velocity[i] = make([]float64, p.Stride)
+		for j := 0; j < p.Stride; j++ {
+			p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
+		}
 	}
 }
 
@@ -251,7 +254,7 @@ func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 	t := NewTracker(*size)
 	passes := 0
 	move := 0
-	maxMoves := 2 * t.Boardsize()
+	maxMoves := 2 * t.Boardsize() * t.Boardsize()
 	var vertex int
 	for {
 		br := NewRoot(BLACK, t)
@@ -295,6 +298,7 @@ func (s *Swarm) evaluate(p *Particle) {
 		//m = &NeuralNet{s.Arch, p.Position}
 	}
 	t := playOneGame(m, nil)
+	t.SetKomi(7.5)
 	if t.Winner() == BLACK {
 		p.Fitness += 1
 	} else if t.Winner() == WHITE {
@@ -320,6 +324,7 @@ func (s *Swarm) ESStep() {
 	// generate lambda (lambda >= mu for comma) children
 	children := make(Particles, s.Lambda)
 	for i := uint(0); i < s.Lambda; i++ {
+		children[i].Fitness = 0
 		// select randomly p parents from parents
 		p := make(Particles, s.P)
 		for j := uint(0); j < s.P; j++ {
@@ -331,6 +336,9 @@ func (s *Swarm) ESStep() {
 	// propagate the 2 last best particles without change
 	children[0] = s.Particles[0].Copy()
 	children[1] = s.Particles[1].Copy()
+	for i := uint(0); i < s.Lambda; i++ {
+		children[i].Fitness = 0
+	}
 
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
@@ -379,6 +387,7 @@ func (s *Swarm) PSStep() {
 
 func (s *Swarm) update_particle(i uint) {
 	s.Particles[i].PBest.Fitness *= 0.9
+	s.Particles[i].Fitness = 0
 	for j := uint(0); j < s.Samples; j++ {
 		s.evaluate(s.Particles[i])
 		log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
@@ -389,15 +398,15 @@ func (s *Swarm) update_particle(i uint) {
 
 func (s *Swarm) update_gbest(i uint) {
 	if s.Particles[i].Fitness > s.GBest.Fitness {
+		log.Printf("updated gbest, old: %.2f, new: %.2f\n", s.GBest.Fitness, s.Particles[i].Fitness)
 		s.GBest = s.Particles[i].Copy()
-		log.Println("updated gbest")
 	}
 }
 
 func (s *Swarm) update_pbest(i uint) {
 	if s.Particles[i].Fitness > s.Particles[i].PBest.Fitness {
+		log.Printf("updated pbest of particle %d, old: %.2f, new: %.2f\n", i, s.Particles[i].PBest.Fitness, s.Particles[i].Fitness)
 		s.Particles[i].PBest = s.Particles[i].Copy()
-		log.Printf("updated pbest of particle %d\n", i)
 	}
 }
 
@@ -421,20 +430,29 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 /*
 	return a new particle that is the average of the given p particles
 */
-func (s *Swarm) recombine(p Particles) (r *Particle) {
-	r = p[0].Copy()
-	/*
-	for i := 0; i < r.Dim; i++ {
-		r.Strategy = 0
-		r.Position[i] = 0
-		for j := 0; j < len(p); j++ {
-			r.Strategy += p[j].Strategy
-			r.Position[i] += p[j].Position[i]
+func (s *Swarm) recombine(parents Particles) (r *Particle) {
+	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax)
+	superset := make(map[int]bool)
+	for i := range parents {
+		for j := range parents[i].Position {
+			superset[j] = true
 		}
-		r.Strategy /= float64(len(p))
-		r.Position[i] /= float64(len(p))
 	}
-	*/
+	for i := range superset {
+		r.Position[i] = make([]float64, r.Stride)
+		count := 0
+		for j := range parents {
+			if parents[j].Position[i] != nil {
+				for k := 0; k < r.Stride; k++ {
+					r.Position[i][k] += parents[j].Position[i][k]
+				}
+				count++
+			}
+		}
+		for k := 0; k < r.Stride; k++ {
+			r.Position[i][k] /= float64(count)
+		}
+	}
 	return
 }
 
@@ -442,20 +460,19 @@ func (s *Swarm) recombine(p Particles) (r *Particle) {
 	randomly permute particle's position and strategy using evolution strategies method
 */
 func (s *Swarm) mutate(p *Particle) {
-	/*
-	tau := (1 / math.Sqrt(2*float64(p.Dim))) * (1.0 - float64(s.Generation)/float64(s.Generations))
+	dim := float64(len(p.Position) * p.Stride)
+	tau := (1 / math.Sqrt(2*dim)) * (1.0 - float64(s.Generation)/float64(s.Generations))
 	p.Strategy *= math.Exp(tau * rand.NormFloat64())
-	for i := 0; i < p.Dim; i++ {
-		if p.Position[i] > 0 {
-			p.Position[i] += p.Strategy * rand.NormFloat64()
-			if p.Position[i] > s.Max {
-				p.Position[i] = s.Max
-			} else if p.Position[i] < s.Min {
-				p.Position[i] = s.Min
+	for i := range p.Position {
+		for j := range p.Position[i] {
+			p.Position[i][j] += p.Strategy * rand.NormFloat64()
+			if p.Position[i][j] > p.Max {
+				p.Position[i][j] = p.Max
+			} else if p.Position[i][j] < p.Min {
+				p.Position[i][j] = p.Min
 			}
 		}
 	}
-	*/
 }
 
 /*
