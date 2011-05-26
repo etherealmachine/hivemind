@@ -86,6 +86,9 @@ func (m *Particle) Match(color byte, v int, t Tracker) int {
 	for i := range pat {
 		r -= pat[i] / sum
 		if r <= 0 {
+			if i == len(adj) {
+				return -1
+			}
 			matches++
 			return adj[i]
 		}

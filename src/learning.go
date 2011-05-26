@@ -9,8 +9,6 @@ import (
 	"time"
 	"fmt"
 	"strings"
-	"strconv"
-	//"container/vector"
 	"log"
 )
 
@@ -72,6 +70,7 @@ func NewParticle(min, max, vMax float64) *Particle {
 	} else {
 		panic("game not supported")
 	}
+	if *tenuki { p.Stride++ }
 	return p
 }
 
@@ -252,6 +251,7 @@ func (p *Particle) Init(i int) {
 
 func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 	t := NewTracker(*size)
+	t.SetKomi(7.5)
 	passes := 0
 	move := 0
 	maxMoves := 2 * t.Boardsize() * t.Boardsize()
@@ -290,19 +290,21 @@ func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
 }
 
 func (s *Swarm) evaluate(p *Particle) {
-	var m PatternMatcher
-	if *tablepat {
-		m = p
-	} else {
-		panic("only support table patterns right now") 
-		//m = &NeuralNet{s.Arch, p.Position}
-	}
-	t := playOneGame(m, nil)
-	t.SetKomi(7.5)
-	if t.Winner() == BLACK {
-		p.Fitness += 1
-	} else if t.Winner() == WHITE {
-		p.Fitness -= 1
+	if *vuct {
+		t := playOneGame(p, nil)
+		if t.Winner() == BLACK {
+			p.Fitness++
+		}
+	} else if *vself {
+		opp := randParticle(s.Particles, nil)
+		t := playOneGame(p, opp)
+		if t.Winner() == BLACK {
+			p.Fitness++
+			opp.Fitness--
+		} else if t.Winner() == WHITE {
+			p.Fitness--
+			opp.Fitness++
+		}
 	}
 }
 
@@ -351,6 +353,7 @@ func (s *Swarm) ESStep() {
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
 
+	/*
 	f, err := os.Create(fmt.Sprintf("children-%d.gob", s.Generation))
 	if err != nil {
 		log.Println("failed to save swarm")
@@ -359,14 +362,11 @@ func (s *Swarm) ESStep() {
 	defer func() { f.Close() }()
 	e := gob.NewEncoder(f)
 	e.Encode(children)
+	*/
 
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
-
-	s.Generation++
-
-	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 }
 
 /**
@@ -379,10 +379,6 @@ func (s *Swarm) PSStep() {
 	for i := uint(0); i < s.Mu; i++ {
 		s.update_particle(i)
 	}
-
-	s.Generation++
-
-	s.SaveSwarm(fmt.Sprintf("swarm-%d.gob", s.Generation))
 }
 
 func (s *Swarm) update_particle(i uint) {
@@ -418,7 +414,7 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	for contains {
 		r = p[rand.Int31n(int32(len(p)))]
 		contains = false
-		for i := 0; i < len(e); i++ {
+		for i := 0; e != nil && i < len(e); i++ {
 			if e[i] == r {
 				contains = true
 			}
@@ -573,27 +569,9 @@ func Train() {
 		//net := NewNeuralNet([]int{inputsize, 20, 1})
 		//s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, 4, len(net.Config), net.Arch)
 	}
-	f, err := os.Open(".")
-	if err != nil {
-		panic(err)
+	if *file != "" {
+		s.LoadSwarm(*file)
 	}
-	names, err := f.Readdirnames(-1)
-	if err != nil {
-		panic(err)
-	}
-	max := 1
-	for i := range names {
-		if strings.HasPrefix(names[i], "swarm") && strings.HasSuffix(names[i], "gob") {
-			j, err := strconv.Atoi(strings.Split(strings.Split(names[i], "-", -1)[1], ".", -1)[0])
-			if err != nil {
-				panic(err)
-			}
-			if j > max {
-				max = j
-			}
-		}
-	}
-	s.LoadSwarm(fmt.Sprintf("swarm-%d.gob", max))
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
 		if *esswarm {
@@ -601,6 +579,8 @@ func Train() {
 		} else if *pswarm {
 			s.PSStep();
 		}
+		s.Generation++
+		s.SaveSwarm(fmt.Sprintf(*prefix+".%d.gob", s.Generation))
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)

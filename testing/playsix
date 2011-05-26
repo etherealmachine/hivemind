@@ -1,9 +1,9 @@
 #!/bin/bash
-SIX="/home/jpettit/code/six-0.5.3/six/gtp expert"
-GOGO="/home/jpettit/code/gogo/gogo -gtp -uct -k=1000 -p=100000 -stats -hex -tablepat -file /home/jpettit/code/gogo/swarm-6.gob"
+SIX="$HOME/code/six-0.5.3/six/gtp expert"
+GOGO="$HOME/code/gogo/gogo -gtp -uct -k=1000 -t=5 -hex -tablepat -file $1"
 function play {
 	BLACK=$GOGO
 	WHITE=$SIX
 	gogui-twogtp -auto -size 11 -black "$BLACK" -white "$WHITE" -games 1 -sgffile six -verbose -openings openings11 -alternate
 }
-play reduced
+play
