@@ -45,10 +45,14 @@ func known_command(command_name string) string {
 }
 
 func set_timelimit(timeleft int) uint {
-	if timeleft < 60 {
-		return 1
-	} else if timeleft < 120 {
+	if timeleft < 15 {
+		return 0
+	}	else if timeleft < 30 {
+		return 2
+	} else if timeleft < 60 {
 		return 3
+	} else if timeleft < 120 {
+		return 4
 	}
 	return *timelimit
 }
@@ -131,7 +135,7 @@ func GTP() {
 					color = Atoc(cmds[1])
 					if color == time_left_color { *timelimit = set_timelimit(time_left_time) }
 					var vertex int
-					if !(*hex && t.Winner() != EMPTY) {
+					if *timelimit > 0 && !(*hex && t.Winner() != EMPTY) {
 						if *pat {
 							vertex = matcher.Match(color, t.Sqsize()/2, t)
 						} else {

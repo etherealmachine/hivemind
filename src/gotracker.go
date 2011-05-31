@@ -165,6 +165,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	passes := 0
 	vertex := -1
+	moves := 0
 	for {	
 		if vertex == -1 { vertex = t.nextLegal(color) }
 		if vertex == -1 {
@@ -176,6 +177,8 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 		
 		passes = 0
 		t.Play(color, vertex)
+		moves++
+		if moves > 2 * t.sqsize { break }
 		color = Reverse(color)
 		if m != nil {
 			suggestion := m.Match(color, vertex, t)
@@ -193,7 +196,6 @@ func (t *GoTracker) nextLegal(color byte) int {
 	for i := t.empty.Len()-1; i >= 0; i-- {
 		v := t.empty.At(i)
 		if t.Legal(color, v) { return v }
-		if !t.Legal(Reverse(color), v) { t.empty.Delete(i) }
 	}
 	return -1
 }

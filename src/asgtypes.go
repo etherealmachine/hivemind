@@ -373,15 +373,22 @@ func EmitGFX(root *Node, t Tracker) {
 		fmt.Fprintf(os.Stderr, "COLOR 0x%02.x%02.x%02.x %s\n", red, green, blue, Vtoa(v, t.Boardsize()))
 	}
 	
+	maxValue := 0.0
+	for v := 0; v < t.Sqsize(); v++ {
+		value := float64(0)
+		for child := root.child; child != nil; child = child.sibling {
+			if child.vertex == v { value = child.visits }
+		}
+		if value > maxValue { maxValue = value }
+	}
 	influenceString := ""
 	for v := 0; v < t.Sqsize(); v++ {
-		visits := float64(0)
+		value := 0.0
 		for child := root.child; child != nil; child = child.sibling {
-			if child.vertex == v { visits = child.visits }
+			if child.vertex == v { value = child.visits }
 		}
-		s := math.Log(visits) / math.Log(root.visits)
 		influenceString += Vtoa(v, t.Boardsize())
-		influenceString += fmt.Sprintf(" %.2f ", -s)
+		influenceString += fmt.Sprintf(" %.2f ", -value / maxValue)
 	}
 	fmtString := "INFLUENCE %s\n"
 	fmt.Fprintf(os.Stderr, fmtString, influenceString)
