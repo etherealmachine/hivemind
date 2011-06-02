@@ -6,6 +6,7 @@ import (
 	"time"
 	"log"
 	"rand"
+	"container/vector"
 )
 
 type Node struct {
@@ -13,9 +14,9 @@ type Node struct {
 	child *Node
 	last *Node
 	sibling *Node
-	value, visits, mean, UCB float64
-	amafValue, amafVisits, amafMean float64
-	neighborValue, neighborVisits, neighborMean float64
+	wins, visits, mean, UCB float64
+	amafWins, amafVisits, amafMean float64
+	neighborWins, neighborVisits, neighborMean float64
 	blendedMean float64
 	color byte
 	vertex int
@@ -40,7 +41,7 @@ func NewNode(parent *Node, color byte, vertex int) *Node {
 // step through the tree for some number of playouts
 func genmove(root *Node, t Tracker, m PatternMatcher) {
 	if *stats { log.Printf("kept %.0f visits\n", root.visits) }
-	root.value = 0
+	root.wins = 0
 	root.visits = 0
 	if *hex && t.Winner() != EMPTY {
 		root.child = nil
@@ -63,7 +64,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 				log.Printf("%.2f seconds left\n", float64(*timelimit) - elapsed)
 			}
 		}
-		log.Printf("winrate: %.2f\n", root.value / root.visits)
+		log.Printf("winrate: %.2f\n", root.wins / root.visits)
 		territory_mean := 0.0
 		for v := 0; v < t.Sqsize(); v++ {
 			territory_mean += root.territory[v] / root.visits
@@ -75,6 +76,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 		}
 		territory_var /= float64(t.Sqsize())
 		log.Printf("territory: mean: %.2f, var: %.2f\n", territory_mean, territory_var)
+		log.Printf("max depth: %d\n", root.maxdepth())
 		if m != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if *logpat {
@@ -162,6 +164,7 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
+			curr.seedPlayout(t)
 			t.Playout(Reverse(curr.color), m)
 			break
 		}
@@ -181,10 +184,10 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		result = 1 - result
 	}
 	if winner == Reverse(root.color) {
-		root.value++
+		root.wins++
 	}
 	root.visits++
-	root.mean = root.value / root.visits
+	root.mean = root.wins / root.visits
 }
 
 // add all legal children to node
@@ -208,24 +211,24 @@ func (node *Node) Next(root *Node, t Tracker) *Node {
 	if node.child == nil {
 		node.expand(t)
 	}
-	bestValue := math.Inf(-1)
+	bestWins := math.Inf(-1)
 	var best *Node
 	for child := node.child; child != nil; child = child.sibling {
-		var value float64
+		var wins float64
 		if child.visits > 0 {
-			value = child.UCB
+			wins = child.UCB
 		} else {
-			greatuncle := child.greatuncle()
-			if greatuncle != nil {
-				value = greatuncle.mean
+			granduncle := child.granduncle()
+			if granduncle != nil {
+				wins = granduncle.mean
 			} else {
-				value = 1
+				wins = 1
 			}
-			value += 0.01 * rand.Float64()
+			wins += 0.01 * rand.Float64()
 		}
-		if value > bestValue {
+		if wins > bestWins {
 			best = child
-			bestValue = value
+			bestWins = wins
 		}
 	}
 	return best
@@ -242,17 +245,17 @@ func (node *Node) Best() *Node {
 }
 
 func (node *Node) update(result float64, t Tracker) {
-	node.value += result
+	node.wins += result
 	node.visits++
-	node.mean = node.value / node.visits
+	node.mean = node.wins / node.visits
 	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
-		sibling.neighborValue += result
+		sibling.neighborWins += result
 		sibling.neighborVisits++
-		sibling.neighborMean = sibling.neighborValue / sibling.neighborVisits
+		sibling.neighborMean = sibling.neighborWins / sibling.neighborVisits
 		if t.WasPlayed(sibling.color, sibling.vertex) {
-			sibling.amafValue += result
+			sibling.amafWins += result
 			sibling.amafVisits++
-			sibling.amafMean = sibling.amafValue / sibling.amafVisits
+			sibling.amafMean = sibling.amafWins / sibling.amafVisits
 		}
 	}
 	beta := (*k - node.visits) / *k
@@ -264,28 +267,86 @@ func (node *Node) update(result float64, t Tracker) {
 }
 
 // return node's grandparent's sibling corrosponding to node's move
-func (node *Node) greatuncle() *Node {
+func (node *Node) granduncle() *Node {
 	if node.parent == nil || node.parent.parent == nil || node.parent.parent.parent == nil {
 		return nil
 	}
 	great_grandparent := node.parent.parent.parent
-	for greatuncle := great_grandparent.child; greatuncle != nil; greatuncle = greatuncle.sibling {
-		if greatuncle.vertex == node.vertex {
-			return greatuncle
+	for granduncle := great_grandparent.child; granduncle != nil; granduncle = granduncle.sibling {
+		if granduncle.vertex == node.vertex {
+			return granduncle
 		}
 	}
 	return nil
+}
+
+// use node's parent, grandparent, and great-grandparent (gpp) distribution as the initial
+// distribution for the playout from node
+// NOTE: reverse of node.color is first to play
+// this means gpp is the correct color, if gpp doesn't exist, just use parent
+func (node *Node) seedPlayout(t Tracker) {
+	if node.parent == nil ||
+		 node.parent.parent == nil ||
+		 node.parent.parent.parent == nil ||
+		 node.parent.parent.parent.parent == nil {
+		return
+	}
+	parent := node.parent
+	grandparent := parent.parent
+	great_grandparent := grandparent.parent
+	great_grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
+	grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
+	parent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
+}
+
+// use win-rate distribution of node to play a legal move in tracker
+func (node *Node) seed(t Tracker, path []int) {
+	dist := new(vector.Vector)
+	sum := 0.0
+	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
+		for i := 0; i < len(path); i++ {
+			if sibling.vertex == path[i] {
+				continue
+			}
+		}
+		dist.Push(sibling.mean)
+		sum += sibling.mean
+	}
+	for i := 0; i < dist.Len(); i++ {
+		dist.Set(i, dist.At(i).(float64) / sum)
+	}
+	r := rand.Float64() * sum
+	for i := 0; i < dist.Len(); i++ {
+		sum -= dist.At(i).(float64)
+		if r <= sum {
+			if t.Legal(node.color, i) {
+				t.Play(node.color, i)
+			}
+			return
+		}
+	}
 }
 
 func (root *Node) merge(node *Node) {
 	for child1, child2 := root.child, node.child;
 			child1 != nil && child2 != nil;
 			child1, child2 = child1.sibling, child2.sibling {
-			child1.value += child2.value
+			child1.wins += child2.wins
 			child1.visits += child2.visits
 	}
-	root.value += node.value
+	root.wins += node.wins
 	root.visits += node.visits
+}
+
+func (node *Node) maxdepth() int {
+	max := 0
+	if node.child != nil {
+		for child := node.child; child != nil; child = child.sibling {
+			d := child.maxdepth()
+			if d > max { max = d }
+		}
+	}
+	return max + 1
 }
 
 func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
