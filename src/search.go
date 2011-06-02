@@ -157,13 +157,11 @@ func noTreeSearch(root *Node, t Tracker, m PatternMatcher) {
 
 // navigate through the tree until a leaf node is found to playout
 func (root *Node) step(t Tracker, m PatternMatcher) {
-	path := make([]*Node, 2 * t.Boardsize() * t.Boardsize())
-	i := 0
+	path := new(vector.Vector)
 	curr := root.Next(root, t)
 	if curr == nil { root.visits = math.Inf(1); return }
 	for {
-		path[i] = curr
-		i++
+		path.Push(curr)
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
@@ -187,8 +185,8 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 	} else {
 		result = 1.0
 	}
-	for j := 0; j < i; j++ {
-		path[j].update(result, t)
+	for j := 0; j < path.Len(); j++ {
+		path.At(j).(*Node).update(result, t)
 		result = 1 - result
 	}
 	if winner == Reverse(root.color) {
@@ -266,7 +264,7 @@ func (node *Node) update(result float64, t Tracker) {
 			sibling.amafMean = sibling.amafWins / sibling.amafVisits
 		}
 	}
-	beta := (*k - node.visits) / *k
+	beta := math.Sqrt(*k / (3*node.visits + *k))
 	if *k == 0 || beta < 0 { beta = 0 }
 	if *amaf && *neighbors {
 		node.blendedMean = (beta * 0.5 * (node.amafMean + node.neighborMean) + (1 - beta) * node.mean)

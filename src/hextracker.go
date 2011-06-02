@@ -105,8 +105,6 @@ func (t *HexTracker) Play(color byte, vertex int) {
 	
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
-		} else {
-			t.played[vertex] = BOTH
 		}
 	}
 	if *verbose {
@@ -137,7 +135,7 @@ func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 }
 
 func (t *HexTracker) WasPlayed(color byte, vertex int) bool {
-	return t.played[vertex] == color || t.played[vertex] == BOTH
+	return t.played[vertex] == color
 }
 
 func (t *HexTracker) Legal(color byte, vertex int) bool {

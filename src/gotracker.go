@@ -46,6 +46,7 @@ func NewGoTracker(boardsize int) (t *GoTracker) {
 	t.captured = make([]bool, t.sqsize)
 	t.liberties = make([][2]uint64, t.sqsize)
 	t.board = make([]byte, t.sqsize)
+	t.played = make([]byte, t.sqsize)
 	t.empty = new(vector.IntVector)
 	// initialize union-find data structure and move probabilities
 	for i := 0; i < t.sqsize; i++ {
@@ -148,12 +149,8 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		// remove vertex from empty
 		if t.empty.Len() > 0 && t.empty.Last() == vertex { t.empty.Pop() }
 		// mark vertex as played for AMAF
-		if t.played != nil {
-			if t.played[vertex] == EMPTY {
-				t.played[vertex] = color
-			} else {
-				t.played[vertex] = BOTH
-			}
+		if t.played[vertex] == EMPTY {
+			t.played[vertex] = color
 		}
 	}
 	if *verbose {
@@ -201,7 +198,7 @@ func (t *GoTracker) RandLegal(color byte) int {
 }
 
 func (t *GoTracker) WasPlayed(color byte, vertex int) bool {
-	return t.played[vertex] == color || t.played[vertex] == BOTH
+	return t.played[vertex] == color
 }
 
 // return true iff move is legal, without modifying any state
