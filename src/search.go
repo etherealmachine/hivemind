@@ -167,7 +167,12 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
-			color := curr.seedPlayout(t)
+			var color byte
+			if *seedPlayouts {
+				color = curr.seedPlayout(t)
+			} else {
+				color = Reverse(curr.color)
+			}
 			t.Playout(color, m)
 			break
 		}
@@ -263,7 +268,15 @@ func (node *Node) update(result float64, t Tracker) {
 	}
 	beta := (*k - node.visits) / *k
 	if *k == 0 || beta < 0 { beta = 0 }
-	node.blendedMean = (beta * 0.5 * (node.amafMean + node.neighborMean) + (1 - beta) * node.mean)
+	if *amaf && *neighbors {
+		node.blendedMean = (beta * 0.5 * (node.amafMean + node.neighborMean) + (1 - beta) * node.mean)
+	} else if *amaf {
+		node.blendedMean = (beta * node.amafMean + (1 - beta) * node.mean)
+	} else if *neighbors {
+		node.blendedMean = (beta * node.neighborMean + (1 - beta) * node.mean)
+	} else {
+		node.blendedMean = node.mean
+	}
 	r := math.Log(node.parent.visits) / node.visits
 	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
 	node.UCB = node.blendedMean + *c * math.Sqrt(r * math.Fmin(0.25, v))

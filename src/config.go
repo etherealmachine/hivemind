@@ -51,8 +51,11 @@ var logpat *bool = flag.Bool("logpat", false, "Log patterns")
 
 var uct *bool = flag.Bool("uct", false, "Use UCT")
 var c *float64 = flag.Float64("c", 0.5, "UCT coefficient")
-var k *float64 = flag.Float64("k", 0, "AMAF equivalency cutoff")
+var k *float64 = flag.Float64("k", 0, "RAVE equivalency cutoff")
 var expandAfter *float64 = flag.Float64("e", 50, "Expand after")
+var amaf *bool = flag.Bool("amaf", false, "Use AMAF results in RAVE mean")
+var neighbors *bool = flag.Bool("neighbors", false, "Use neighbors results in RAVE mean")
+var seedPlayouts *bool = flag.Bool("seed", false, "Seed the playouts using ancestor's results")
 
 var verbose *bool = flag.Bool("v", false, "Verbose logging")
 var logFile *string = flag.String("log", "", "Log to filename")
