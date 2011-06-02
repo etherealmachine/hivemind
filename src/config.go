@@ -20,10 +20,10 @@ var stats *bool = flag.Bool("stats", false, "Print out tree search statistics")
 
 var cgo *bool = flag.Bool("go", false, "Play Go")
 var hex *bool = flag.Bool("hex", false, "Play Hex")
-var ttt *bool = flag.Bool("ttt", false, "Play Tic-Tac-Toe")
 
 var test *bool = flag.Bool("test", false, "Just generate a single move")
 var size *int = flag.Int("size", 9, "Boardsize")
+var komi *float64 = flag.Float64("komi", 6.5, "Komi")
 var testPPS *bool = flag.Bool("pps", false, "Gather data on the playouts per second")
 
 var train *bool = flag.Bool("train", false, "Do crazy unsupervised training stuff")
@@ -81,10 +81,9 @@ type Config struct {
 
 func config() {
 	flag.Parse()
-	if !(*cgo || *hex || *ttt) { *cgo = true }
-	if *cgo { *hex = false; *ttt = false }
-	if *hex { *cgo = false; *ttt = false }
-	if *ttt { *cgo = false; *hex = false }
+	if !(*cgo || *hex) { *cgo = true }
+	if *cgo { *hex = false }
+	if *hex { *cgo = false }
 	if !(*pswarm || *esswarm) { *esswarm = true }
 	if *pswarm { *esswarm = false }
 	if *esswarm { *pswarm = false }

@@ -652,6 +652,7 @@ func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
 	log.Printf("running %d playouts\n", rounds)
 	for i := 0; i < rounds; i++ {
 		t := NewTracker(*size)
+		t.SetKomi(*komi)
 		t.Playout(BLACK, &ColorDuplexingMatcher{p1, p2})
 		if t.Winner() == BLACK {
 			p1_black_wins++

@@ -25,6 +25,7 @@ type Tracker interface {
 	Playout(color byte, m PatternMatcher)
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
+	RandLegal(color byte) int
 	Score(komi float64) (float64, float64)
 	Winner() byte
 	SetKomi(komi float64)
@@ -37,12 +38,12 @@ type Tracker interface {
 }
 
 func NewTracker(boardsize int) Tracker {
-	if *hex {
+	if *cgo {
+		return NewGoTracker(boardsize)
+	} else if *hex {
 		return NewHexTracker(boardsize)
-	} else if *ttt {
-		return NewTTTTracker(boardsize)
 	}
-	return NewGoTracker(boardsize)
+	return nil
 }
 
 // standard union-find Find op, also does path compression

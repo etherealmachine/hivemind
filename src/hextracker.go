@@ -117,7 +117,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	for {
-		if vertex == -1 { vertex = t.nextLegal(color) }
+		if vertex == -1 { vertex = t.RandLegal(color) }
 		t.Play(color, vertex)
 		if t.winner != EMPTY {
 			return
@@ -144,7 +144,7 @@ func (t *HexTracker) Legal(color byte, vertex int) bool {
 	return t.board[vertex] == EMPTY
 }
 
-func (t *HexTracker) nextLegal(color byte) int {
+func (t *HexTracker) RandLegal(color byte) int {
 	for i := t.empty.Len()-1; i >= 0; i-- {
 		v := t.empty.At(i)
 		if t.Legal(color, v) { return v }

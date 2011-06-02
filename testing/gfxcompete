@@ -1,11 +1,7 @@
 #!/bin/bash
-if [[ $1 ]]; then
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t 5 -k=1000 -e=50 -c 1.4 -tablepat -file $1 -log gogo.log"
-else
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 5 -log gogo.log"
-fi
-WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign"
+BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t 10 -c 0.5 -e 4 -k 1000 -log gogo.log -tablepat -tenuki -file $1"
+WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 1"
 gogui-twogtp \
 	-black "gogui-display \"$BLACK\"" \
 	-white "$WHITE" \
-	-games 1 -size 9 -sgffile gnugo_gfx -auto
+	-games 1 -size 9 -sgffile gnugo_gfx -auto -komi 6.5

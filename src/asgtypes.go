@@ -346,13 +346,15 @@ func TreeToString(depth int, node *Node, t Tracker) (s string) {
 	for i := 0; i < depth; i++ {
 		s += "  "
 	}
-	s += fmt.Sprintf("%s%s UCT: (%5.2f %5.2f %6.0f) AMAF: (%5.2f %6.0f %6.0f)\n",
+	s += fmt.Sprintf("%s%s UCT: (%5.2f %5.2f %6.0f) AMAF: (%5.2f %6.0f)\n",
 						Ctoa(node.color), Vtoa(node.vertex, t.Boardsize()),
 						node.mean, node.mean + node.UCB, node.visits,
-						node.amafMean, node.amafVisits, node.amafMean + node.amafUCB)
+						node.amafMean, node.amafVisits)
 	if node.child != nil {
 		for child := node.child; child != nil; child = child.sibling {
-			s += TreeToString(depth + 1, child, t)
+			if child.visits > 0 {
+				s += TreeToString(depth + 1, child, t)
+			}
 		}
 	}
 	return

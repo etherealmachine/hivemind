@@ -167,7 +167,7 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	moves := 0
 	for {	
-		if vertex == -1 { vertex = t.nextLegal(color) }
+		if vertex == -1 { vertex = t.RandLegal(color) }
 		if vertex == -1 {
 			passes++
 			if passes == 2 { break }
@@ -192,7 +192,7 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	}
 }
 
-func (t *GoTracker) nextLegal(color byte) int {
+func (t *GoTracker) RandLegal(color byte) int {
 	for i := t.empty.Len()-1; i >= 0; i-- {
 		v := t.empty.At(i)
 		if t.Legal(color, v) { return v }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 	"time"
-	"rand"
 	"log"
+	"rand"
 )
 
 type Node struct {
@@ -13,8 +13,10 @@ type Node struct {
 	child *Node
 	last *Node
 	sibling *Node
-	wins, visits, mean, UCB float64
-	amafWins, amafVisits, amafMean, amafUCB float64
+	value, visits, mean, UCB float64
+	amafValue, amafVisits, amafMean float64
+	neighborValue, neighborVisits, neighborMean float64
+	blendedMean float64
 	color byte
 	vertex int
 	territory []float64
@@ -27,7 +29,7 @@ func NewRoot(color byte, t Tracker) *Node {
 	return node
 }
 
-func NewNode(parent *Node, color byte, vertex int, t Tracker) *Node {
+func NewNode(parent *Node, color byte, vertex int) *Node {
 	node := new(Node)
 	node.parent = parent
 	node.color = color
@@ -38,9 +40,9 @@ func NewNode(parent *Node, color byte, vertex int, t Tracker) *Node {
 // step through the tree for some number of playouts
 func genmove(root *Node, t Tracker, m PatternMatcher) {
 	if *stats { log.Printf("kept %.0f visits\n", root.visits) }
-	root.wins = 0
+	root.value = 0
 	root.visits = 0
-	if (*hex || *ttt) && t.Winner() != EMPTY {
+	if *hex && t.Winner() != EMPTY {
 		root.child = nil
 	}
 	start := time.Nanoseconds()
@@ -61,7 +63,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 				log.Printf("%.2f seconds left\n", float64(*timelimit) - elapsed)
 			}
 		}
-		log.Printf("winrate: %.2f\n", root.wins / root.visits)
+		log.Printf("winrate: %.2f\n", root.value / root.visits)
 		territory_mean := 0.0
 		for v := 0; v < t.Sqsize(); v++ {
 			territory_mean += root.territory[v] / root.visits
@@ -148,16 +150,15 @@ func noTreeSearch(root *Node, t Tracker, m PatternMatcher) {
 	}
 }
 
-// recursively navigate through the tree until a leaf node is found to playout
+// navigate through the tree until a leaf node is found to playout
 func (root *Node) step(t Tracker, m PatternMatcher) {
 	path := make([]*Node, 2 * t.Boardsize() * t.Boardsize())
-	i := -1
+	i := 0
 	curr := root.Next(root, t)
 	if curr == nil { root.visits = math.Inf(1); return }
 	for {
-		if curr == nil { break }
-		i++
 		path[i] = curr
+		i++
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
@@ -165,31 +166,33 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 			break
 		}
 		next := curr.Next(root, t)
-		if next == nil {
-			break
-		}
 		curr = next
+		if curr == nil { break }
 	}
 	winner := t.Winner()
-	for j := i; j >= 0; j-- {
-		path[j].updateUCB(winner, root)
-		if *k != 0 {
-			path[j].updateAMAF(winner, root, t)
-		}
+	var result float64
+	if winner == root.color {
+		result = 0.0
+	} else {
+		result = 1.0
+	}
+	for j := 0; j < i; j++ {
+		path[j].update(result, t)
+		result = 1 - result
 	}
 	if winner == Reverse(root.color) {
-		root.wins++
+		root.value++
 	}
 	root.visits++
-	root.mean = root.wins / root.visits
+	root.mean = root.value / root.visits
 }
 
 // add all legal children to node
 func (node *Node) expand(t Tracker) {
 	color := Reverse(node.color)
-	for v := 0; v < t.Sqsize(); v++ {
-		if t.Legal(color, v) {
-			child := NewNode(node, color, v, t)
+	for i := 0; i < t.Sqsize(); i++ {
+		if t.Legal(color, i) {
+			child := NewNode(node, color, i)
 			if node.child == nil {
 				node.child = child
 			} else {
@@ -210,11 +213,15 @@ func (node *Node) Next(root *Node, t Tracker) *Node {
 	for child := node.child; child != nil; child = child.sibling {
 		var value float64
 		if child.visits > 0 {
-			beta := (*k - node.visits) / *k
-			if *k == 0 || beta < 0 { beta = 0 }
-			value = (beta * child.amafMean + (1 - beta) * child.mean) + child.UCB
+			value = child.UCB
 		} else {
-			value = 0.9 + 0.2 * rand.Float64()
+			greatuncle := child.greatuncle()
+			if greatuncle != nil {
+				value = greatuncle.mean
+			} else {
+				value = 1
+			}
+			value += 0.01 * rand.Float64()
 		}
 		if value > bestValue {
 			best = child
@@ -234,50 +241,54 @@ func (node *Node) Best() *Node {
 	return best
 }
 
-func (node *Node) updateUCB(winner byte, root *Node) {
-	if node.color == winner {
-		if node.color == root.color {
-			node.wins--
-		} else {
-			node.wins++
+func (node *Node) update(result float64, t Tracker) {
+	node.value += result
+	node.visits++
+	node.mean = node.value / node.visits
+	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
+		sibling.neighborValue += result
+		sibling.neighborVisits++
+		sibling.neighborMean = sibling.neighborValue / sibling.neighborVisits
+		if t.WasPlayed(sibling.color, sibling.vertex) {
+			sibling.amafValue += result
+			sibling.amafVisits++
+			sibling.amafMean = sibling.amafValue / sibling.amafVisits
 		}
 	}
-	node.visits++
-	node.mean = node.wins / node.visits
-	r := math.Log1p(node.parent.visits) / (1 + node.visits)
-	v := (math.Fabs(node.wins) / node.visits) - math.Pow(node.wins / node.visits, 2) + math.Sqrt(2*r)
-	node.UCB = *c * math.Sqrt(r*math.Fmin(0.25, v))
+	beta := (*k - node.visits) / *k
+	if *k == 0 || beta < 0 { beta = 0 }
+	node.blendedMean = (beta * 0.5 * (node.amafMean + node.neighborMean) + (1 - beta) * node.mean)
+	r := math.Log(node.parent.visits) / node.visits
+	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
+	node.UCB = node.blendedMean + *c * math.Sqrt(r * math.Fmin(0.25, v))
 }
 
-func (node *Node) updateAMAF(winner byte, root *Node, t Tracker) {
-	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
-		if t.WasPlayed(sibling.color, sibling.vertex) {
-			if sibling.color == winner {
-				if sibling.color == root.color {
-					node.amafWins--
-				} else {
-					node.amafWins++
-				}
-			}
-			sibling.amafVisits++
-			sibling.amafMean = sibling.amafWins / sibling.amafVisits
+// return node's grandparent's sibling corrosponding to node's move
+func (node *Node) greatuncle() *Node {
+	if node.parent == nil || node.parent.parent == nil || node.parent.parent.parent == nil {
+		return nil
+	}
+	great_grandparent := node.parent.parent.parent
+	for greatuncle := great_grandparent.child; greatuncle != nil; greatuncle = greatuncle.sibling {
+		if greatuncle.vertex == node.vertex {
+			return greatuncle
 		}
 	}
+	return nil
 }
 
 func (root *Node) merge(node *Node) {
 	for child1, child2 := root.child, node.child;
 			child1 != nil && child2 != nil;
 			child1, child2 = child1.sibling, child2.sibling {
-			child1.wins += child2.wins
+			child1.value += child2.value
 			child1.visits += child2.visits
 	}
-	root.wins += node.wins
+	root.value += node.value
 	root.visits += node.visits
 }
 
 func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
-/*
 	var best *Node
 	for child := node.child; child != nil; child = child.sibling {
 		if best == nil || child.visits > best.visits {
@@ -294,7 +305,6 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 			return child
 		}
 	}
-	*/
 	return nil
 }
 

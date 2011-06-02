@@ -1,6 +1,6 @@
 #!/bin/sh
-BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t=5 -k=100 -e=4 -c=1.0 -log gogo.log"
-WHITE="./gogo -gtp -go -stats -gfx -uct -t 5 -k=1000 -e=50 -c 1.4 -log gogo.log"
+BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t=5 -k=1000 -e=50 -c=1.2 -log gogo.log"
+WHITE="./gogo -gtp -go -stats -gfx -uct -t 5 -k=1000 -e=50 -c 1.2 -log gogo.log"
 gogui-twogtp \
 	-black "gogui-display \"$BLACK\"" \
 	-white "gogui-display \"$WHITE\"" \
