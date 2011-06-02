@@ -326,7 +326,6 @@ func (s *Swarm) ESStep() {
 	// generate lambda (lambda >= mu for comma) children
 	children := make(Particles, s.Lambda)
 	for i := uint(0); i < s.Lambda; i++ {
-		children[i].Fitness = 0
 		// select randomly p parents from parents
 		p := make(Particles, s.P)
 		for j := uint(0); j < s.P; j++ {
