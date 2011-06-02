@@ -21,6 +21,7 @@ type Node struct {
 	color byte
 	vertex int
 	territory []float64
+	seeds, totalseeds int
 }
 
 func NewRoot(color byte, t Tracker) *Node {
@@ -77,6 +78,8 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 		territory_var /= float64(t.Sqsize())
 		log.Printf("territory: mean: %.2f, var: %.2f\n", territory_mean, territory_var)
 		log.Printf("max depth: %d\n", root.maxdepth())
+		seeds, totalseeds := root.seedstats()
+		log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
 		if m != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if *logpat {
@@ -164,8 +167,8 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
 		if curr.visits <= *expandAfter {
-			curr.seedPlayout(t)
-			t.Playout(Reverse(curr.color), m)
+			color := curr.seedPlayout(t)
+			t.Playout(color, m)
 			break
 		}
 		next := curr.Next(root, t)
@@ -211,24 +214,24 @@ func (node *Node) Next(root *Node, t Tracker) *Node {
 	if node.child == nil {
 		node.expand(t)
 	}
-	bestWins := math.Inf(-1)
+	bestValue := math.Inf(-1)
 	var best *Node
 	for child := node.child; child != nil; child = child.sibling {
-		var wins float64
+		var value float64
 		if child.visits > 0 {
-			wins = child.UCB
+			value = child.UCB
 		} else {
 			granduncle := child.granduncle()
 			if granduncle != nil {
-				wins = granduncle.mean
+				value = granduncle.mean
 			} else {
-				wins = 1
+				value = 1
 			}
-			wins += 0.01 * rand.Float64()
+			value += 0.01 * rand.Float64()
 		}
-		if wins > bestWins {
+		if value > bestValue {
 			best = child
-			bestWins = wins
+			bestValue = value
 		}
 	}
 	return best
@@ -282,25 +285,45 @@ func (node *Node) granduncle() *Node {
 
 // use node's parent, grandparent, and great-grandparent (gpp) distribution as the initial
 // distribution for the playout from node
+// returns the new color to play
 // NOTE: reverse of node.color is first to play
 // this means gpp is the correct color, if gpp doesn't exist, just use parent
-func (node *Node) seedPlayout(t Tracker) {
-	if node.parent == nil ||
-		 node.parent.parent == nil ||
-		 node.parent.parent.parent == nil ||
-		 node.parent.parent.parent.parent == nil {
-		return
+func (node *Node) seedPlayout(t Tracker) byte {
+	color := Reverse(node.color)
+	var parent, grandparent, great_grandparent *Node
+	if node.parent != nil {
+		parent = node.parent
 	}
-	parent := node.parent
-	grandparent := parent.parent
-	great_grandparent := grandparent.parent
-	great_grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
-	grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
-	parent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex})
+	if parent != nil {
+		grandparent = parent.parent
+	}
+	if grandparent != nil {
+		great_grandparent = grandparent.parent
+	}
+	// if it exists, try seeding using great_grandparent
+	if great_grandparent != nil {
+		// if that succeeds, try seeding with grandparent
+		if great_grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex}) {
+			color = Reverse(color)
+			// if that succeeds, try seeding with parent
+			if grandparent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex}) {
+				color = Reverse(color)
+				if parent.seed(t, []int{great_grandparent.vertex, grandparent.vertex, parent.vertex}) {
+					color = Reverse(color)
+				}
+			}
+		}
+	} else { // else try seeding using parent
+		if parent.seed(t, []int{parent.vertex}) {
+			color = Reverse(color)
+		}
+	}
+	return color
 }
 
 // use win-rate distribution of node to play a legal move in tracker
-func (node *Node) seed(t Tracker, path []int) {
+func (node *Node) seed(t Tracker, path []int) bool {
+	if node.parent == nil { return false }
 	dist := new(vector.Vector)
 	sum := 0.0
 	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
@@ -309,22 +332,23 @@ func (node *Node) seed(t Tracker, path []int) {
 				continue
 			}
 		}
-		dist.Push(sibling.mean)
-		sum += sibling.mean
+		dist.Push(sibling.UCB)
+		sum += sibling.UCB
 	}
-	for i := 0; i < dist.Len(); i++ {
-		dist.Set(i, dist.At(i).(float64) / sum)
-	}
+	node.totalseeds++
 	r := rand.Float64() * sum
 	for i := 0; i < dist.Len(); i++ {
-		sum -= dist.At(i).(float64)
-		if r <= sum {
+		r -= dist.At(i).(float64)
+		if r <= 0 {
 			if t.Legal(node.color, i) {
 				t.Play(node.color, i)
+				node.seeds++
+				return true
 			}
-			return
+			return false
 		}
 	}
+	return false
 }
 
 func (root *Node) merge(node *Node) {
@@ -347,6 +371,18 @@ func (node *Node) maxdepth() int {
 		}
 	}
 	return max + 1
+}
+
+func (node *Node) seedstats() (int, int) {
+	count, total := node.seeds, node.totalseeds
+	if node.child != nil {
+		for child := node.child; child != nil; child = child.sibling {
+			c, t := child.seedstats()
+			count += c
+			total += t
+		}
+	}
+	return count, total
 }
 
 func (node *Node) Play(color byte, vertex int, t Tracker) *Node {

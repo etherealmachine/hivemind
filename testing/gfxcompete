@@ -1,5 +1,9 @@
 #!/bin/bash
-BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t 10 -c 0.5 -e 4 -k 1000 -log gogo.log -tablepat -tenuki -file $1"
+if [[ -z $1 ]]; then
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t 10 -c 0.5 -e 1 -k 1000 -log gogo.log"
+else 
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -uct -t 10 -c 0.5 -e 1 -k 1000 -log gogo.log -tablepat -tenuki -file $1"
+fi
 WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 1"
 gogui-twogtp \
 	-black "gogui-display \"$BLACK\"" \
