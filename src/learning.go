@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 	"fmt"
-	"strings"
 	"log"
 )
 
@@ -18,11 +17,10 @@ type Swarm struct {
 	Generation    uint
 	Generations   uint
 	Particles     Particles
-	Arch          []int
 	GBest					*Particle
 }
 
-func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, arch []int) *Swarm {
+func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, stride int) *Swarm {
 	s := new(Swarm)
 	s.Lambda = lambda
 	s.Mu = mu
@@ -37,9 +35,8 @@ func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, 
 	s.Generations = generations
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(min, max, vMax)
+		s.Particles[i] = NewParticle(min, max, vMax, stride)
 	}
-	s.Arch = arch
 	s.GBest = s.Particles[0].Copy()
 	return s
 }
@@ -54,7 +51,7 @@ type Particle struct {
 	Stride	int
 }
 
-func NewParticle(min, max, vMax float64) *Particle {
+func NewParticle(min, max, vMax float64, stride int) *Particle {
 	p := new(Particle)
 	p.Strategy = rand.Float64() * 0.05
 	p.Position = make(map[int][]float64)
@@ -63,14 +60,7 @@ func NewParticle(min, max, vMax float64) *Particle {
 	p.Velocity = make(map[int][]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
-	if *hex {
-		p.Stride = 7
-	} else if *cgo {
-		p.Stride = 9
-	} else {
-		panic("game not supported")
-	}
-	if *tenuki { p.Stride++ }
+	p.Stride = stride
 	return p
 }
 
@@ -126,24 +116,24 @@ func get(i, b uint32) uint32 {
  return b >> i & 0x00000001
 }
 
-func compute_index(board []uint8, adj []int) int {
+func hash(board []uint8, neighbors []int, symmetric bool) (int, int) {
 	index := uint32(0)
-	for i := 0; i < len(adj); i++ {
+	for i := 0; i < len(neighbors); i++ {
 		// set the 2*i, 2*i+1 bits of the index
 		m0 := uint32(0)
 		m1 := uint32(0)
-		if adj[i] == -1 {
+		if neighbors[i] == -1 {
 			m0, m1 = 1, 1
-		} else if board[adj[i]] == BLACK {
+		} else if board[neighbors[i]] == BLACK {
 			m0, m1 = 0, 1
-		} else if board[adj[i]] == WHITE {
+		} else if board[neighbors[i]] == WHITE {
 			m0, m1 = 1, 0
 		}
 		set(uint32(2*i), m0, &index)
 		set(uint32(2*i+1), m1, &index)
 	}
-	if *hex {
-		/*
+	j := 0
+	if symmetric && *hex {
 		sym := uint32(0)
 		set(0, get(6, index), &sym)
 		set(1, get(7, index), &sym)
@@ -159,10 +149,8 @@ func compute_index(board []uint8, adj []int) int {
 		set(11, get(5, index), &sym)
 		set(12, get(12, index), &sym)
 		set(13, get(13, index), &sym)
-		if sym < index { index = sym }
-		*/
-	} else if *cgo {
-		/*
+		if sym < index { index = sym; j = 1 }
+	} else if symmetric && *cgo {
 		sym := uint32(0)
 		set(0, get(16, index), &sym)
 		set(1, get(17, index), &sym)
@@ -182,7 +170,7 @@ func compute_index(board []uint8, adj []int) int {
 		set(15, get(3, index), &sym)
 		set(16, get(0, index), &sym)
 		set(17, get(1, index), &sym)
-		if sym < index { index = sym }
+		if sym < index { index = sym; j = 1 }
 		sym = uint32(0)
 		set(0, get(4, index), &sym)
 		set(1, get(5, index), &sym)
@@ -202,7 +190,7 @@ func compute_index(board []uint8, adj []int) int {
 		set(15, get(7, index), &sym)
 		set(16, get(12, index), &sym)
 		set(17, get(13, index), &sym)
-		if sym < index { index = sym }
+		if sym < index { index = sym; j = 2 }
 		sym = uint32(0)
 		set(0, get(12, index), &sym)
 		set(1, get(13, index), &sym)
@@ -222,18 +210,17 @@ func compute_index(board []uint8, adj []int) int {
 		set(15, get(11, index), &sym)
 		set(16, get(4, index), &sym)
 		set(17, get(5, index), &sym)
-		if sym < index { index = sym }
-		*/
+		if sym < index { index = sym; j = 3 }
 	}
-	return int(index)
+	return int(index), j
 }
 
-func (p *Particle) Get(board []byte, adj []int) []float64 {
-	i := compute_index(board, adj)
+func (p *Particle) Get(board []byte, neighbors []int) (int, []float64) {
+	i, _ := hash(board, neighbors, false)
 	if p.Position[i] == nil {
 		p.Init(i)
 	}
-	return p.Position[i]
+	return i, p.Position[i]
 }
 
 func (p *Particle) Init(i int) {
@@ -351,18 +338,7 @@ func (s *Swarm) ESStep() {
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
-
-	/*
-	f, err := os.Create(fmt.Sprintf("children-%d.gob", s.Generation))
-	if err != nil {
-		log.Println("failed to save swarm")
-		return
-	}
-	defer func() { f.Close() }()
-	e := gob.NewEncoder(f)
-	e.Encode(children)
-	*/
-
+	
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
@@ -426,7 +402,7 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	return a new particle that is the average of the given p particles
 */
 func (s *Swarm) recombine(parents Particles) (r *Particle) {
-	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax)
+	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride)
 	superset := make(map[int]bool)
 	for i := range parents {
 		for j := range parents[i].Position {
@@ -557,17 +533,9 @@ func LoadBest(filename string) *Particle {
 
 func Train() {
 	var s *Swarm
-	if *tablepat {
-		if *hex {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, nil)
-		} else {
-			s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, nil)
-		}
-	} else {
-		panic("neural nets not supported")
-		//net := NewNeuralNet([]int{inputsize, 20, 1})
-		//s = NewSwarm(*mu, *parents, *lambda, *samples, 1000, -10, 10, 4, len(net.Config), net.Arch)
-	}
+	stride := len(NewTracker(*size).Neighbors(0))
+	if *tenuki { stride++ }
+	s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, stride)
 	if *file != "" {
 		s.LoadSwarm(*file)
 	}
@@ -676,7 +644,7 @@ func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
 
 	p1_black_wins, p1_white_wins, p2_black_wins, p2_white_wins = 0.0, 0.0, 0.0, 0.0
 	rounds = 100
-	log.Printf("running %d full games, relevant settings: UCT? %t, UCT coefficient: %.2f, RAVE cutoff: %.0f, playouts: %d, expand after: %.0f\n", rounds, *uct, *c, *k, *maxPlayouts, *expandAfter)
+	log.Printf("running %d full games, relevant settings: explore coefficient: %.2f, RAVE cutoff: %.0f, playouts: %d, expand after: %.0f\n", rounds, *c, *k, *maxPlayouts, *expandAfter)
 	for i := 0; i < rounds; i++ {
 		t := playOneGame(p1, p2)
 		if t.Winner() == BLACK {
@@ -699,25 +667,4 @@ func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
 	log.Printf("%s as black: %.0f%%\n", name2, (p2_black_wins/float64(rounds))*100.0)
 	log.Printf("%s as white: %.0f%%\n", name2, (p2_white_wins/float64(rounds))*100.0)
 	log.Printf("%s overall: %.0f%%\n", name2, ((p2_black_wins+p2_white_wins)/float64(2*rounds))*100.0)
-}
-
-// runs input against random
-func TestSwarm() {
-	if strings.Contains(*file, "children") {
-		var children Particles
-		f, _ := os.Open(*file)
-		defer func() { f.Close() }()
-		d := gob.NewDecoder(f)
-		d.Decode(&children)
-		log.Println("Loaded children from swarm")
-		rand := &RandomMatcher{}
-		for i := range children {
-			Compare(children[i], rand, fmt.Sprintf("child-%d(fitness=%.0f)", i, children[i].Fitness), "rand")
-		}
-	} else {
-		log.Println("Comparing given swarm to random pattern matcher")
-		swarm := LoadTablePatternMatcher(*file, false)
-		rand := &RandomMatcher{}
-		Compare(swarm, rand, "swarm", "rand")
-	}
 }

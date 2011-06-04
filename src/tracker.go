@@ -35,6 +35,8 @@ type Tracker interface {
 	Board() []byte
 	Territory() []byte
 	Verify()
+	Neighbors(vertex int) []int
+	Adj(vertex int) []int
 }
 
 func NewTracker(boardsize int) Tracker {

@@ -2,28 +2,35 @@ package main
 
 import (
 	"rand"
-	"time"
 )
 
 // Zobrist hashing
-var hashSize int
-var emptyBoard []Hash
-var blackBoard []Hash
-var whiteBoard []Hash
-var symmetricBoard [4][]int
+var emptyBoard map[int][]Hash
+var blackBoard map[int][]Hash
+var whiteBoard map[int][]Hash
+//var symmetricBoard [4][]int
+
+func init() {
+	emptyBoard = make(map[int][]Hash)
+	blackBoard = make(map[int][]Hash)
+	whiteBoard = make(map[int][]Hash)
+	for size := 3; size < 19; size++ {
+		setupHash(size)
+	}
+}
 
 func setupHash(size int) {
-	hashSize = size
-	emptyBoard = make([]Hash, size * size)
-	blackBoard = make([]Hash, size * size)
-	whiteBoard = make([]Hash, size * size)
-	rand.Seed(time.Nanoseconds())
+	emptyBoard[size] = make([]Hash, size * size)
+	blackBoard[size] = make([]Hash, size * size)
+	whiteBoard[size] = make([]Hash, size * size)
+	rand.Seed(int64(size))
 	for i := 0; i < size * size; i++ {
-		emptyBoard[i] = Hash(rand.Uint32())
-		blackBoard[i] = Hash(rand.Uint32())
-		whiteBoard[i] = Hash(rand.Uint32())
+		emptyBoard[size][i] = Hash(rand.Uint32())
+		blackBoard[size][i] = Hash(rand.Uint32())
+		whiteBoard[size][i] = Hash(rand.Uint32())
 	}
 	
+	/*
 	if *hex {
 		symmetricBoard[0] = make([]int, size * size)
 		symmetricBoard[1] = make([]int, size * size)
@@ -46,39 +53,44 @@ func setupHash(size int) {
 			}
 		}
 	}
+	*/
 }
 
 type Hash uint32
 
-func NewHash(size int, init bool) (hash *Hash) {
-	if size != hashSize {
-		setupHash(size)
-	}
+func NewHash(size int) (hash *Hash) {
 	hash = new(Hash)
-	if init {
-		for i := 0; i < len(emptyBoard); i++ {
-			*hash ^= emptyBoard[i]
-		}
+	for i := 0; i < len(emptyBoard[size]); i++ {
+		*hash ^= emptyBoard[size][i]
 	}
 	return
 }
 
-func (hash *Hash) Update(oldColor byte, newColor byte, vertex int) {
+func MakeHash(t Tracker) *Hash {
+	hash := NewHash(t.Boardsize())
+	board := t.Board()
+	for i := 0; i < len(board); i++ {
+		hash.Update(t.Boardsize(), EMPTY, board[i], i)
+	}
+	return hash
+}
+
+func (hash *Hash) Update(size int, oldColor byte, newColor byte, vertex int) {
 	switch oldColor {
 		case BLACK:
-			*hash ^= blackBoard[vertex]
+			*hash ^= blackBoard[size][vertex]
 		case WHITE:
-			*hash ^= whiteBoard[vertex]
+			*hash ^= whiteBoard[size][vertex]
 		case EMPTY:
-			*hash ^= emptyBoard[vertex]
+			*hash ^= emptyBoard[size][vertex]
 	}
 	switch newColor {
 		case BLACK:
-			*hash ^= blackBoard[vertex]
+			*hash ^= blackBoard[size][vertex]
 		case WHITE:
-			*hash ^= whiteBoard[vertex]
+			*hash ^= whiteBoard[size][vertex]
 		case EMPTY:
-			*hash ^= emptyBoard[vertex]
+			*hash ^= emptyBoard[size][vertex]
 	}
 }
 

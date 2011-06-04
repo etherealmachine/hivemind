@@ -162,31 +162,63 @@ func (t *GoTracker) Play(color byte, vertex int) {
 func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	passes := 0
 	vertex := -1
+	last := -1
 	moves := 0
-	for {	
-		if vertex == -1 { vertex = t.RandLegal(color) }
+	for {
+		vertex = t.playHeuristicMove(color)
+		if vertex == -1 && last != -1 {
+			vertex = t.playPatternMove(color, last, m)
+		}
 		if vertex == -1 {
+			vertex = t.RandLegal(color)
+		}
+		if vertex != -1 {
+			t.Play(color, vertex)
+			passes = 0
+			moves++
+			if moves > 2 * t.sqsize { break }
+		} else {
 			passes++
 			if passes == 2 { break }
-			color = Reverse(color)
-			continue
 		}
-		
-		passes = 0
-		t.Play(color, vertex)
-		moves++
-		if moves > 2 * t.sqsize { break }
 		color = Reverse(color)
-		if m != nil {
-			suggestion := m.Match(color, vertex, t)
-      vertex = suggestion
-      if suggestion != -1 && !t.Legal(color, suggestion) {
-        panic("dammit")
-      }
-		} else {	
-			vertex = -1
+		last = vertex
+		vertex = -1
+	}
+}
+
+func (t *GoTracker) playHeuristicMove(color byte) int {
+	if rand.Float64() < 0.1 { return -1 }
+	atari := new(vector.IntVector)
+	for i := 0; i < t.sqsize; i++ {
+		if t.board[i] == Reverse(color) {
+			root := find(i, t.parent)
+			if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
+				if t.liberties[root][0] != 0 {
+					v := 64 - int(firstbitset(t.liberties[root][0])) - 1
+					atari.Push(v)
+				} else if t.liberties[root][1] != 0 {
+					v := 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
+					atari.Push(v)
+				}
+			}
 		}
 	}
+	if atari.Len() > 0 {
+		return atari.At(rand.Intn(atari.Len()))
+	}
+	return -1
+}
+
+func (t *GoTracker) playPatternMove(color byte, last int, m PatternMatcher) int {
+	if m != nil {
+		suggestion := m.Match(color, last, t)
+    if suggestion != -1 && !t.Legal(color, suggestion) {
+      panic("dammit")
+    }
+    return suggestion
+	}
+	return -1
 }
 
 func (t *GoTracker) RandLegal(color byte) int {
@@ -290,6 +322,14 @@ func (t *GoTracker) Board() []byte {
 	return t.board
 }
 
+func (t *GoTracker) Adj(vertex int) []int {
+	return go_adj[t.boardsize][vertex]
+}
+
+func (t *GoTracker) Neighbors(vertex int) []int {
+	return go_neighbors[t.boardsize][vertex]
+}
+
 func (t *GoTracker) Territory() []byte {
 	cp := make([]byte, t.sqsize)
 	for i := 0; i < t.sqsize; i++ {
@@ -305,6 +345,50 @@ func (t *GoTracker) Territory() []byte {
 		}
 	}
 	return cp
+}
+
+func (t *GoTracker) Verify() {
+	for i := 0; i < len(t.parent); i++ {
+		find(i, t.parent)
+	}
+	for i := 0; i < len(t.parent); i++ {
+		if t.board[i] == EMPTY {
+			continue
+		}
+		parent := find(i, t.parent)
+		connected := make(map [int] bool)
+		c := make(chan int)
+		go DFS(parent, t.board, t.adj, c)
+		for {
+			n := <-c
+			if n == -1 {
+				break
+			}
+			connected[n] = true
+		}
+		found := false
+		empty := 0
+		for k, _ := range connected {
+			if t.board[k] == EMPTY {
+				empty++
+			} else {
+				found = found || k == i
+			}
+		}
+		if !found {
+			fmt.Fprintln(os.Stderr, Vtoa(i, t.boardsize), Vtoa(parent, t.boardsize))
+			fmt.Fprintln(os.Stderr, Bwboard(t.board, t.boardsize, true))
+			panic("could not verify connected points")
+		}
+		liberties := bitcount(t.liberties[parent][0], t.liberties[parent][1])
+		if uint(empty) != liberties {
+			fmt.Fprintln(os.Stderr, Vtoa(parent, t.boardsize))
+			fmt.Fprintln(os.Stderr, Bwboard(t.board, t.boardsize, true))
+			fmt.Fprintln(os.Stderr, empty, liberties)
+			fmt.Fprintln(os.Stderr, bitboard(t.liberties[parent][0], t.liberties[parent][1], t.boardsize))
+			panic("liberties don't match up")
+		}
+	}
 }
 
 func (t *GoTracker) reaches(vertex int, checked []bool) (reachesBlack bool, reachesWhite bool) {
@@ -426,76 +510,6 @@ func (t *GoTracker) wouldCapture(vertex int, n int) bool {
 	return false
 }
 
-/*
-	mask for packing liberties into 2 64-bit integers
-	given a vertex int, must return the int64 with 1 in the spot for that vertex
-	only works for 9*9 = 81 bits needed
-	64 bits of first int are vertices 0-63
-	17 bits of second int are vertices 64-81
-	last 47 bits of second int are all zero
-*/
-var masks [][][4]uint64
-var go_adj [][][]int
-func init() {
-	go_adj = make([][][]int, 20)
-	masks = make([][][4]uint64, 20)
-	for boardsize := 4; boardsize <= 19; boardsize++ {
-		setup_go(boardsize)
-	}
-}
-func setup_go(boardsize int) {
-	masks[boardsize] = make([][4]uint64, boardsize * boardsize)
-	for i := 0; i < len(masks[boardsize]); i++ {
-		var m uint64 = 1
-		if i < 64 {
-			masks[boardsize][i][0] = m << uint64(64 - i - 1)
-		} else {
-			masks[boardsize][i][1] = m << uint64(64 - (i - 64)  - 1)
-		}
-		masks[boardsize][i][2] = masks[boardsize][i][0] ^ 0xFFFFFFFFFFFFFFFF
-		masks[boardsize][i][3] = masks[boardsize][i][1] ^ 0xFFFFFFFFFFFFFFFF
-	}
-	setup_go_adj(boardsize)
-}
-
-func setup_go_adj(boardsize int) {
-	go_adj[boardsize] = make([][]int, boardsize * boardsize)
-	for vertex, _ := range go_adj[boardsize] {
-		go_adj[boardsize][vertex] = make([]int, 4)
-		set_go_adj(vertex, boardsize)
-	}
-}
-
-func set_go_adj(vertex int, boardsize int) {
-	row := vertex / boardsize
-	col := vertex % boardsize
-	up_row := row - 1
-	down_row := row + 1
-	left_col := col - 1
-	right_col := col + 1
-	up := up_row * boardsize + col
-	down := down_row * boardsize + col
-	left := row * boardsize + left_col
-	right := row * boardsize + right_col
-	go_adj[boardsize][vertex][UP] = -1
-	go_adj[boardsize][vertex][DOWN] = -1
-	go_adj[boardsize][vertex][LEFT] = -1
-	go_adj[boardsize][vertex][RIGHT] = -1
-	if up_row >= 0 && up_row < boardsize {
-		go_adj[boardsize][vertex][UP] = up
-	}
-	if down_row >= 0 && down_row < boardsize {
-		go_adj[boardsize][vertex][DOWN] = down
-	}
-	if left_col >= 0 && left_col < boardsize {
-		go_adj[boardsize][vertex][LEFT] = left
-	}
-	if right_col >= 0 && right_col < boardsize {
-		go_adj[boardsize][vertex][RIGHT] = right
-	}
-	return
-}
-
 func bitcount(u uint64, v uint64) (c uint) {
 	// c accumulates the total bits set in v
 	for c = 0; u != 0; c++ {
@@ -505,6 +519,14 @@ func bitcount(u uint64, v uint64) (c uint) {
   	v &= v - 1; // clear the least significant bit set
 	}
 	return
+}
+
+// return the index of the first bit set in u
+func firstbitset(u uint64) uint64 {
+	for i := uint64(0); i < 64; i++ {
+		if ((1 << i) & u) != 0 { return i }
+	}
+	return 64
 }
 
 func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
@@ -576,46 +598,119 @@ func (t *GoTracker) parentboard() (s string) {
 	return
 }
 
-func (t *GoTracker) Verify() {
-	for i := 0; i < len(t.parent); i++ {
-		find(i, t.parent)
+/*
+	mask for packing liberties into 2 64-bit integers
+	given a vertex int, must return the int64 with 1 in the spot for that vertex
+	only works for 9*9 = 81 bits needed
+	64 bits of first int are vertices 0-63
+	17 bits of second int are vertices 64-81
+	last 47 bits of second int are all zero
+*/
+var masks map[int][][4]uint64
+var go_adj map[int][][]int
+var go_neighbors map[int][][]int
+func init() {
+	go_adj = make(map[int][][]int)
+	go_neighbors = make(map[int][][]int)
+	masks = make(map[int][][4]uint64)
+	for boardsize := 4; boardsize <= 19; boardsize++ {
+		setup_go(boardsize)
 	}
-	for i := 0; i < len(t.parent); i++ {
-		if t.board[i] == EMPTY {
-			continue
+}
+func setup_go(boardsize int) {
+	masks[boardsize] = make([][4]uint64, boardsize * boardsize)
+	for i := 0; i < len(masks[boardsize]); i++ {
+		var m uint64 = 1
+		if i < 64 {
+			masks[boardsize][i][0] = m << uint64(64 - i - 1)
+		} else {
+			masks[boardsize][i][1] = m << uint64(64 - (i - 64)  - 1)
 		}
-		parent := find(i, t.parent)
-		connected := make(map [int] bool)
-		c := make(chan int)
-		go DFS(parent, t.board, t.adj, c)
-		for {
-			n := <-c
-			if n == -1 {
-				break
-			}
-			connected[n] = true
-		}
-		found := false
-		empty := 0
-		for k, _ := range connected {
-			if t.board[k] == EMPTY {
-				empty++
-			} else {
-				found = found || k == i
-			}
-		}
-		if !found {
-			fmt.Fprintln(os.Stderr, Vtoa(i, t.boardsize), Vtoa(parent, t.boardsize))
-			fmt.Fprintln(os.Stderr, Bwboard(t.board, t.boardsize, true))
-			panic("could not verify connected points")
-		}
-		liberties := bitcount(t.liberties[parent][0], t.liberties[parent][1])
-		if uint(empty) != liberties {
-			fmt.Fprintln(os.Stderr, Vtoa(parent, t.boardsize))
-			fmt.Fprintln(os.Stderr, Bwboard(t.board, t.boardsize, true))
-			fmt.Fprintln(os.Stderr, empty, liberties)
-			fmt.Fprintln(os.Stderr, bitboard(t.liberties[parent][0], t.liberties[parent][1], t.boardsize))
-			panic("liberties don't match up")
-		}
+		masks[boardsize][i][2] = masks[boardsize][i][0] ^ 0xFFFFFFFFFFFFFFFF
+		masks[boardsize][i][3] = masks[boardsize][i][1] ^ 0xFFFFFFFFFFFFFFFF
+	}
+	setup_go_adj(boardsize)
+	setup_go_neighbors(boardsize)
+}
+
+func setup_go_adj(boardsize int) {
+	go_adj[boardsize] = make([][]int, boardsize * boardsize)
+	for vertex, _ := range go_adj[boardsize] {
+		go_adj[boardsize][vertex] = make([]int, 4)
+		set_go_adj(vertex, boardsize)
+	}
+}
+
+func set_go_adj(vertex int, boardsize int) {
+	row := vertex / boardsize
+	col := vertex % boardsize
+	up_row := row - 1
+	down_row := row + 1
+	left_col := col - 1
+	right_col := col + 1
+	up := up_row * boardsize + col
+	down := down_row * boardsize + col
+	left := row * boardsize + left_col
+	right := row * boardsize + right_col
+	go_adj[boardsize][vertex][UP] = -1
+	go_adj[boardsize][vertex][DOWN] = -1
+	go_adj[boardsize][vertex][LEFT] = -1
+	go_adj[boardsize][vertex][RIGHT] = -1
+	if up_row >= 0 && up_row < boardsize {
+		go_adj[boardsize][vertex][UP] = up
+	}
+	if down_row >= 0 && down_row < boardsize {
+		go_adj[boardsize][vertex][DOWN] = down
+	}
+	if left_col >= 0 && left_col < boardsize {
+		go_adj[boardsize][vertex][LEFT] = left
+	}
+	if right_col >= 0 && right_col < boardsize {
+		go_adj[boardsize][vertex][RIGHT] = right
+	}
+}
+
+func setup_go_neighbors(boardsize int) {
+	go_neighbors[boardsize] = make([][]int, boardsize*boardsize)
+	for vertex := 0; vertex < boardsize*boardsize; vertex++ {
+		set_go_neighbors(boardsize, vertex)
+	}
+}
+
+func set_go_neighbors(size int, vertex int) {
+	neighbors := go_neighbors[size]
+	neighbors[vertex] = make([]int, 9)
+	neighbors[vertex][0] = vertex - size - 1
+	neighbors[vertex][1] = vertex - size
+	neighbors[vertex][2] = vertex - size + 1
+	neighbors[vertex][3] = vertex - 1
+	neighbors[vertex][4] = vertex
+	neighbors[vertex][5] = vertex + 1
+	neighbors[vertex][6] = vertex + size - 1
+	neighbors[vertex][7] = vertex + size
+	neighbors[vertex][8] = vertex + size + 1
+	if vertex%size == 0 {
+		// left
+		neighbors[vertex][0] = -1
+		neighbors[vertex][3] = -1
+		neighbors[vertex][6] = -1
+	}
+	if (vertex+1)%size == 0 {
+		// right
+		neighbors[vertex][2] = -1
+		neighbors[vertex][5] = -1
+		neighbors[vertex][8] = -1
+	}
+	if vertex < size {
+		// top
+		neighbors[vertex][0] = -1
+		neighbors[vertex][1] = -1
+		neighbors[vertex][2] = -1
+	}
+	if vertex >= (size*size)-size {
+		// bottom
+		neighbors[vertex][6] = -1
+		neighbors[vertex][7] = -1
+		neighbors[vertex][8] = -1
 	}
 }

@@ -62,6 +62,7 @@ func GTP() {
 	var t Tracker
 	var root *Node
 	var color byte
+	book := NewBook()
 	main_time := -1
 	time_left_color := EMPTY
 	time_left_time := -1
@@ -136,13 +137,13 @@ func GTP() {
 					if color == time_left_color { *timelimit = set_timelimit(time_left_time) }
 					var vertex int
 					if *timelimit > 0 && !(*hex && t.Winner() != EMPTY) {
-						if *pat {
-							vertex = matcher.Match(color, t.Sqsize()/2, t)
-						} else {
-							if root == nil {
-								root = NewRoot(color, t)
-							}
+						if root == nil {
+							root = NewRoot(color, t)
+						}
+						vertex = book.Load(color, t)
+						if vertex == -1 {
 							genmove(root, t, matcher)
+							book.Save(root, t)
 							if root == nil || root.Best() == nil {
 								vertex = -1
 							} else {

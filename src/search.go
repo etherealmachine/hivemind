@@ -49,11 +49,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	}
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
-	if *uct {
-		treeSearch(root, t, m)
-	} else {
-		noTreeSearch(root, t, m)
-	}
+	treeSearch(root, t, m)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
 	if *stats {
 		pps := float64(root.visits) / elapsed
@@ -83,13 +79,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 		if m != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if *logpat {
-				if *tablepat {
-					log.Println("tablepat hist:", patternLog)
-				} else if *nullpat {
-					log.Println("nullpat hist:", patternLog)
-				} else if *randpat {
-					log.Println("randpat hist:", patternLog)
-				}
+				log.Println("patterns:", patternLog)
 				for i := 0; i < len(patternLog); i++ {
 					patternLog[i] = 0
 				}
@@ -118,39 +108,6 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher) {
 			if uint64(elapsed) > uint64(*timelimit) * uint64(1e9) { break }
 		} else if root.visits >= float64(*maxPlayouts) {
 			break
-		}
-	}
-}
-
-func noTreeSearch(root *Node, t Tracker, m PatternMatcher) {
-	if root.child == nil {
-		root.expand(t)
-		if root.child == nil { root.visits = math.Inf(1); return; }
-	}
-	start := time.Nanoseconds()
-	for root.visits < float64(*maxPlayouts) {
-		for child := root.child; child != nil; child = child.sibling {
-			cp := t.Copy()
-			cp.Play(child.color, child.vertex)
-			cp.Playout(Reverse(child.color), m)
-			if cp.Winner() == child.color {
-				child.visits++
-			}
-			root.visits++
-			if *timelimit != 0 {
-				elapsed := time.Nanoseconds() - start
-				if uint64(elapsed) > uint64(*timelimit) * uint64(1e9) { break }
-			}
-			if root.visits >= float64(*maxPlayouts) { break }
-			if *gfx {
-				board := cp.Territory()
-				for v := 0; v < t.Sqsize(); v++ {
-					if board[v] == Reverse(root.color) {
-						root.territory[v]++
-					}
-				}
-				EmitGFX(root, t)
-			}
 		}
 	}
 }
@@ -226,7 +183,7 @@ func (node *Node) Next(root *Node, t Tracker) *Node {
 		} else {
 			granduncle := child.granduncle()
 			if granduncle != nil {
-				value = granduncle.mean
+				value = granduncle.UCB
 			} else {
 				value = 1
 			}
@@ -416,8 +373,7 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 	return nil
 }
 
-func TestPPS() {
-	t := NewTracker(*size)
+func TestPPS(t Tracker) {
 	playoutTime := int64(0)
 	start := time.Nanoseconds()
 	for i := 0; i < int(*maxPlayouts); i++ {

@@ -26,22 +26,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
-	if *hand {
-		matcher = LoadHandPatternMatcher(*file)
-		log.Println("loaded hand crafted pattern matcher")
-	} else if *tablepat {
-		matcher = LoadTablePatternMatcher(*file, *disable)
-		log.Println("loaded table pattern matcher")
-	} else if *nnpat {
-		matcher = LoadNNPatternMatcher(*file)
-		log.Println("loaded neural network pattern matcher")
-	} else if *randpat {
-		matcher = &RandomMatcher{}
-		log.Println("loaded random pattern matcher")
-	} else if *nullpat {
-		matcher = &NullMatcher{}
-		log.Println("loaded null pattern matcher")
-	}
+	matcher := LoadPatternMatcher(*file, nil)
 	if *help {
 		flag.Usage()
 		os.Exit(0)
@@ -63,16 +48,17 @@ func main() {
 		genmove(root, t, matcher)
 		fmt.Println(Vtoa(root.Best().vertex, t.Boardsize()))
 	} else if *testPPS {
-		TestPPS()
+		log.Println("Go:")
+		TestPPS(NewGoTracker(9))
+		log.Println("Hex:")
+		TestPPS(NewHexTracker(11))
 	} else if *showSwarm {
 		ShowSwarm(*file)
-	} else if *testSwarm {
-		TestSwarm()
-	} else if *showPatterns {
-		ShowPatterns()
 	} else if *compare {
-		p1 := LoadTablePatternMatcher(*file, false)
-		p2 := LoadTablePatternMatcher(*file, true)
+		p1 := LoadPatternMatcher(*file, nil)
+		p2 := LoadPatternMatcher(*file, disabled)
 		Compare(p1, p2, "default", "disabled")
+	} else if *makeBook {
+		MakeBook(BLACK, NewTracker(*size))
 	}
 }

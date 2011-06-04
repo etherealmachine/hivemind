@@ -191,15 +191,26 @@ func (t *HexTracker) Territory() []byte {
 func (t *HexTracker) Verify() {
 }
 
-var hex_adj [][]int
+func (t *HexTracker) Adj(vertex int) []int {
+	return hex_adj[t.boardsize][vertex*6:(vertex+1)*6]
+}
+
+func (t *HexTracker) Neighbors(vertex int) []int {
+	return hex_neighbors[t.boardsize][vertex]
+}
+
+var hex_adj map[int][]int
+var hex_neighbors map[int][][]int
 func init() {
-	hex_adj = make([][]int, 20)
+	hex_adj = make(map[int][]int)
+	hex_neighbors = make(map[int][][]int)
 	for boardsize := 3; boardsize <= 19; boardsize++ {
-		setup_hex(boardsize)
+		setup_hex_adj(boardsize)
+		setup_hex_neighbors(boardsize)
 	}
 }
 
-func setup_hex(boardsize int) {
+func setup_hex_adj(boardsize int) {
 	s := boardsize * boardsize
 	hex_adj[boardsize] = make([]int, s*6)
 	
@@ -209,7 +220,6 @@ func setup_hex(boardsize int) {
 	SIDE_RIGHT = s + 3
 	
 	for i := 0; i < s; i++ {
-		//hex_adj[boardsize][i] = make([]int, 6)
 		hex_adj[boardsize][i*6+UP] = -1
 		hex_adj[boardsize][i*6+DOWN] = -1
 		hex_adj[boardsize][i*6+UP_RIGHT] = -1
@@ -242,4 +252,39 @@ func setup_hex(boardsize int) {
 			hex_adj[boardsize][i*6+UP_RIGHT] = SIDE_RIGHT
 		}
 	}
+}
+
+func setup_hex_neighbors(boardsize int) {
+	neighbors := make([][]int, boardsize*boardsize)
+	for vertex := 0; vertex < boardsize*boardsize; vertex++ {
+		neighbors[vertex] = make([]int, 7)
+		neighbors[vertex][0] = vertex - boardsize
+		neighbors[vertex][1] = vertex - boardsize + 1
+		neighbors[vertex][2] = vertex + 1
+		neighbors[vertex][3] = vertex + boardsize
+		neighbors[vertex][4] = vertex + boardsize - 1
+		neighbors[vertex][5] = vertex - 1
+		neighbors[vertex][6] = vertex
+		if vertex % boardsize == 0 {
+			// left
+			neighbors[vertex][4] = -1
+			neighbors[vertex][5] = -1
+		}
+		if (vertex + 1) % boardsize == 0 {
+			// right
+			neighbors[vertex][1] = -1
+			neighbors[vertex][2] = -1
+		}
+		if vertex < boardsize {
+			// top
+			neighbors[vertex][0] = -1
+			neighbors[vertex][1] = -1
+		}
+		if vertex >= (boardsize * boardsize) - boardsize {
+			// bottom
+			neighbors[vertex][3] = -1
+			neighbors[vertex][4] = -1
+		}
+	}
+	hex_neighbors[boardsize] = neighbors
 }
