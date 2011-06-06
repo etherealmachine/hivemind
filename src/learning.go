@@ -9,6 +9,7 @@ import (
 	"time"
 	"fmt"
 	"log"
+	"runtime"
 )
 
 type Swarm struct {
@@ -18,39 +19,40 @@ type Swarm struct {
 	Generations   uint
 	Particles     Particles
 	GBest					*Particle
-	Config				*Config
+	Config				Config
 }
 
 func NewSwarm(config *Config) *Swarm {
 	var stride int
 	var min, max, vmax float64
-	if *config.pat {
+	if config.pat {
 		stride = len(NewTracker(config).Neighbors(0, 2))
-		if *config.tenuki { stride++ }
+		if config.tenuki { stride++ }
 		min = 0.01
 		max = 100
 		vmax = 20
-	} else if *config.eval {
+	} else if config.eval {
 		stride = 1
 		min = 0
 		max = 1
 		vmax = 0.5
 	}
-	s := new(Swarm)
-	s.Lambda = *config.lambda
-	s.Mu = *config.mu
-	s.P = *config.parents
-	if *config.mu >= *config.lambda {
+	if config.mu >= config.lambda {
 		panic("illegal argument to NewSwarm - mu must be less than lambda")
 	}
-	if *config.parents > *config.mu {
+	if config.parents > config.mu {
 		panic("illegal argument to NewSwarm - p must be less than or equal to mu")
 	}
-	s.Samples = *config.samples
-	s.Generations = *config.generations
+	s := new(Swarm)
+	s.Config = *config
+	s.Lambda = s.Config.lambda
+	s.Mu = s.Config.mu
+	s.P = s.Config.parents
+	s.Samples = s.Config.samples
+	s.Generations = s.Config.generations
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(min, max, vmax, stride, config)
+		s.Particles[i] = NewParticle(min, max, vmax, stride, s.Config)
 	}
 	s.GBest = s.Particles[0].Copy()
 	return s
@@ -64,10 +66,10 @@ type Particle struct {
 	PBest		 *Particle
 	Fitness  float64
 	Stride	int
-	Config *Config
+	Config Config
 }
 
-func NewParticle(min, max, vMax float64, stride int, config *Config) *Particle {
+func NewParticle(min, max, vMax float64, stride int, config Config) *Particle {
 	p := new(Particle)
 	p.Strategy = rand.Float64() * 0.05
 	p.Position = make(map[uint32][]float64)
@@ -75,6 +77,7 @@ func NewParticle(min, max, vMax float64, stride int, config *Config) *Particle {
 	p.Max = max
 	p.Velocity = make(map[uint32][]float64)
 	p.VMax = vMax
+	p.Config = config
 	p.PBest = p.Copy()
 	p.Stride = stride
 	return p
@@ -88,7 +91,7 @@ func (p *Particle) Copy() *Particle {
 		cp.Position[i] = make([]float64, p.Stride)
 		copy(cp.Position[i], p.Position[i])
 	}
-	if *p.Config.pswarm {
+	if p.Config.pswarm {
 		cp.Velocity = make(map[uint32][]float64)
 		for i := range p.Velocity {
 			cp.Velocity[i] = make([]float64, p.Stride)
@@ -100,6 +103,7 @@ func (p *Particle) Copy() *Particle {
 	cp.Max = p.Max
 	cp.VMax = p.VMax
 	cp.Stride = p.Stride
+	cp.Config = p.Config
 	return cp
 }
 
@@ -163,7 +167,7 @@ func (p *Particle) Init(i uint32) {
 	for j := 0; j < p.Stride; j++ {
 		p.Position[i][j] = p.Min + (p.Max - p.Min) * rand.Float64()
 	}
-	if *p.Config.pswarm {
+	if p.Config.pswarm {
 		p.Velocity[i] = make([]float64, p.Stride)
 		for j := 0; j < p.Stride; j++ {
 			p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
@@ -174,32 +178,32 @@ func (p *Particle) Init(i uint32) {
 func (s *Swarm) evaluate(p *Particle) {
 	var m PatternMatcher
 	var e BoardEvaluator
-	if *s.Config.pat && *s.Config.eval { panic("pattern and evaluator training are mutually exclusive") }
-	if *s.Config.pat { m = p }
-	if *s.Config.eval { e = p }
-	tmp_pat := *s.Config.pat
-	tmp_eval := *s.Config.eval
-	t := NewTracker(s.Config)
+	if p.Config.pat && p.Config.eval { panic("pattern and evaluator training are mutually exclusive") }
+	if p.Config.pat { m = p }
+	if p.Config.eval { e = p }
+	tmp_pat := p.Config.pat
+	tmp_eval := p.Config.eval
+	t := NewTracker(&p.Config)
 	t.SetKomi(7.5)
 	move := 0
 	maxMoves := 2 * t.Sqsize()
 	var vertex int
 	for {
-		*s.Config.pat = false
-		*s.Config.eval = false
-		if move == 0 && *s.Config.hex {
-			vertex = *s.Config.size + 2
+		if move == 0 && p.Config.hex {
+			vertex = p.Config.size + 2
 		} else {
-			br := NewRoot(BLACK, t, s.Config)
+			p.Config.pat = false
+			p.Config.eval = false
+			br := NewRoot(BLACK, t, &p.Config)
 			genmove(br, t, nil, nil)
 			vertex = br.Best().vertex
 		}
 		t.Play(BLACK, vertex)
 		move++
 		if t.Winner() != EMPTY || move >= maxMoves { break }
-		wr := NewRoot(WHITE, t, s.Config)
-		*s.Config.pat = tmp_pat
-		*s.Config.eval = tmp_eval
+		p.Config.pat = tmp_pat
+		p.Config.eval = tmp_eval
+		wr := NewRoot(WHITE, t, &p.Config)
 		genmove(wr, t, m, e)
 		vertex = wr.Best().vertex
 		t.Play(WHITE, vertex)
@@ -209,8 +213,8 @@ func (s *Swarm) evaluate(p *Particle) {
 	if t.Winner() == WHITE {
 		p.Fitness++
 	}
-	*s.Config.pat = tmp_pat
-	*s.Config.eval = tmp_eval
+	p.Config.pat = tmp_pat
+	p.Config.eval = tmp_eval
 }
 
 /**
@@ -245,14 +249,32 @@ func (s *Swarm) ESStep() {
 	for i := uint(0); i < s.Lambda; i++ {
 		children[i].Fitness = 0
 	}
+	
+	eval := make(chan uint)
+	done := make(chan bool)
+	
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		go func(s *Swarm) {
+			for j := range eval {
+				for k := uint(0); k < s.Samples; k++ {
+					s.evaluate(children[j])
+				}
+				done <- true
+			}
+		}(s)
+	}
 
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
+		eval <- i
+	}
+	for i := uint(0); i < s.Lambda; i++ {
 		for j := uint(0); j < s.Samples; j++ {
-			s.evaluate(children[i])
+			<-done
 			log.Printf("%d / %d\n", i*s.Samples+j, s.Lambda*s.Samples)
 		}
 	}
+	close(eval)
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
@@ -452,18 +474,18 @@ func LoadBest(filename string) *Particle {
 func Train(config *Config) {
 	var s *Swarm
 	s = NewSwarm(config)
-	if *config.file != "" {
-		s.LoadSwarm(*config.file)
+	if config.file != "" {
+		s.LoadSwarm(config.file)
 	}
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
-		if *config.esswarm {
+		if config.esswarm {
 			s.ESStep()
-		} else if *config.pswarm {
+		} else if config.pswarm {
 			s.PSStep();
 		}
 		s.Generation++
-		s.SaveSwarm(fmt.Sprintf(*s.Config.prefix+".%d.gob", s.Generation))
+		s.SaveSwarm(fmt.Sprintf(s.Config.prefix+".%d.gob", s.Generation))
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)

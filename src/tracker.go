@@ -43,10 +43,10 @@ type Tracker interface {
 }
 
 func NewTracker(config *Config) Tracker {
-	if *config.cgo {
-		return NewGoTracker(*config.size)
-	} else if *config.hex {
-		return NewHexTracker(*config.size)
+	if config.cgo {
+		return NewGoTracker(config.size)
+	} else if config.hex {
+		return NewHexTracker(config.size)
 	}
 	return nil
 }

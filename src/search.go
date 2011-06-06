@@ -46,7 +46,7 @@ func NewNode(parent *Node, color byte, vertex int) *Node {
 
 // step through the tree for some number of playouts
 func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
-	if *root.config.stats { log.Printf("kept %.0f visits\n", root.visits) }
+	if root.config.stats { log.Printf("kept %.0f visits\n", root.visits) }
 	root.wins = 0
 	root.visits = 0
 	if t.Winner() != EMPTY {
@@ -56,14 +56,14 @@ func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 	root.territory = make([]float64, t.Sqsize())
 	treeSearch(root, t, m, e)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
-	if *root.config.stats {
+	if root.config.stats {
 		pps := float64(root.visits) / elapsed
 		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.visits, elapsed, pps)
-		if *root.config.timelimit > 0 {
-			if elapsed > float64(*root.config.timelimit) {
-				log.Printf("%.2f seconds overtime\n", elapsed - float64(*root.config.timelimit))
+		if root.config.timelimit > 0 {
+			if elapsed > float64(root.config.timelimit) {
+				log.Printf("%.2f seconds overtime\n", elapsed - float64(root.config.timelimit))
 			} else {
-				log.Printf("%.2f seconds left\n", float64(*root.config.timelimit) - elapsed)
+				log.Printf("%.2f seconds left\n", float64(root.config.timelimit) - elapsed)
 			}
 		}
 		log.Printf("winrate: %.2f\n", root.wins / root.visits)
@@ -83,7 +83,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 		log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
 		if m != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
-			if *root.config.logpat {
+			if root.config.logpat {
 				log.Println("patterns:", patternLog)
 				for i := range patternLog {
 					patternLog[i] = 0
@@ -99,7 +99,7 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 	for {
 		cp := t.Copy()
 		root.step(cp, m, e)
-		if *root.config.gfx {
+		if root.config.gfx {
 			board := cp.Territory()
 			for v := 0; v < cp.Sqsize(); v++ {
 				if board[v] == Reverse(root.color) {
@@ -108,10 +108,10 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 			}
 			EmitGFX(root, cp)
 		}
-		if *root.config.timelimit != -1 {
+		if root.config.timelimit != -1 {
 			elapsed := time.Nanoseconds() - start
-			if uint64(elapsed) > uint64(*root.config.timelimit) * uint64(1e9) { break }
-		} else if root.visits >= float64(*root.config.maxPlayouts) {
+			if uint64(elapsed) > uint64(root.config.timelimit) * uint64(1e9) { break }
+		} else if root.visits >= float64(root.config.maxPlayouts) {
 			break
 		}
 	}
@@ -126,9 +126,9 @@ func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
 		path.Push(curr)
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
-		if curr.visits <= *root.config.expandAfter {
+		if curr.visits <= root.config.expandAfter {
 			var color byte
-			if *root.config.seedPlayouts {
+			if root.config.seedPlayouts {
 				color = curr.seedPlayout(t)
 			} else {
 				color = Reverse(curr.color)
@@ -179,16 +179,16 @@ func (node *Node) expand(t Tracker, e BoardEvaluator) {
 			} else {
 				child.wins = 1
 				child.visits = 1 + 0.01 * rand.Float64()
-				if *node.config.neighbors {
+				if node.config.neighbors {
 					granduncle := child.granduncle()
 					if granduncle != nil {
 						child.neighborVisits += granduncle.visits + granduncle.neighborVisits
 						child.neighborWins += granduncle.wins + granduncle.neighborWins
 					}
 				}
-				if *node.config.eval {
-					child.evalVisits += *node.config.k
-					child.evalWins += *node.config.k * e.Eval(Reverse(child.color), cp)
+				if node.config.eval {
+					child.evalVisits += node.config.k
+					child.evalWins += node.config.k * e.Eval(Reverse(child.color), cp)
 				}
 			}
 			child.recalc()
@@ -245,19 +245,19 @@ func (node *Node) recalc() {
 	if math.IsNaN(node.amafMean) { node.amafMean = 0 }
 	if math.IsNaN(node.neighborMean) { node.neighborMean = 0 }
 	if math.IsNaN(node.evalMean) { node.evalMean = 0 }
-	beta := math.Sqrt(*node.config.k / (3*node.visits + *node.config.k))
-	if !(*node.config.amaf || *node.config.neighbors || *node.config.eval) || *node.config.k == 0 || beta < 0 { beta = 0 }
+	beta := math.Sqrt(node.config.k / (3*node.visits + node.config.k))
+	if !(node.config.amaf || node.config.neighbors || node.config.eval) || node.config.k == 0 || beta < 0 { beta = 0 }
 	estimatedMean := 0.0
 	samples := 0.0
-	if *node.config.amaf {
+	if node.config.amaf {
 		estimatedMean += node.amafMean
 		samples++
 	}
-	if *node.config.neighbors {
+	if node.config.neighbors {
 		estimatedMean += node.neighborMean
 		samples++
 	}
-	if *node.config.eval {
+	if node.config.eval {
 		estimatedMean += node.evalMean
 		samples++
 	}
@@ -266,7 +266,7 @@ func (node *Node) recalc() {
 	node.blendedMean = beta * estimatedMean + (1 - beta) * node.mean
 	r := math.Log(node.parent.visits) / node.visits
 	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
-	node.value = node.blendedMean + *node.config.c * math.Sqrt(r * math.Fmin(0.25, v))
+	node.value = node.blendedMean + node.config.c * math.Sqrt(r * math.Fmin(0.25, v))
 }
 
 // return node's grandparent's sibling corrosponding to node's move
@@ -409,16 +409,20 @@ func TestPPS(config *Config) {
 	t := NewTracker(config)
 	playoutTime := int64(0)
 	start := time.Nanoseconds()
-	for i := 0; i < int(*config.maxPlayouts); i++ {
+	var elapsed int64
+	i := 0
+	for {
 		cp := t.Copy()
 		start1 := time.Nanoseconds()
 		cp.Playout(BLACK, matcher)
+		i++
 		end1 := time.Nanoseconds()
 		playoutTime += end1 - start1
+		elapsed = time.Nanoseconds() - start
+		if config.timelimit == -1 && i >= int(config.maxPlayouts) { break }
+		if config.timelimit != -1 && float64(elapsed) / 1e9 >= float64(config.timelimit) { break }
 	}
-	end := time.Nanoseconds()
-	elapsed := float64(end - start) / 1000000000.0
-	pps := float64(*config.maxPlayouts) / elapsed
-	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", *config.maxPlayouts, elapsed, pps)
-	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime) / float64(end - start))
+	pps := float64(i) / (float64(elapsed) / 1e9)
+	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", i, float64(elapsed) / 1e9, pps)
+	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime) / float64(elapsed))
 }
