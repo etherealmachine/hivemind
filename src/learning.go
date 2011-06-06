@@ -250,7 +250,7 @@ func (s *Swarm) ESStep() {
 		children[i].Fitness = 0
 	}
 	
-	eval := make(chan uint)
+	eval := make(chan uint, s.Lambda)
 	done := make(chan bool)
 	
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
@@ -258,8 +258,8 @@ func (s *Swarm) ESStep() {
 			for j := range eval {
 				for k := uint(0); k < s.Samples; k++ {
 					s.evaluate(children[j])
+					done <- true
 				}
-				done <- true
 			}
 		}(s)
 	}
