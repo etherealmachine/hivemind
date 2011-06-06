@@ -5,6 +5,7 @@ import (
 )
 
 type Config struct {
+
 	help bool
 	modeGTP bool
 

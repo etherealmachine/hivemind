@@ -141,14 +141,12 @@ func GTP(config *Config) {
 							root = NewRoot(color, t, config)
 						}
 						if config.useBook { vertex = book.Load(color, t) }
-						if vertex == -1 {
-							genmove(root, t)
-							if config.useBook { book.Save(root, t) }
-							if root == nil || root.Best() == nil {
-								vertex = -1
-							} else {
-								vertex = root.Best().vertex
-							}
+						genmove(root, t)
+						if config.useBook { book.Save(root, t) }
+						if root == nil || root.Best() == nil {
+							vertex = -1
+						} else {
+							vertex = root.Best().vertex
 						}
 					} else {
 						vertex = -1

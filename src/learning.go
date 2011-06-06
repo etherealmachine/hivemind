@@ -19,7 +19,7 @@ type Swarm struct {
 	Generations   uint
 	Particles     Particles
 	GBest *Particle
-	config Config
+	config *Config
 }
 
 func NewSwarm(config *Config) *Swarm {
@@ -44,7 +44,7 @@ func NewSwarm(config *Config) *Swarm {
 		panic("illegal argument to NewSwarm - p must be less than or equal to mu")
 	}
 	s := new(Swarm)
-	s.config = *config
+	s.config = config
 	s.Lambda = s.config.lambda
 	s.Mu = s.config.mu
 	s.P = s.config.parents
@@ -52,7 +52,7 @@ func NewSwarm(config *Config) *Swarm {
 	s.Generations = s.config.generations
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(min, max, vmax, stride, s.config)
+		s.Particles[i] = NewParticle(s, min, max, vmax, stride)
 	}
 	s.GBest = s.Particles[0].Copy()
 	return s
@@ -66,18 +66,18 @@ type Particle struct {
 	PBest		 *Particle
 	Fitness  float64
 	Stride	int
-	config Config
+	swarm *Swarm
 }
 
-func NewParticle(min, max, vMax float64, stride int, config Config) *Particle {
+func NewParticle(swarm *Swarm, min, max, vMax float64, stride int) *Particle {
 	p := new(Particle)
+	p.swarm = swarm
 	p.Strategy = rand.Float64() * 0.05
 	p.Position = make(map[uint32][]float64)
 	p.Min = min
 	p.Max = max
 	p.Velocity = make(map[uint32][]float64)
 	p.VMax = vMax
-	p.config = config
 	p.PBest = p.Copy()
 	p.Stride = stride
 	return p
@@ -91,7 +91,7 @@ func (p *Particle) Copy() *Particle {
 		cp.Position[i] = make([]float64, p.Stride)
 		copy(cp.Position[i], p.Position[i])
 	}
-	if p.config.pswarm {
+	if p.swarm.config.pswarm {
 		cp.Velocity = make(map[uint32][]float64)
 		for i := range p.Velocity {
 			cp.Velocity[i] = make([]float64, p.Stride)
@@ -103,7 +103,7 @@ func (p *Particle) Copy() *Particle {
 	cp.Max = p.Max
 	cp.VMax = p.VMax
 	cp.Stride = p.Stride
-	cp.config = p.config
+	cp.swarm = p.swarm
 	return cp
 }
 
@@ -167,7 +167,7 @@ func (p *Particle) Init(i uint32) {
 	for j := 0; j < p.Stride; j++ {
 		p.Position[i][j] = p.Min + (p.Max - p.Min) * rand.Float64()
 	}
-	if p.config.pswarm {
+	if p.swarm.config.pswarm {
 		p.Velocity[i] = make([]float64, p.Stride)
 		for j := 0; j < p.Stride; j++ {
 			p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
@@ -176,29 +176,32 @@ func (p *Particle) Init(i uint32) {
 }
 
 func (s *Swarm) evaluate(p *Particle) {
-	bc := &p.config
+	bc := *p.swarm.config
 	bc.pat = false
 	bc.matcher = nil
 	bc.eval = false
 	bc.evaluator = nil
-	wc := &p.config
-	t := NewTracker(&p.config)
+	wc := *p.swarm.config
+	if wc.eval && wc.pat { panic("evaluator and pattern matching are mutually exclusive") }
+	if wc.eval { wc.evaluator = p }
+	if wc.pat { wc.matcher = p }
+	t := NewTracker(p.swarm.config)
 	t.SetKomi(7.5)
 	move := 0
 	maxMoves := 2 * t.Sqsize()
 	var vertex int
 	for {
-		if move == 0 && p.config.hex {
-			vertex = p.config.size + 2
+		if move == 0 && p.swarm.config.hex {
+			vertex = p.swarm.config.size + 2
 		} else {
-			br := NewRoot(BLACK, t, bc)
+			br := NewRoot(BLACK, t, &bc)
 			genmove(br, t)
 			vertex = br.Best().vertex
 		}
 		t.Play(BLACK, vertex)
 		move++
 		if t.Winner() != EMPTY || move >= maxMoves { break }
-		wr := NewRoot(WHITE, t, wc)
+		wr := NewRoot(WHITE, t, &wc)
 		genmove(wr, t)
 		vertex = wr.Best().vertex
 		t.Play(WHITE, vertex)
@@ -335,7 +338,7 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	return a new particle that is the average of the given p particles
 */
 func (s *Swarm) recombine(parents Particles) (r *Particle) {
-	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride, parents[0].config)
+	r = NewParticle(parents[0].swarm, parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride)
 	superset := make(map[uint32]bool)
 	for i := range parents {
 		for j := range parents[i].Position {
@@ -441,18 +444,23 @@ func (s *Swarm) SaveSwarm(filename string) {
 	if err != nil { panic(err) }
 }
 
-func (s *Swarm) LoadSwarm(filename string) {
+func (s *Swarm) LoadSwarm(filename string, config *Config) {
 	f, err := os.Open(filename)
 	if err != nil { panic(err) }
 	defer func() { f.Close() }()
 	d := gob.NewDecoder(f)
 	err = d.Decode(s)
 	if err != nil { panic(err) }
+	s.config = config
+	for i := range s.Particles {
+		s.Particles[i].swarm = s
+	}
 }
 
-func LoadBest(filename string) *Particle {
+func LoadBest(filename string, config *Config) *Particle {
 	s := new(Swarm)
-	s.LoadSwarm(filename)
+	s.LoadSwarm(filename, config)
+	if s.Best() == nil { panic("swarm has no particles") }
 	return s.Best()
 }
 
@@ -460,17 +468,18 @@ func Train(config *Config) {
 	var s *Swarm
 	s = NewSwarm(config)
 	if config.file != "" {
-		s.LoadSwarm(config.file)
+		s.LoadSwarm(config.file, config)
 	}
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
 		if config.esswarm {
 			s.ESStep()
 		} else if config.pswarm {
-			s.PSStep();
+			s.PSStep()
 		}
 		s.Generation++
-		s.SaveSwarm(fmt.Sprintf(s.config.prefix+".%d.gob", s.Generation))
+		filename := fmt.Sprintf(s.config.prefix+".%d.gob", s.Generation)
+		s.SaveSwarm(filename)
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)

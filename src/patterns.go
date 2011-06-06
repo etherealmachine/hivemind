@@ -65,8 +65,8 @@ func (p *Particle) Match(color byte, v int, t Tracker) int {
 }
 
 func LoadPatternMatcher(config *Config) {
-	if config.pat {
-		particle := LoadBest(config.patFile)
+	if config.pat && config.patFile != "" {
+		particle := LoadBest(config.patFile, config)
 		/*
 		for i := range disabled {
 			pattern := particle.Position[disabled[i]]
