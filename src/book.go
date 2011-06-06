@@ -76,13 +76,13 @@ func MakeBook(config *Config) {
 	book := NewBook()
 	root := NewRoot(color, t, config)
 	cp := t.Copy()
-	genmove(root, cp, nil, nil)
+	genmove(root, cp)
 	book.Save(root, t)
 	for i := 0; i < t.Sqsize(); i++ {
 		cp := t.Copy()
 		cp.Play(color, i)
 		root = NewRoot(color, t, config)
-		genmove(root, cp, nil, nil)
+		genmove(root, cp)
 		book.Save(root, t)
 	}
 }

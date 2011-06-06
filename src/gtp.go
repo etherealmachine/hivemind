@@ -142,7 +142,7 @@ func GTP(config *Config) {
 						}
 						if config.useBook { vertex = book.Load(color, t) }
 						if vertex == -1 {
-							genmove(root, t, matcher, evaluator)
+							genmove(root, t)
 							if config.useBook { book.Save(root, t) }
 							if root == nil || root.Best() == nil {
 								vertex = -1
@@ -178,7 +178,7 @@ func GTP(config *Config) {
 			case "visits":
 				if !(config.hex && t.Winner() != EMPTY) {
 					tmpRoot := NewRoot(Reverse(color), t, config)
-					genmove(tmpRoot, t, matcher, evaluator)
+					genmove(tmpRoot, t)
 					res = VisitsBoard(tmpRoot, t)
 				} else {
 					res = ""
@@ -186,7 +186,7 @@ func GTP(config *Config) {
 			case "territory":
 				if !(config.hex && t.Winner() != EMPTY) {
 					tmpRoot := NewRoot(Reverse(color), t, config)
-					genmove(tmpRoot, t, matcher, evaluator)
+					genmove(tmpRoot, t)
 					res = TerritoryBoard(tmpRoot, t)
 				} else {
 					res = ""

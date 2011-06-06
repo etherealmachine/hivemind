@@ -64,7 +64,7 @@ func (p *Particle) Match(color byte, v int, t Tracker) int {
 	panic("pattern error, not a valid probability distribution")
 }
 
-func LoadPatternMatcher(config *Config) PatternMatcher {
+func LoadPatternMatcher(config *Config) {
 	if config.pat {
 		particle := LoadBest(config.patFile)
 		/*
@@ -75,9 +75,8 @@ func LoadPatternMatcher(config *Config) PatternMatcher {
 			}
 		}
 		*/
-		return particle
+		config.matcher = particle
 	}
-	return nil
 }	
 
 func init() {

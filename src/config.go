@@ -58,6 +58,9 @@ type Config struct {
 	logFile string
 
 	sgf string
+
+	matcher PatternMatcher
+	evaluator BoardEvaluator
 }
 
 func NewConfig() *Config {

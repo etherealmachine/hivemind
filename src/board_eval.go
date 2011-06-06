@@ -15,10 +15,9 @@ func (p *Particle) Eval(color byte, t Tracker) float64 {
 	return sum / (3 * float64(t.Sqsize()))
 }
 
-func LoadBoardEvaluator(config *Config) BoardEvaluator {
+func LoadBoardEvaluator(config *Config) {
 	if config.eval {
 		particle := LoadBest(config.evalFile)
-		return particle
+		config.evaluator = particle
 	}
-	return nil
 }	

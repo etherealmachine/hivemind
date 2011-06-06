@@ -27,8 +27,8 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
-	matcher = LoadPatternMatcher(config)
-	evaluator = LoadBoardEvaluator(config)
+	LoadPatternMatcher(config)
+	LoadBoardEvaluator(config)
 	if config.help {
 		flag.Usage()
 		os.Exit(0)
@@ -37,7 +37,7 @@ func main() {
 	} else if config.sgf != "" {
 		t, color := Load(config.sgf)
 		root := NewRoot(color, t, config)
-		genmove(root, t, matcher, evaluator)
+		genmove(root, t)
 		vertex := root.Best().vertex
 		t.Play(color, vertex)
 		fmt.Println(Ctoa(color), t.Vtoa(vertex))
@@ -47,7 +47,7 @@ func main() {
 	} else if config.test {
 		t := NewTracker(config)
 		root := NewRoot(BLACK, t, config)
-		genmove(root, t, matcher, evaluator)
+		genmove(root, t)
 		fmt.Println(t.Vtoa(root.Best().vertex))
 	} else if config.testPPS {
 		log.Println("Go:")

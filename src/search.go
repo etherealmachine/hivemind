@@ -45,7 +45,7 @@ func NewNode(parent *Node, color byte, vertex int) *Node {
 }
 
 // step through the tree for some number of playouts
-func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
+func genmove(root *Node, t Tracker) {
 	if root.config.stats { log.Printf("kept %.0f visits\n", root.visits) }
 	root.wins = 0
 	root.visits = 0
@@ -54,7 +54,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 	}
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
-	treeSearch(root, t, m, e)
+	treeSearch(root, t)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
 	if root.config.stats {
 		pps := float64(root.visits) / elapsed
@@ -81,7 +81,7 @@ func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 		log.Printf("max depth: %d\n", root.maxdepth())
 		seeds, totalseeds := root.seedstats()
 		log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
-		if m != nil {
+		if root.config.matcher != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if root.config.logpat {
 				log.Println("patterns:", patternLog)
@@ -94,11 +94,11 @@ func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 	}
 }
 
-func treeSearch(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
+func treeSearch(root *Node, t Tracker) {
 	start := time.Nanoseconds()
 	for {
 		cp := t.Copy()
-		root.step(cp, m, e)
+		root.step(cp)
 		if root.config.gfx {
 			board := cp.Territory()
 			for v := 0; v < cp.Sqsize(); v++ {
@@ -118,9 +118,9 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 }
 
 // navigate through the tree until a leaf node is found to playout
-func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
+func (root *Node) step(t Tracker) {
 	path := new(vector.Vector)
-	curr := root.Next(root, t, e)
+	curr := root.Next(root, t)
 	if curr == nil { root.visits = math.Inf(1); return }
 	for {
 		path.Push(curr)
@@ -133,10 +133,10 @@ func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
 			} else {
 				color = Reverse(curr.color)
 			}
-			t.Playout(color, m)
+			t.Playout(color, root.config.matcher)
 			break
 		}
-		next := curr.Next(root, t, e)
+		next := curr.Next(root, t)
 		curr = next
 		if curr == nil { break }
 	}
@@ -148,7 +148,7 @@ func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
 		result = 1.0
 	}
 	for j := 0; j < path.Len(); j++ {
-		path.At(j).(*Node).update(result, t, e)
+		path.At(j).(*Node).update(result, t)
 		result = 1 - result
 	}
 	if winner == Reverse(root.color) {
@@ -159,7 +159,7 @@ func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
 }
 
 // add all legal children to node
-func (node *Node) expand(t Tracker, e BoardEvaluator) {
+func (node *Node) expand(t Tracker) {
 	color := Reverse(node.color)
 	for i := 0; i < t.Sqsize(); i++ {
 		if t.Legal(color, i) {
@@ -188,7 +188,7 @@ func (node *Node) expand(t Tracker, e BoardEvaluator) {
 				}
 				if node.config.eval {
 					child.evalVisits += node.config.k
-					child.evalWins += node.config.k * e.Eval(Reverse(child.color), cp)
+					child.evalWins += node.config.k * node.config.evaluator.Eval(Reverse(child.color), cp)
 				}
 			}
 			child.recalc()
@@ -197,9 +197,9 @@ func (node *Node) expand(t Tracker, e BoardEvaluator) {
 }
 
 // select the next node in the tree to navigate to from this node's children
-func (node *Node) Next(root *Node, t Tracker, e BoardEvaluator) *Node {
+func (node *Node) Next(root *Node, t Tracker) *Node {
 	if node.child == nil {
-		node.expand(t, e)
+		node.expand(t)
 	}
 	var best *Node
 	for child := node.child; child != nil; child = child.sibling {
@@ -221,7 +221,7 @@ func (node *Node) Best() *Node {
 	return best
 }
 
-func (node *Node) update(result float64, t Tracker, e BoardEvaluator) {
+func (node *Node) update(result float64, t Tracker) {
 	node.wins += result
 	node.visits++
 	node.recalc()
