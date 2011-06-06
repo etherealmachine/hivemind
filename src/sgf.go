@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
-	"bufio"
+	//"os"
+	//"bufio"
 	//"fmt"
 )
 
@@ -37,7 +37,7 @@ func (p *Property) String() string {
 }
 
 func Load(filename string) (Tracker, byte) {
-	t := NewTracker(*size)
+	/*
 	file, _ := os.Open(filename)
 	defer func() { file.Close() }()
 	reader := bufio.NewReader(file)
@@ -47,6 +47,7 @@ func Load(filename string) (Tracker, byte) {
 	reader.ReadString(';')
 	// throw out first node
 	reader.ReadString(';')
+	t := NewTracker(size)
 	more := true
 	var color byte
 	for more {
@@ -61,11 +62,13 @@ func Load(filename string) (Tracker, byte) {
 			color = Atoc(string(s[0]))
 			row := s[2] - 97
 			col := s[3] - 97
-			vertex := int(col*uint8(*size) + row)
+			vertex := int(col*uint8(size) + row)
 			t.Play(color, vertex)
 		}
 	}
 	return t, Reverse(color)
+	*/
+	return nil, EMPTY
 }
 
 func SGFMove(color byte, vertex int, size int) (s string) {

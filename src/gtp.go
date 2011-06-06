@@ -25,8 +25,7 @@ showboard
 time_settings
 time_left
 gogui-analyze_commands`
-var gogui_commands = `bwboard/Occupied Points/occupied
-dboard/Visits/visits
+var gogui_commands = `dboard/Visits/visits
 cboard/Territory/territory
 cboard/Legal/legal`
 
@@ -44,7 +43,7 @@ func known_command(command_name string) string {
 	return "false"
 }
 
-func set_timelimit(timeleft int) uint {
+func set_timelimit(timeleft int) int {
 	if timeleft < 15 {
 		return 0
 	}	else if timeleft < 30 {
@@ -54,10 +53,10 @@ func set_timelimit(timeleft int) uint {
 	} else if timeleft < 120 {
 		return 4
 	}
-	return *timelimit
+	return -1
 }
 
-func GTP() {
+func GTP(config *Config) {
 	var boardsize int
 	var t Tracker
 	var root *Node
@@ -67,6 +66,7 @@ func GTP() {
 	time_left_color := EMPTY
 	time_left_time := -1
 	passcount := 0
+	movecount := 0
 	r := bufio.NewReader(os.Stdin)
 	for {
 		s, err := r.ReadString('\n')
@@ -96,15 +96,12 @@ func GTP() {
 					res = fmt.Sprintf("Could not convert %s to integer", cmds[1])
 					fail = true
 				}
-				if *hex {
-					t = NewTracker(boardsize)
-					color = WHITE
-					passcount = 0
-				}
+				*config.size = boardsize
 			case "clear_board":
-				t = NewTracker(boardsize)
+				t = NewTracker(config)
 				color = WHITE
 				passcount = 0
+				movecount = 0
 			case "komi":
 				new_komi, err := strconv.Atof64(cmds[1])
 				if err != nil {
@@ -118,9 +115,10 @@ func GTP() {
 					res = "missing argument"
 				} else {
 					color = Atoc(cmds[1])
-					vertex := Atov(cmds[2], t.Boardsize())
+					vertex := t.Atov(cmds[2])
 					t.Play(color, vertex)
-					log.Print(Bwboard(t.Board(), t.Boardsize(), true))
+					movecount++
+					t.String()
 					if vertex == -1 { passcount++ }
 					if root != nil {
 						root = root.Play(color, vertex, t)
@@ -129,21 +127,23 @@ func GTP() {
 			case "genmove":
 				if len(cmds) != 2 {
 					res = "missing argument"
-				} else if *cgo && passcount >= 3 {
-					res = Vtoa(-1, t.Boardsize())
+				} else if *config.cgo && passcount >= 3 {
+					res = t.Vtoa(-1)
 				} else {
-					saved_timelimit := *timelimit
+					saved_timelimit := *config.timelimit
 					color = Atoc(cmds[1])
-					if color == time_left_color { *timelimit = set_timelimit(time_left_time) }
+					if time_left_time != -1 && color == time_left_color { *config.timelimit = set_timelimit(time_left_time) }
 					var vertex int
-					if *timelimit > 0 && !(*hex && t.Winner() != EMPTY) {
+					if *config.hex && color == BLACK && *config.swapsafe && movecount == 0 {
+						vertex = t.Boardsize() + 2
+					} else if *config.timelimit != 0 && t.Winner() == EMPTY {
 						if root == nil {
-							root = NewRoot(color, t)
+							root = NewRoot(color, t, config)
 						}
-						vertex = book.Load(color, t)
+						if *config.useBook { vertex = book.Load(color, t) }
 						if vertex == -1 {
-							genmove(root, t, matcher)
-							book.Save(root, t)
+							genmove(root, t, matcher, evaluator)
+							if *config.useBook { book.Save(root, t) }
 							if root == nil || root.Best() == nil {
 								vertex = -1
 							} else {
@@ -154,19 +154,20 @@ func GTP() {
 						vertex = -1
 					}
 					t.Play(color, vertex)
-					if *verbose {
+					movecount++
+					if *config.verbose {
 						t.Verify()
 					}
-					log.Print(Bwboard(t.Board(), t.Boardsize(), true))
+					log.Print(t.String())
 					if root != nil {
 						root = root.Play(color, vertex, t)
 					}
-					if vertex == -1 && *hex && t.Winner() == Reverse(color) {
+					if vertex == -1 && *config.hex && t.Winner() == Reverse(color) {
 						res = "resign"
 					} else {
-						res = Vtoa(vertex, t.Boardsize())
+						res = t.Vtoa(vertex)
 					}
-					*timelimit = saved_timelimit
+					*config.timelimit = saved_timelimit
 				}
 			case "final_score":
 				res = FormatScore(t)
@@ -174,20 +175,18 @@ func GTP() {
 				res = ""
 			case "gogui-analyze_commands":
 				res = gogui_commands
-			case "occupied":
-				res = Bwboard(t.Board(), t.Boardsize(), false)
 			case "visits":
-				if !(*hex && t.Winner() != EMPTY) {
-					tmpRoot := NewRoot(Reverse(color), t)
-					genmove(tmpRoot, t, matcher)
+				if !(*config.hex && t.Winner() != EMPTY) {
+					tmpRoot := NewRoot(Reverse(color), t, config)
+					genmove(tmpRoot, t, matcher, evaluator)
 					res = VisitsBoard(tmpRoot, t)
 				} else {
 					res = ""
 				}
 			case "territory":
-				if !(*hex && t.Winner() != EMPTY) {
-					tmpRoot := NewRoot(Reverse(color), t)
-					genmove(tmpRoot, t, matcher)
+				if !(*config.hex && t.Winner() != EMPTY) {
+					tmpRoot := NewRoot(Reverse(color), t, config)
+					genmove(tmpRoot, t, matcher, evaluator)
 					res = TerritoryBoard(tmpRoot, t)
 				} else {
 					res = ""

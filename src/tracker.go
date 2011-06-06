@@ -35,15 +35,18 @@ type Tracker interface {
 	Board() []byte
 	Territory() []byte
 	Verify()
-	Neighbors(vertex int) []int
+	Neighbors(vertex int, size int) []int
 	Adj(vertex int) []int
+	String() string
+	Vtoa(vertex int) string
+	Atov(s string) int
 }
 
-func NewTracker(boardsize int) Tracker {
-	if *cgo {
-		return NewGoTracker(boardsize)
-	} else if *hex {
-		return NewHexTracker(boardsize)
+func NewTracker(config *Config) Tracker {
+	if *config.cgo {
+		return NewGoTracker(*config.size)
+	} else if *config.hex {
+		return NewHexTracker(*config.size)
 	}
 	return nil
 }

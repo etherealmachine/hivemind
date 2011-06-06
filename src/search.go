@@ -14,20 +14,24 @@ type Node struct {
 	child *Node
 	last *Node
 	sibling *Node
-	wins, visits, mean, UCB float64
+	wins, visits, mean float64
 	amafWins, amafVisits, amafMean float64
 	neighborWins, neighborVisits, neighborMean float64
+	evalWins, evalVisits, evalMean float64
 	blendedMean float64
+	value float64
 	color byte
 	vertex int
 	territory []float64
 	seeds, totalseeds int
+	config *Config
 }
 
-func NewRoot(color byte, t Tracker) *Node {
+func NewRoot(color byte, t Tracker, config *Config) *Node {
 	node := new(Node)
 	node.color = Reverse(color)
 	node.vertex = -1
+	node.config = config
 	return node
 }
 
@@ -36,29 +40,30 @@ func NewNode(parent *Node, color byte, vertex int) *Node {
 	node.parent = parent
 	node.color = color
 	node.vertex = vertex
+	node.config = parent.config
 	return node
 }
 
 // step through the tree for some number of playouts
-func genmove(root *Node, t Tracker, m PatternMatcher) {
-	if *stats { log.Printf("kept %.0f visits\n", root.visits) }
+func genmove(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
+	if *root.config.stats { log.Printf("kept %.0f visits\n", root.visits) }
 	root.wins = 0
 	root.visits = 0
-	if *hex && t.Winner() != EMPTY {
-		root.child = nil
+	if t.Winner() != EMPTY {
+		return
 	}
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
-	treeSearch(root, t, m)
+	treeSearch(root, t, m, e)
 	elapsed := float64(time.Nanoseconds() - start) / 1e9
-	if *stats {
+	if *root.config.stats {
 		pps := float64(root.visits) / elapsed
 		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.visits, elapsed, pps)
-		if *timelimit > 0 {
-			if elapsed > float64(*timelimit) {
-				log.Printf("%.2f seconds overtime\n", elapsed - float64(*timelimit))
+		if *root.config.timelimit > 0 {
+			if elapsed > float64(*root.config.timelimit) {
+				log.Printf("%.2f seconds overtime\n", elapsed - float64(*root.config.timelimit))
 			} else {
-				log.Printf("%.2f seconds left\n", float64(*timelimit) - elapsed)
+				log.Printf("%.2f seconds left\n", float64(*root.config.timelimit) - elapsed)
 			}
 		}
 		log.Printf("winrate: %.2f\n", root.wins / root.visits)
@@ -78,9 +83,9 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 		log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
 		if m != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
-			if *logpat {
+			if *root.config.logpat {
 				log.Println("patterns:", patternLog)
-				for i := 0; i < len(patternLog); i++ {
+				for i := range patternLog {
 					patternLog[i] = 0
 				}
 			}
@@ -89,12 +94,12 @@ func genmove(root *Node, t Tracker, m PatternMatcher) {
 	}
 }
 
-func treeSearch(root *Node, t Tracker, m PatternMatcher) {
+func treeSearch(root *Node, t Tracker, m PatternMatcher, e BoardEvaluator) {
 	start := time.Nanoseconds()
 	for {
 		cp := t.Copy()
-		root.step(cp, m)
-		if *gfx {
+		root.step(cp, m, e)
+		if *root.config.gfx {
 			board := cp.Territory()
 			for v := 0; v < cp.Sqsize(); v++ {
 				if board[v] == Reverse(root.color) {
@@ -103,27 +108,27 @@ func treeSearch(root *Node, t Tracker, m PatternMatcher) {
 			}
 			EmitGFX(root, cp)
 		}
-		if *timelimit != 0 {
+		if *root.config.timelimit != -1 {
 			elapsed := time.Nanoseconds() - start
-			if uint64(elapsed) > uint64(*timelimit) * uint64(1e9) { break }
-		} else if root.visits >= float64(*maxPlayouts) {
+			if uint64(elapsed) > uint64(*root.config.timelimit) * uint64(1e9) { break }
+		} else if root.visits >= float64(*root.config.maxPlayouts) {
 			break
 		}
 	}
 }
 
 // navigate through the tree until a leaf node is found to playout
-func (root *Node) step(t Tracker, m PatternMatcher) {
+func (root *Node) step(t Tracker, m PatternMatcher, e BoardEvaluator) {
 	path := new(vector.Vector)
-	curr := root.Next(root, t)
+	curr := root.Next(root, t, e)
 	if curr == nil { root.visits = math.Inf(1); return }
 	for {
 		path.Push(curr)
 		// apply node's position to the board
 		t.Play(curr.color, curr.vertex)
-		if curr.visits <= *expandAfter {
+		if curr.visits <= *root.config.expandAfter {
 			var color byte
-			if *seedPlayouts {
+			if *root.config.seedPlayouts {
 				color = curr.seedPlayout(t)
 			} else {
 				color = Reverse(curr.color)
@@ -131,7 +136,7 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 			t.Playout(color, m)
 			break
 		}
-		next := curr.Next(root, t)
+		next := curr.Next(root, t, e)
 		curr = next
 		if curr == nil { break }
 	}
@@ -143,7 +148,7 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 		result = 1.0
 	}
 	for j := 0; j < path.Len(); j++ {
-		path.At(j).(*Node).update(result, t)
+		path.At(j).(*Node).update(result, t, e)
 		result = 1 - result
 	}
 	if winner == Reverse(root.color) {
@@ -154,7 +159,7 @@ func (root *Node) step(t Tracker, m PatternMatcher) {
 }
 
 // add all legal children to node
-func (node *Node) expand(t Tracker) {
+func (node *Node) expand(t Tracker, e BoardEvaluator) {
 	color := Reverse(node.color)
 	for i := 0; i < t.Sqsize(); i++ {
 		if t.Legal(color, i) {
@@ -165,33 +170,41 @@ func (node *Node) expand(t Tracker) {
 				node.last.sibling = child
 			}
 			node.last = child
+			cp := t.Copy()
+			cp.Play(child.color, child.vertex)
+			if cp.Winner() != EMPTY {
+				child.visits = math.Inf(1)
+				child.wins = 0
+				if cp.Winner() == child.color { child.wins = math.Inf(1) }
+			} else {
+				child.wins = 1
+				child.visits = 1 + 0.01 * rand.Float64()
+				if *node.config.neighbors {
+					granduncle := child.granduncle()
+					if granduncle != nil {
+						child.neighborVisits += granduncle.visits + granduncle.neighborVisits
+						child.neighborWins += granduncle.wins + granduncle.neighborWins
+					}
+				}
+				if *node.config.eval {
+					child.evalVisits += *node.config.k
+					child.evalWins += *node.config.k * e.Eval(Reverse(child.color), cp)
+				}
+			}
+			child.recalc()
 		}
 	}
 }
 
 // select the next node in the tree to navigate to from this node's children
-func (node *Node) Next(root *Node, t Tracker) *Node {
+func (node *Node) Next(root *Node, t Tracker, e BoardEvaluator) *Node {
 	if node.child == nil {
-		node.expand(t)
+		node.expand(t, e)
 	}
-	bestValue := math.Inf(-1)
 	var best *Node
 	for child := node.child; child != nil; child = child.sibling {
-		var value float64
-		if child.visits > 0 {
-			value = child.UCB
-		} else {
-			granduncle := child.granduncle()
-			if granduncle != nil {
-				value = granduncle.UCB
-			} else {
-				value = 1
-			}
-			value += 0.01 * rand.Float64()
-		}
-		if value > bestValue {
+		if best == nil || child.value > best.value {
 			best = child
-			bestValue = value
 		}
 	}
 	return best
@@ -204,37 +217,56 @@ func (node *Node) Best() *Node {
 			best = child
 		}
 	}
+	if best == nil { node.vertex = -1; return node }
 	return best
 }
 
-func (node *Node) update(result float64, t Tracker) {
+func (node *Node) update(result float64, t Tracker, e BoardEvaluator) {
 	node.wins += result
 	node.visits++
-	node.mean = node.wins / node.visits
+	node.recalc()
 	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
 		sibling.neighborWins += result
 		sibling.neighborVisits++
-		sibling.neighborMean = sibling.neighborWins / sibling.neighborVisits
 		if t.WasPlayed(sibling.color, sibling.vertex) {
 			sibling.amafWins += result
 			sibling.amafVisits++
-			sibling.amafMean = sibling.amafWins / sibling.amafVisits
 		}
+		sibling.recalc()
 	}
-	beta := math.Sqrt(*k / (3*node.visits + *k))
-	if *k == 0 || beta < 0 { beta = 0 }
-	if *amaf && *neighbors {
-		node.blendedMean = (beta * 0.5 * (node.amafMean + node.neighborMean) + (1 - beta) * node.mean)
-	} else if *amaf {
-		node.blendedMean = (beta * node.amafMean + (1 - beta) * node.mean)
-	} else if *neighbors {
-		node.blendedMean = (beta * node.neighborMean + (1 - beta) * node.mean)
-	} else {
-		node.blendedMean = node.mean
+}
+
+func (node *Node) recalc() {
+	node.mean = node.wins / node.visits
+	node.amafMean = node.amafWins / node.amafVisits
+	node.neighborMean = node.neighborWins / node.neighborVisits
+	node.evalMean = node.evalWins / node.evalVisits
+	if math.IsNaN(node.mean) { node.mean = 0 }
+	if math.IsNaN(node.amafMean) { node.amafMean = 0 }
+	if math.IsNaN(node.neighborMean) { node.neighborMean = 0 }
+	if math.IsNaN(node.evalMean) { node.evalMean = 0 }
+	beta := math.Sqrt(*node.config.k / (3*node.visits + *node.config.k))
+	if !(*node.config.amaf || *node.config.neighbors || *node.config.eval) || *node.config.k == 0 || beta < 0 { beta = 0 }
+	estimatedMean := 0.0
+	samples := 0.0
+	if *node.config.amaf {
+		estimatedMean += node.amafMean
+		samples++
 	}
+	if *node.config.neighbors {
+		estimatedMean += node.neighborMean
+		samples++
+	}
+	if *node.config.eval {
+		estimatedMean += node.evalMean
+		samples++
+	}
+	estimatedMean /= samples
+	if math.IsNaN(estimatedMean) { estimatedMean = 0 }
+	node.blendedMean = beta * estimatedMean + (1 - beta) * node.mean
 	r := math.Log(node.parent.visits) / node.visits
 	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
-	node.UCB = node.blendedMean + *c * math.Sqrt(r * math.Fmin(0.25, v))
+	node.value = node.blendedMean + *node.config.c * math.Sqrt(r * math.Fmin(0.25, v))
 }
 
 // return node's grandparent's sibling corrosponding to node's move
@@ -300,8 +332,8 @@ func (node *Node) seed(t Tracker, path []int) bool {
 				continue
 			}
 		}
-		dist.Push(sibling.UCB)
-		sum += sibling.UCB
+		dist.Push(sibling.blendedMean)
+		sum += sibling.blendedMean
 	}
 	node.totalseeds++
 	r := rand.Float64() * sum
@@ -363,9 +395,9 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 	for child := node.child; child != nil; child = child.sibling {
 		if child.color == color && child.vertex == vertex {
 			log.Print(fmt.Sprintf("predicted: %s%s(%.0f)",
-				Ctoa(best.color), Vtoa(best.vertex, t.Boardsize()), best.visits))
+				Ctoa(best.color), t.Vtoa(best.vertex), best.visits))
 			log.Print(fmt.Sprintf("actual:    %s%s(%.0f)",
-				Ctoa(child.color), Vtoa(child.vertex, t.Boardsize()), child.visits))
+				Ctoa(child.color), t.Vtoa(child.vertex), child.visits))
 			child.parent = nil
 			return child
 		}
@@ -373,10 +405,11 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 	return nil
 }
 
-func TestPPS(t Tracker) {
+func TestPPS(config *Config) {
+	t := NewTracker(config)
 	playoutTime := int64(0)
 	start := time.Nanoseconds()
-	for i := 0; i < int(*maxPlayouts); i++ {
+	for i := 0; i < int(*config.maxPlayouts); i++ {
 		cp := t.Copy()
 		start1 := time.Nanoseconds()
 		cp.Playout(BLACK, matcher)
@@ -385,7 +418,7 @@ func TestPPS(t Tracker) {
 	}
 	end := time.Nanoseconds()
 	elapsed := float64(end - start) / 1000000000.0
-	pps := float64(*maxPlayouts) / elapsed
-	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", *maxPlayouts, elapsed, pps)
+	pps := float64(*config.maxPlayouts) / elapsed
+	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", *config.maxPlayouts, elapsed, pps)
 	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime) / float64(end - start))
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"strings"
 	"fmt"
-	"strconv"
 	"os"
 	"time"
 	"math"
@@ -19,40 +18,6 @@ const (
 	LEGAL_WHITE = byte(6)
 	LEGAL_BOTH = byte(7)
 )
-
-// convert a string to a vertex
-func Atov(s string, boardsize int) int {
-	if s == "PASS" || s == "pass" {
-		return -1
-	}
-	// pull apart into alpha and int pair
-	col := byte(strings.ToUpper(s)[0])
-	row, err := strconv.Atoi(s[1:len(s)])
-	if *cgo {
-		row = boardsize - row
-	} else {
-		row--
-	}
-	if col >= 'I' { col-- }
-	if err != nil {
-		panic("Failed to convert string to vertex")
-	}
-	return row * boardsize + int(col - 'A')
-}
-
-// convert a vertex to a string
-func Vtoa(v int, boardsize int) string {
-	if v == -1 { return "PASS" }
-	alpha, num := v % boardsize, v / boardsize
-	if *cgo {
-		num = boardsize - num
-	} else {
-		num++
-	}
-	alpha = alpha + 'A'
-	if alpha >= 'I' { alpha++ }
-	return fmt.Sprintf("%s%d", string(alpha), num)
-}
 
 // convert a string to a color
 func Atoc(s string) (c byte) {
@@ -100,166 +65,6 @@ func Reverse(c byte) byte {
 			return EMPTY
 	}
 	return EMPTY
-}
-
-func Bwboard(board []byte, boardsize int, label bool) string {
-	if *hex {
-		return Bwhexboard(board, boardsize, label)
-	} else {
-		return Bwgoboard(board, boardsize, label)
-	}
-	return ""
-}
-
-// puts the internal board representation into a string using "b", "w", and "."
-// newlines seperate rows
-func Bwgoboard(board []byte, boardsize int, label bool) (s string) {
-	if label {
-		s += "  "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' { alpha++ }
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-		s += "\n"
-	}
-	for row := 0; row < boardsize; row++ {
-		if label {
-			s += fmt.Sprintf("%d ", boardsize - row)
-		}
-		for col := 0; col < boardsize; col++ {
-			v := row * boardsize + col
-			s += Ctoa(board[v])
-			if col != boardsize - 1 {
-				s += " "
-			}
-		}
-		if label {
-			s += fmt.Sprintf(" %d", boardsize - row)
-		}
-		if row != boardsize - 1 {
-			s += "\n"
-		}
-	}
-	if label {
-		s += "\n  "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' { alpha++ }
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-	}
-	return
-}
-
-// puts the internal board representation into a string using "b", "w", and "."
-// newlines seperate rows
-func Bwhexboard(board []byte, boardsize int, label bool) (s string) {
-	if label {
-		s += " "
-		if boardsize > 9 { s += " " }
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' { alpha++ }
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-		s += "\n"
-	}
-	for row := 0; row < boardsize; row++ {
-		if label {
-			for i := 0; i < row; i++ {
-				s += " "
-			}
-			s += fmt.Sprintf("%2.d ", row+1)
-		}
-		for col := 0; col < boardsize; col++ {
-			v := row * boardsize + col
-			s += Ctoa(board[v])
-			if col != boardsize - 1 {
-				s += " "
-			}
-		}
-		if label {
-			s += fmt.Sprintf(" %2.d", row+1)
-		}
-		if row != boardsize - 1 {
-			s += "\n"
-		}
-	}
-	if label {
-		s += "\n  "
-		if boardsize > 9 { s += " " }
-		for i := 0; i < boardsize; i++ {
-			s += " "
-		}
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' { alpha++ }
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-	}
-	return
-}
-
-func Fboard(board []float64, boardsize int, label bool) (s string) {
-	if label {
-		s += "  "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-		s += "\n"
-	}
-	for row := 0; row < boardsize; row++ {
-		if label {
-			s += fmt.Sprintf("%d ", boardsize - row)
-		}
-		for col := 0; col < boardsize; col++ {
-			v := row * boardsize + col
-			s += fmt.Sprintf("%f", board[v])
-			if col != boardsize - 1 {
-				s += " "
-			}
-		}
-		if label {
-			s += fmt.Sprintf(" %d", boardsize - row)
-		}
-		if row != boardsize - 1 {
-			s += "\n"
-		}
-	}
-	if label {
-		s += "\n  "
-		for col := 0; col < boardsize; col++ {
-			alpha := col + 'A'
-			if alpha >= 'I' {
-				alpha = alpha + 1
-			}
-			s += string(alpha)
-			if col != boardsize - 1 {
-					s += " "
-			}
-		}
-	}
-	return
 }
 
 func VisitsBoard(root *Node, t Tracker) (s string) {
@@ -341,19 +146,19 @@ func LegalBoard(t Tracker) (s string) {
 	return
 }
 
-func TreeToString(depth int, node *Node, t Tracker) (s string) {
+func TreeToString(depth int, node *Node, t Tracker, config *Config) (s string) {
 	if node.visits == 0 && node.amafVisits == 0 { return "" }
 	for i := 0; i < depth; i++ {
 		s += "  "
 	}
 	s += fmt.Sprintf("%s%s UCT: (%5.2f %5.2f %6.0f) AMAF: (%5.2f %6.0f)\n",
-						Ctoa(node.color), Vtoa(node.vertex, t.Boardsize()),
-						node.mean, node.mean + node.UCB, node.visits,
+						Ctoa(node.color), t.Vtoa(node.vertex),
+						node.mean, node.value, node.visits,
 						node.amafMean, node.amafVisits)
 	if node.child != nil {
 		for child := node.child; child != nil; child = child.sibling {
 			if child.visits > 0 {
-				s += TreeToString(depth + 1, child, t)
+				s += TreeToString(depth + 1, child, t, config)
 			}
 		}
 	}
@@ -363,7 +168,6 @@ func TreeToString(depth int, node *Node, t Tracker) (s string) {
 var lastEmitTime int64;
 
 func EmitGFX(root *Node, t Tracker) {
-	if !*modeGTP { return }
 	if time.Nanoseconds() - lastEmitTime < 400000000 { return }
 	fmt.Fprintln(os.Stderr, "gogui-gfx:")
 	
@@ -372,7 +176,7 @@ func EmitGFX(root *Node, t Tracker) {
 		red := uint32(0)
 		green := uint32(r * 255)
 		blue := uint32((1 - r) * 255)
-		fmt.Fprintf(os.Stderr, "COLOR 0x%02.x%02.x%02.x %s\n", red, green, blue, Vtoa(v, t.Boardsize()))
+		fmt.Fprintf(os.Stderr, "COLOR 0x%02.x%02.x%02.x %s\n", red, green, blue, t.Vtoa(v))
 	}
 	
 	maxValue := 0.0
@@ -389,7 +193,7 @@ func EmitGFX(root *Node, t Tracker) {
 		for child := root.child; child != nil; child = child.sibling {
 			if child.vertex == v { value = child.visits }
 		}
-		influenceString += Vtoa(v, t.Boardsize())
+		influenceString += t.Vtoa(v)
 		influenceString += fmt.Sprintf(" %.2f ", -value / maxValue)
 	}
 	fmtString := "INFLUENCE %s\n"

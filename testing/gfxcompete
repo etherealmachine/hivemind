@@ -1,8 +1,8 @@
 #!/bin/bash
 if [[ -z $1 ]]; then
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 10 -c 0.5 -e 50 -k 1000 -log gogo.log -amaf"
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 10 -c 0.5 -e 2 -k 1000 -log gogo.log -amaf -neighbors -seed"
 else 
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 10 -c 0.5 -e 1 -k 1000 -log gogo.log -tenuki -file $1 -amaf -neighbors"
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 10 -c 0.5 -e 2 -k 1000 -log gogo.log -amaf -neighbors -seed -tenuki -pat -pfile $1"
 fi
 WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 10"
 gogui-twogtp \

@@ -8,7 +8,7 @@ import (
 var queries int
 var matches int
 
-var patternLog []int
+var patternLog map[uint32]int
 
 type PatternMatcher interface {
 	Match(color byte, vertex int, t Tracker) int
@@ -28,12 +28,12 @@ func (m *ColorDuplexingMatcher) Match(color byte, v int, t Tracker) int {
 	panic("can't duplex onto empty")
 }
 
-func (m *Particle) Match(color byte, v int, t Tracker) int {
+func (p *Particle) Match(color byte, v int, t Tracker) int {
 	queries++
-	s := t.Boardsize()
 	b := t.Board()
-	neighbors := t.Neighbors(v)
-	i, pat := m.Get(b, neighbors)
+	neighbors := t.Neighbors(v, 2)
+	i := HashVertices(b, neighbors, 10)
+	pat := p.Get(i)
 	patternLog[i]++
 	for i := 0; i < len(neighbors); i++ {
 		if neighbors[i] == -1 || b[neighbors[i]] != EMPTY || !t.Legal(color, neighbors[i]) {
@@ -58,26 +58,28 @@ func (m *Particle) Match(color byte, v int, t Tracker) int {
 			return neighbors[i]
 		}
 	}
-	log.Println(Vtoa(v, s))
-	log.Println(Bwboard(b, s, true))
+	log.Println(t.Vtoa(v))
+	log.Println(t.String())
 	log.Println(pat)
 	panic("pattern error, not a valid probability distribution")
 }
 
-func LoadPatternMatcher(filename string, disabled []int) PatternMatcher {
-	if *pat {
-		particle := LoadBest(filename)
+func LoadPatternMatcher(config *Config) PatternMatcher {
+	if *config.pat {
+		particle := LoadBest(*config.patFile)
+		/*
 		for i := range disabled {
 			pattern := particle.Position[disabled[i]]
 			for j := range pattern {
 				pattern[j] = 0.0
 			}
 		}
+		*/
 		return particle
 	}
 	return nil
 }	
 
 func init() {
-	patternLog = make([]int, 16384)
+	patternLog = make(map[uint32]int)
 }

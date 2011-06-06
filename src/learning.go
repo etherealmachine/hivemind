@@ -18,24 +18,39 @@ type Swarm struct {
 	Generations   uint
 	Particles     Particles
 	GBest					*Particle
+	Config				*Config
 }
 
-func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, stride int) *Swarm {
+func NewSwarm(config *Config) *Swarm {
+	var stride int
+	var min, max, vmax float64
+	if *config.pat {
+		stride = len(NewTracker(config).Neighbors(0, 2))
+		if *config.tenuki { stride++ }
+		min = 0.01
+		max = 100
+		vmax = 20
+	} else if *config.eval {
+		stride = 1
+		min = 0
+		max = 1
+		vmax = 0.5
+	}
 	s := new(Swarm)
-	s.Lambda = lambda
-	s.Mu = mu
-	s.P = p
-	if mu >= lambda {
+	s.Lambda = *config.lambda
+	s.Mu = *config.mu
+	s.P = *config.parents
+	if *config.mu >= *config.lambda {
 		panic("illegal argument to NewSwarm - mu must be less than lambda")
 	}
-	if p > mu {
+	if *config.parents > *config.mu {
 		panic("illegal argument to NewSwarm - p must be less than or equal to mu")
 	}
-	s.Samples = samples
-	s.Generations = generations
+	s.Samples = *config.samples
+	s.Generations = *config.generations
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(min, max, vMax, stride)
+		s.Particles[i] = NewParticle(min, max, vmax, stride, config)
 	}
 	s.GBest = s.Particles[0].Copy()
 	return s
@@ -43,21 +58,22 @@ func NewSwarm(mu, p, lambda, samples, generations uint, min, max, vMax float64, 
 
 type Particle struct {
 	Strategy float64
-	Position map[int][]float64
-	Velocity map[int][]float64
+	Position map[uint32][]float64
+	Velocity map[uint32][]float64
 	Min, Max, VMax	float64
 	PBest		 *Particle
 	Fitness  float64
 	Stride	int
+	Config *Config
 }
 
-func NewParticle(min, max, vMax float64, stride int) *Particle {
+func NewParticle(min, max, vMax float64, stride int, config *Config) *Particle {
 	p := new(Particle)
 	p.Strategy = rand.Float64() * 0.05
-	p.Position = make(map[int][]float64)
+	p.Position = make(map[uint32][]float64)
 	p.Min = min
 	p.Max = max
-	p.Velocity = make(map[int][]float64)
+	p.Velocity = make(map[uint32][]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
 	p.Stride = stride
@@ -67,13 +83,13 @@ func NewParticle(min, max, vMax float64, stride int) *Particle {
 func (p *Particle) Copy() *Particle {
 	cp := new(Particle)
 	cp.Strategy = p.Strategy
-	cp.Position = make(map[int][]float64)
+	cp.Position = make(map[uint32][]float64)
 	for i := range p.Position {
 		cp.Position[i] = make([]float64, p.Stride)
 		copy(cp.Position[i], p.Position[i])
 	}
-	if *pswarm {
-		cp.Velocity = make(map[int][]float64)
+	if *p.Config.pswarm {
+		cp.Velocity = make(map[uint32][]float64)
 		for i := range p.Velocity {
 			cp.Velocity[i] = make([]float64, p.Stride)
 			copy(cp.Velocity[i], p.Velocity[i])
@@ -116,7 +132,7 @@ func get(i, b uint32) uint32 {
  return b >> i & 0x00000001
 }
 
-func hash(board []uint8, neighbors []int, symmetric bool) (int, int) {
+func HashVertices(board []uint8, neighbors []int, offset int) uint32 {
 	index := uint32(0)
 	for i := 0; i < len(neighbors); i++ {
 		// set the 2*i, 2*i+1 bits of the index
@@ -129,106 +145,25 @@ func hash(board []uint8, neighbors []int, symmetric bool) (int, int) {
 		} else if board[neighbors[i]] == WHITE {
 			m0, m1 = 1, 0
 		}
-		set(uint32(2*i), m0, &index)
-		set(uint32(2*i+1), m1, &index)
+		set(uint32(2*i+offset), m0, &index)
+		set(uint32(2*i+1+offset), m1, &index)
 	}
-	j := 0
-	if symmetric && *hex {
-		sym := uint32(0)
-		set(0, get(6, index), &sym)
-		set(1, get(7, index), &sym)
-		set(2, get(8, index), &sym)
-		set(3, get(9, index), &sym)
-		set(4, get(10, index), &sym)
-		set(5, get(11, index), &sym)
-		set(6, get(0, index), &sym)
-		set(7, get(1, index), &sym)
-		set(8, get(2, index), &sym)
-		set(9, get(3, index), &sym)
-		set(10, get(4, index), &sym)
-		set(11, get(5, index), &sym)
-		set(12, get(12, index), &sym)
-		set(13, get(13, index), &sym)
-		if sym < index { index = sym; j = 1 }
-	} else if symmetric && *cgo {
-		sym := uint32(0)
-		set(0, get(16, index), &sym)
-		set(1, get(17, index), &sym)
-		set(2, get(14, index), &sym)
-		set(3, get(15, index), &sym)
-		set(4, get(12, index), &sym)
-		set(5, get(13, index), &sym)
-		set(6, get(10, index), &sym)
-		set(7, get(11, index), &sym)
-		set(8, get(8, index), &sym)
-		set(9, get(9, index), &sym)
-		set(10, get(6, index), &sym)
-		set(11, get(7, index), &sym)
-		set(12, get(4, index), &sym)
-		set(13, get(5, index), &sym)
-		set(14, get(2, index), &sym)
-		set(15, get(3, index), &sym)
-		set(16, get(0, index), &sym)
-		set(17, get(1, index), &sym)
-		if sym < index { index = sym; j = 1 }
-		sym = uint32(0)
-		set(0, get(4, index), &sym)
-		set(1, get(5, index), &sym)
-		set(2, get(10, index), &sym)
-		set(3, get(11, index), &sym)
-		set(4, get(16, index), &sym)
-		set(5, get(17, index), &sym)
-		set(6, get(2, index), &sym)
-		set(7, get(3, index), &sym)
-		set(8, get(8, index), &sym)
-		set(9, get(9, index), &sym)
-		set(10, get(14, index), &sym)
-		set(11, get(15, index), &sym)
-		set(12, get(0, index), &sym)
-		set(13, get(1, index), &sym)
-		set(14, get(6, index), &sym)
-		set(15, get(7, index), &sym)
-		set(16, get(12, index), &sym)
-		set(17, get(13, index), &sym)
-		if sym < index { index = sym; j = 2 }
-		sym = uint32(0)
-		set(0, get(12, index), &sym)
-		set(1, get(13, index), &sym)
-		set(2, get(6, index), &sym)
-		set(3, get(7, index), &sym)
-		set(4, get(0, index), &sym)
-		set(5, get(1, index), &sym)
-		set(6, get(14, index), &sym)
-		set(7, get(15, index), &sym)
-		set(8, get(8, index), &sym)
-		set(9, get(9, index), &sym)
-		set(10, get(2, index), &sym)
-		set(11, get(3, index), &sym)
-		set(12, get(16, index), &sym)
-		set(13, get(17, index), &sym)
-		set(14, get(10, index), &sym)
-		set(15, get(11, index), &sym)
-		set(16, get(4, index), &sym)
-		set(17, get(5, index), &sym)
-		if sym < index { index = sym; j = 3 }
-	}
-	return int(index), j
+	return index
 }
 
-func (p *Particle) Get(board []byte, neighbors []int) (int, []float64) {
-	i, _ := hash(board, neighbors, false)
+func (p *Particle) Get(i uint32) []float64 {
 	if p.Position[i] == nil {
 		p.Init(i)
 	}
-	return i, p.Position[i]
+	return p.Position[i]
 }
 
-func (p *Particle) Init(i int) {
+func (p *Particle) Init(i uint32) {
 	p.Position[i] = make([]float64, p.Stride)
 	for j := 0; j < p.Stride; j++ {
 		p.Position[i][j] = p.Min + (p.Max - p.Min) * rand.Float64()
 	}
-	if *pswarm {
+	if *p.Config.pswarm {
 		p.Velocity[i] = make([]float64, p.Stride)
 		for j := 0; j < p.Stride; j++ {
 			p.Velocity[i][j] = -p.VMax + 2 * p.VMax * rand.Float64()
@@ -236,63 +171,46 @@ func (p *Particle) Init(i int) {
 	}
 }
 
-func playOneGame(black PatternMatcher, white PatternMatcher) Tracker {
-	t := NewTracker(*size)
+func (s *Swarm) evaluate(p *Particle) {
+	var m PatternMatcher
+	var e BoardEvaluator
+	if *s.Config.pat && *s.Config.eval { panic("pattern and evaluator training are mutually exclusive") }
+	if *s.Config.pat { m = p }
+	if *s.Config.eval { e = p }
+	tmp_pat := *s.Config.pat
+	tmp_eval := *s.Config.eval
+	t := NewTracker(s.Config)
 	t.SetKomi(7.5)
-	passes := 0
 	move := 0
-	maxMoves := 2 * t.Boardsize() * t.Boardsize()
+	maxMoves := 2 * t.Sqsize()
 	var vertex int
 	for {
-		br := NewRoot(BLACK, t)
-		genmove(br, t, black)
-		if br == nil || br.Best() == nil {
-			vertex = -1
-			passes++
+		*s.Config.pat = false
+		*s.Config.eval = false
+		if move == 0 && *s.Config.hex {
+			vertex = *s.Config.size + 2
 		} else {
-			passes = 0
+			br := NewRoot(BLACK, t, s.Config)
+			genmove(br, t, nil, nil)
 			vertex = br.Best().vertex
 		}
 		t.Play(BLACK, vertex)
 		move++
-		if (*hex && t.Winner() != EMPTY) || move >= maxMoves || passes == 2 {
-			break
-		}
-		wr := NewRoot(WHITE, t)
-		genmove(wr, t, white)
-		if wr == nil || wr.Best() == nil {
-			vertex = -1
-			passes++
-		} else {
-			passes = 0
-			vertex = wr.Best().vertex
-		}
+		if t.Winner() != EMPTY || move >= maxMoves { break }
+		wr := NewRoot(WHITE, t, s.Config)
+		*s.Config.pat = tmp_pat
+		*s.Config.eval = tmp_eval
+		genmove(wr, t, m, e)
+		vertex = wr.Best().vertex
 		t.Play(WHITE, vertex)
 		move++
-		if (*hex && t.Winner() != EMPTY) || move >= maxMoves || passes == 2 {
-			break
-		}
+		if t.Winner() != EMPTY || move >= maxMoves { break }
 	}
-	return t
-}
-
-func (s *Swarm) evaluate(p *Particle) {
-	if *vuct {
-		t := playOneGame(p, nil)
-		if t.Winner() == BLACK {
-			p.Fitness++
-		}
-	} else if *vself {
-		opp := randParticle(s.Particles, nil)
-		t := playOneGame(p, opp)
-		if t.Winner() == BLACK {
-			p.Fitness++
-			opp.Fitness--
-		} else if t.Winner() == WHITE {
-			p.Fitness--
-			opp.Fitness++
-		}
+	if t.Winner() == WHITE {
+		p.Fitness++
 	}
+	*s.Config.pat = tmp_pat
+	*s.Config.eval = tmp_eval
 }
 
 /**
@@ -338,7 +256,7 @@ func (s *Swarm) ESStep() {
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
-	
+
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
@@ -402,8 +320,8 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	return a new particle that is the average of the given p particles
 */
 func (s *Swarm) recombine(parents Particles) (r *Particle) {
-	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride)
-	superset := make(map[int]bool)
+	r = NewParticle(parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride, parents[0].Config)
+	superset := make(map[uint32]bool)
 	for i := range parents {
 		for j := range parents[i].Position {
 			superset[j] = true
@@ -451,7 +369,7 @@ func (s *Swarm) mutate(p *Particle) {
 */
 func (s *Swarm) ps_update(p *Particle) {
 	w := 0.4 + 0.5 * (1.0 - float64(s.Generation)/float64(s.Generations))
-	superset := make(map[int]bool)
+	superset := make(map[uint32]bool)
 	for i := range p.Position {
 		superset[i] = true
 	}
@@ -531,140 +449,23 @@ func LoadBest(filename string) *Particle {
 	return s.Best()
 }
 
-func Train() {
+func Train(config *Config) {
 	var s *Swarm
-	stride := len(NewTracker(*size).Neighbors(0))
-	if *tenuki { stride++ }
-	s = NewSwarm(*mu, *parents, *lambda, *samples, *generations, 0.01, 100, 20, stride)
-	if *file != "" {
-		s.LoadSwarm(*file)
+	s = NewSwarm(config)
+	if *config.file != "" {
+		s.LoadSwarm(*config.file)
 	}
 	for s.Generation < s.Generations {
 		start := time.Nanoseconds()
-		if *esswarm {
+		if *config.esswarm {
 			s.ESStep()
-		} else if *pswarm {
+		} else if *config.pswarm {
 			s.PSStep();
 		}
 		s.Generation++
-		s.SaveSwarm(fmt.Sprintf(*prefix+".%d.gob", s.Generation))
+		s.SaveSwarm(fmt.Sprintf(*s.Config.prefix+".%d.gob", s.Generation))
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)
 	}
-}
-
-// converts gob file to arff for machine learning
-func ShowSwarm(filename string) {
-	/*
-	var children Particles
-	f, _ := os.Open(filename)
-	defer func() { f.Close() }()
-	d := gob.NewDecoder(f)
-	d.Decode(&children)
-
-	f, _ = os.Create("swarm.arff")
-	defer func() { f.Close() }()
-
-	fmt.Fprintln(f, "@RELATION swarm")
-	fmt.Fprintln(f, "@ATTRIBUTE fitness NUMERIC")
-	i := 0
-	valid := new(vector.IntVector)
-	dim := children[0].Dim
-	for i < (dim / 7) {
-		all_zero := true
-		for j := 0; j < 7; j++ {
-			all_zero = all_zero && children[0].Position[i*7+j] != 0
-		}
-		if !all_zero {
-			fmt.Fprintf(f, "@ATTRIBUTE pattern-%d NUMERIC\n", i)
-			valid.Push(i)
-		}
-		i++
-	}
-	log.Println(valid.Len())
-	fmt.Fprintln(f, "@DATA")
-	for child := range children {
-		log.Printf("%d / %d\n", child, len(children))
-		fmt.Fprintf(f, "%.0f,", children[child].Fitness)
-		for i := 0; i < valid.Len(); i++ {
-			sum := 0.0
-			for j := 0; j < 7; j++ {
-				sum += children[child].Position[valid.At(i)*7+j]
-			}
-
-			entropy := 0.0
-			for j := 0; j < 7; j++ {
-				weight := children[child].Position[valid.At(i)*7+j]
-				if weight > 0.0 {
-					p := weight / sum
-					entropy += p * math.Log2(p)
-				}
-			}
-			entropy = -entropy
-			fmt.Fprintf(f, "%.6f", entropy)
-			if i != valid.Len()-1 {
-				fmt.Fprintf(f, ",")
-			}
-		}
-		fmt.Fprintln(f)
-		f.Sync()
-	}
-	*/
-}
-
-func Compare(p1 PatternMatcher, p2 PatternMatcher, name1 string, name2 string) {
-	p1_black_wins, p1_white_wins, p2_black_wins, p2_white_wins := 0.0, 0.0, 0.0, 0.0
-	rounds := 100000
-	log.Printf("running %d playouts\n", rounds)
-	for i := 0; i < rounds; i++ {
-		t := NewTracker(*size)
-		t.SetKomi(*komi)
-		t.Playout(BLACK, &ColorDuplexingMatcher{p1, p2})
-		if t.Winner() == BLACK {
-			p1_black_wins++
-		} else {
-			p2_white_wins++
-		}
-		t = NewTracker(*size)
-		t.Playout(BLACK, &ColorDuplexingMatcher{p2, p1})
-		if t.Winner() == BLACK {
-			p2_black_wins++
-		} else {
-			p1_white_wins++
-		}
-	}
-	log.Printf("stats from playouts:\n")
-	log.Printf("%s as black: %.0f%%\n", name1, (p1_black_wins/float64(rounds))*100.0)
-	log.Printf("%s as white: %.0f%%\n", name1, (p1_white_wins/float64(rounds))*100.0)
-	log.Printf("%s overall: %.0f%%\n", name1, ((p1_black_wins+p1_white_wins)/float64(2*rounds))*100.0)
-	log.Printf("%s as black: %.0f%%\n", name2, (p2_black_wins/float64(rounds))*100.0)
-	log.Printf("%s as white: %.0f%%\n", name2, (p2_white_wins/float64(rounds))*100.0)
-	log.Printf("%s overall: %.0f%%\n", name2, ((p2_black_wins+p2_white_wins)/float64(2*rounds))*100.0)
-
-	p1_black_wins, p1_white_wins, p2_black_wins, p2_white_wins = 0.0, 0.0, 0.0, 0.0
-	rounds = 100
-	log.Printf("running %d full games, relevant settings: explore coefficient: %.2f, RAVE cutoff: %.0f, playouts: %d, expand after: %.0f\n", rounds, *c, *k, *maxPlayouts, *expandAfter)
-	for i := 0; i < rounds; i++ {
-		t := playOneGame(p1, p2)
-		if t.Winner() == BLACK {
-			p1_black_wins++
-		} else if t.Winner() == WHITE {
-			p2_white_wins++
-		}
-		t = playOneGame(p2, p1)
-		if t.Winner() == BLACK {
-			p2_black_wins++
-		} else if t.Winner() == WHITE {
-			p1_white_wins++
-		}
-		log.Printf("finished round %d / %d\n", i+1, rounds)
-	}
-	log.Printf("stats from full game:\n")
-	log.Printf("%s as black: %.0f%%\n", name1, (p1_black_wins/float64(rounds))*100.0)
-	log.Printf("%s as white: %.0f%%\n", name1, (p1_white_wins/float64(rounds))*100.0)
-	log.Printf("%s overall: %.0f%%\n", name1, ((p1_black_wins+p1_white_wins)/float64(2*rounds))*100.0)
-	log.Printf("%s as black: %.0f%%\n", name2, (p2_black_wins/float64(rounds))*100.0)
-	log.Printf("%s as white: %.0f%%\n", name2, (p2_white_wins/float64(rounds))*100.0)
-	log.Printf("%s overall: %.0f%%\n", name2, ((p2_black_wins+p2_white_wins)/float64(2*rounds))*100.0)
 }

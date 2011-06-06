@@ -2,7 +2,9 @@ package main
 
 import (
 	"container/vector"
-	"log"
+	"strings"
+	"strconv"
+	"fmt"
 )
 
 type HexTracker struct {
@@ -107,9 +109,6 @@ func (t *HexTracker) Play(color byte, vertex int) {
 			t.played[vertex] = color
 		}
 	}
-	if *verbose {
-		log.Println(Bwboard(t.board, t.boardsize, true))
-	}
 }
 
 func (t *HexTracker) Playout(color byte, m PatternMatcher) {
@@ -121,7 +120,7 @@ func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 			return
 		}
 		color = Reverse(color)
-		if m != nil {
+		if m != nil && vertex != -1 {
 			suggestion := m.Match(color, vertex, t)
 			vertex = suggestion
 			if suggestion != -1 && t.board[suggestion] != EMPTY {
@@ -192,18 +191,87 @@ func (t *HexTracker) Verify() {
 }
 
 func (t *HexTracker) Adj(vertex int) []int {
-	return hex_adj[t.boardsize][vertex*6:(vertex+1)*6]
+	return t.adj[vertex*6:(vertex+1)*6]
 }
 
-func (t *HexTracker) Neighbors(vertex int) []int {
-	return hex_neighbors[t.boardsize][vertex]
+func (t *HexTracker) Neighbors(vertex int, size int) []int {
+	return hex_neighbors[t.boardsize][size][vertex]
+}
+
+func (t *HexTracker) Vtoa(v int) string {
+	if v == -1 { return "PASS" }
+	alpha, num := v % t.boardsize, v / t.boardsize
+	num++
+	alpha = alpha + 'A'
+	if alpha >= 'I' { alpha++ }
+	return fmt.Sprintf("%s%d", string(alpha), num)
+}
+
+func (t *HexTracker) Atov(s string) int {
+	if s == "PASS" || s == "pass" {
+		return -1
+	}
+	// pull apart into alpha and int pair
+	col := byte(strings.ToUpper(s)[0])
+	row, err := strconv.Atoi(s[1:len(s)])
+	row--
+	if col >= 'I' { col-- }
+	if err != nil {
+		panic("Failed to convert string to vertex")
+	}
+	return row * t.boardsize + int(col - 'A')
+}
+
+func (t *HexTracker) String() (s string) {
+	s += " "
+	if t.boardsize > 9 { s += " " }
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' { alpha++ }
+		s += string(alpha)
+		if col != t.boardsize - 1 {
+				s += " "
+		}
+	}
+	s += "\n"
+	for row := 0; row < t.boardsize; row++ {
+		for i := 0; i < row; i++ {
+			s += " "
+		}
+		s += fmt.Sprintf("%2.d ", row+1)
+		for col := 0; col < t.boardsize; col++ {
+			v := row * t.boardsize + col
+			s += Ctoa(t.board[v])
+			if col != t.boardsize - 1 {
+				s += " "
+			}
+		}
+		s += fmt.Sprintf(" %2.d", row+1)
+		if row != t.boardsize - 1 {
+			s += "\n"
+		}
+	}
+	s += "\n  "
+	if t.boardsize > 9 { s += " " }
+	for i := 0; i < t.boardsize; i++ {
+		s += " "
+	}
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' { alpha++ }
+		s += string(alpha)
+		if col != t.boardsize - 1 {
+				s += " "
+		}
+	}
+	return
 }
 
 var hex_adj map[int][]int
-var hex_neighbors map[int][][]int
+var hex_neighbors map[int][][][]int
 func init() {
 	hex_adj = make(map[int][]int)
-	hex_neighbors = make(map[int][][]int)
+	hex_neighbors = make(map[int][][][]int)
 	for boardsize := 3; boardsize <= 19; boardsize++ {
 		setup_hex_adj(boardsize)
 		setup_hex_neighbors(boardsize)
@@ -254,37 +322,50 @@ func setup_hex_adj(boardsize int) {
 	}
 }
 
-func setup_hex_neighbors(boardsize int) {
-	neighbors := make([][]int, boardsize*boardsize)
-	for vertex := 0; vertex < boardsize*boardsize; vertex++ {
+func setup_hex_neighbors(size int) {
+	hex_neighbors[size] = make([][][]int, 3)
+	hex_neighbors[size][0] = make([][]int, size*size)
+	hex_neighbors[size][1] = make([][]int, size*size)
+	hex_neighbors[size][2] = make([][]int, size*size)
+
+	neighbors := make([][]int, size*size)
+	for vertex := 0; vertex < size*size; vertex++ {
+		hex_neighbors[size][0][vertex] = []int{vertex}
+		v2 := vertex + 1
+		v3 := vertex + size
+		v4 := vertex + size + 1
+		if (vertex + 1) % size == 0 { v2 = -1; v4 = -1 }
+		if vertex >= (size * size) - size { v3 = -1; v4 = -1 }
+		hex_neighbors[size][1][vertex] = []int{vertex, v2, v3, v4}
+	
 		neighbors[vertex] = make([]int, 7)
-		neighbors[vertex][0] = vertex - boardsize
-		neighbors[vertex][1] = vertex - boardsize + 1
+		neighbors[vertex][0] = vertex - size
+		neighbors[vertex][1] = vertex - size + 1
 		neighbors[vertex][2] = vertex + 1
-		neighbors[vertex][3] = vertex + boardsize
-		neighbors[vertex][4] = vertex + boardsize - 1
+		neighbors[vertex][3] = vertex + size
+		neighbors[vertex][4] = vertex + size - 1
 		neighbors[vertex][5] = vertex - 1
 		neighbors[vertex][6] = vertex
-		if vertex % boardsize == 0 {
+		if vertex % size == 0 {
 			// left
 			neighbors[vertex][4] = -1
 			neighbors[vertex][5] = -1
 		}
-		if (vertex + 1) % boardsize == 0 {
+		if (vertex + 1) % size == 0 {
 			// right
 			neighbors[vertex][1] = -1
 			neighbors[vertex][2] = -1
 		}
-		if vertex < boardsize {
+		if vertex < size {
 			// top
 			neighbors[vertex][0] = -1
 			neighbors[vertex][1] = -1
 		}
-		if vertex >= (boardsize * boardsize) - boardsize {
+		if vertex >= (size * size) - size {
 			// bottom
 			neighbors[vertex][3] = -1
 			neighbors[vertex][4] = -1
 		}
 	}
-	hex_neighbors[boardsize] = neighbors
+	hex_neighbors[size][2] = neighbors
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 SIX="$HOME/code/six-0.5.3/six/gtp expert"
-GOGO="$HOME/code/gogo/gogo -gtp -uct -k=1000 -t=5 -hex -tablepat -file $1"
+GOGO="$HOME/code/gogo/gogo -gtp -k=1000 -t=5 -hex -amaf -pat -pfile $1"
 function play {
 	BLACK=$GOGO
 	WHITE=$SIX

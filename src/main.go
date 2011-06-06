@@ -8,17 +8,18 @@ import (
 )
 
 var matcher PatternMatcher
+var evaluator BoardEvaluator
 
 func main() {
-	config()
+	config := NewConfig()
 	var f *os.File
 	var err os.Error
-	if *logFile == "" && *modeGTP && *gfx {
+	if *config.logFile == "" && *config.modeGTP && *config.gfx {
 		f, err = os.Create("/dev/null")
-	} else if *logFile == "" {
+	} else if *config.logFile == "" {
 		f = os.Stderr
 	} else {
-		f, err = os.Create(*logFile)
+		f, err = os.Create(*config.logFile)
 	}
 	if err != nil {
 		panic("could not create log file")
@@ -26,39 +27,40 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
-	matcher := LoadPatternMatcher(*file, nil)
-	if *help {
+	matcher = LoadPatternMatcher(config)
+	evaluator = LoadBoardEvaluator(config)
+	if *config.help {
 		flag.Usage()
 		os.Exit(0)
-	} else if *modeGTP {
-		GTP()
-	} else if *sgf != "" {
-		t, color := Load(*sgf)
-		root := NewRoot(color, t)
-		genmove(root, t, matcher)
+	} else if *config.modeGTP {
+		GTP(config)
+	} else if *config.sgf != "" {
+		t, color := Load(*config.sgf)
+		root := NewRoot(color, t, config)
+		genmove(root, t, matcher, evaluator)
 		vertex := root.Best().vertex
 		t.Play(color, vertex)
-		fmt.Println(Ctoa(color), Vtoa(vertex, t.Boardsize()))
-		fmt.Println(Bwboard(t.Board(), t.Boardsize(), true))
-	} else if *train {
-		Train()
-	} else if *test {
-		t := NewTracker(*size)
-		root := NewRoot(BLACK, t)
-		genmove(root, t, matcher)
-		fmt.Println(Vtoa(root.Best().vertex, t.Boardsize()))
-	} else if *testPPS {
+		fmt.Println(Ctoa(color), t.Vtoa(vertex))
+		fmt.Println(t.String())
+	} else if *config.train {
+		Train(config)
+	} else if *config.test {
+		t := NewTracker(config)
+		root := NewRoot(BLACK, t, config)
+		genmove(root, t, matcher, evaluator)
+		fmt.Println(t.Vtoa(root.Best().vertex))
+	} else if *config.testPPS {
 		log.Println("Go:")
-		TestPPS(NewGoTracker(9))
+		*config.cgo = true
+		*config.hex = false
+		*config.size = 9
+		TestPPS(config)
 		log.Println("Hex:")
-		TestPPS(NewHexTracker(11))
-	} else if *showSwarm {
-		ShowSwarm(*file)
-	} else if *compare {
-		p1 := LoadPatternMatcher(*file, nil)
-		p2 := LoadPatternMatcher(*file, disabled)
-		Compare(p1, p2, "default", "disabled")
-	} else if *makeBook {
-		MakeBook(BLACK, NewTracker(*size))
+		*config.cgo = false
+		*config.hex = true
+		*config.size = 11
+		TestPPS(config)
+	} else if *config.makeBook {
+		MakeBook(config)
 	}
 }
