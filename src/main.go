@@ -50,15 +50,6 @@ func main() {
 		genmove(root, t)
 		fmt.Println(t.Vtoa(root.Best().vertex))
 	} else if config.testPPS {
-		log.Println("Go:")
-		config.cgo = true
-		config.hex = false
-		config.size = 9
-		TestPPS(config)
-		log.Println("Hex:")
-		config.cgo = false
-		config.hex = true
-		config.size = 11
 		TestPPS(config)
 	} else if config.makeBook {
 		MakeBook(config)

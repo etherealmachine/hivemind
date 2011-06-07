@@ -17,19 +17,20 @@ if eval_files:
 pat_path = ""
 if pat_files:
 	pat_path = code_dir + "/gogo/" + ".".join(pat_files[0])
-	
+
 print 'eval file:', eval_path
 print 'pat file:', pat_path
 
 players = {
-		"gogo" : Player(code_dir + "/gogo/gogo -gtp -p=10000 -hex -swapsafe -log gogo.log -stats "),
-		"gogo_eval" : Player(code_dir + "/gogo/gogo -gtp -hex -p=10000 -e=10 -swapsafe -log gogo_eval.log -stats -eval -efile " + eval_path),
+		"gogo" : Player(code_dir + "/gogo/gogo -gtp -t=5 -hex -swapsafe -stats -amaf"),
+		"gogo_eval" : Player(code_dir + "/gogo/gogo -gtp -hex -t=5 -e=10 -swapsafe -stats -amaf -eval -efile " + eval_path),
+		"mohex" : Player(code_dir + "/benzene-0.9.0/src/mohex/mohex"),
 		"gogo_pat" : Player(code_dir + "/gogo/gogo -gtp -hex -p=10000 -e=10 -swapsafe -pat -pfile " + pat_path),
+		"gogo_eval_pat" : Player(code_dir + "/gogo/gogo -gtp -hex -p=50000 -e=10 -c 0.01 -stats -amaf -pat -pfile " + pat_path),# + " -eval -efile " + eval_path),
 		}
 
 board_size = 11
 komi = 0
 
 matchups = []
-matchups.append(Matchup("gogo", "gogo_eval", alternating=True, number_of_games=100))
-#matchups.append(Matchup("gogo", "gogo_pat", alternating=True, number_of_games=100))
+matchups.append(Matchup("gogo_eval_pat", "mohex", alternating=True, number_of_games=100))
