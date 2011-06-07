@@ -20,12 +20,12 @@ type HexTracker struct {
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
 
-func NewHexTracker(boardsize int) *HexTracker {
+func NewHexTracker(config *Config) *HexTracker {
 	t := new(HexTracker)
 	
-	t.boardsize = boardsize
-	t.sqsize = boardsize * boardsize
-	t.adj = hex_adj[boardsize]
+	t.boardsize = config.size
+	t.sqsize = t.boardsize * t.boardsize
+	t.adj = hex_adj[t.boardsize]
 	t.SIDE_UP = t.sqsize
 	t.SIDE_DOWN = t.sqsize + 1
 	t.SIDE_LEFT = t.sqsize + 2

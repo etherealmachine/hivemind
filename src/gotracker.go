@@ -36,13 +36,13 @@ type GoTracker struct {
 // parent must be initialized so each element is a pointer to itself
 // rank are initialized to zero
 // board will be modified during use, should be a copy of the real board
-func NewGoTracker(boardsize int) (t *GoTracker) {
+func NewGoTracker(config *Config) (t *GoTracker) {
 	t = new(GoTracker)
 	
-	t.boardsize = boardsize
-	t.adj = go_adj[boardsize]
-	t.mask = masks[boardsize]
-	t.sqsize = boardsize * boardsize
+	t.boardsize = config.size
+	t.adj = go_adj[config.size]
+	t.mask = masks[config.size]
+	t.sqsize = config.size * config.size
 	
 	t.parent = make([]int, t.sqsize)
 	t.rank = make([]int, t.sqsize)
@@ -58,7 +58,7 @@ func NewGoTracker(boardsize int) (t *GoTracker) {
 		t.empty.Push(i)
 	}
 	shuffle(t.empty)
-	t.komi = 6.5
+	t.komi = config.komi
 	t.koVertex = -1
 	t.koColor = EMPTY
 	t.winner = EMPTY

@@ -251,6 +251,7 @@ func (s *Swarm) ESStep() {
 	
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		go func(s *Swarm) {
+			runtime.LockOSThread()
 			for j := range eval {
 				for k := uint(0); k < s.Samples; k++ {
 					s.evaluate(children[j])
