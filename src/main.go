@@ -5,12 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"rand"
+	"time"
 )
 
 var matcher PatternMatcher
 var evaluator BoardEvaluator
 
 func main() {
+	rand.Seed(time.Nanoseconds())
 	config := NewConfig()
 	var f *os.File
 	var err os.Error

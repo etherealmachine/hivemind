@@ -182,8 +182,8 @@ func (node *Node) expand(t Tracker) {
 				if node.config.neighbors {
 					granduncle := child.granduncle()
 					if granduncle != nil {
-						child.neighborVisits += granduncle.visits + granduncle.neighborVisits
-						child.neighborWins += granduncle.wins + granduncle.neighborWins
+						child.neighborVisits += granduncle.visits + granduncle.neighborVisits + granduncle.amafVisits
+						child.neighborWins += granduncle.wins + granduncle.neighborWins + granduncle.amafWins
 					}
 				}
 				if node.config.eval {

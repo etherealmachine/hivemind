@@ -166,7 +166,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	last := -1
-	moves := 0
+	move := 0
 	for {
 		vertex = t.playHeuristicMove(color)
 		if vertex == -1 && last != -1 {
@@ -176,8 +176,8 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 			vertex = t.RandLegal(color)
 		}
 		t.Play(color, vertex)
-		moves++
-		if moves > 2 * t.sqsize { break }
+		move++
+		if move > 3 * t.sqsize { break }
 		if t.Winner() != EMPTY { break }
 		color = Reverse(color)
 		last = vertex
@@ -186,24 +186,27 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 }
 
 func (t *GoTracker) playHeuristicMove(color byte) int {
-	if rand.Float64() < 0.1 { return -1 }
-	atari := new(vector.IntVector)
+	atari := make(map[int]bool)
 	for i := 0; i < t.sqsize; i++ {
 		if t.board[i] == Reverse(color) {
 			root := find(i, t.parent)
 			if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
+				var v int
 				if t.liberties[root][0] != 0 {
-					v := 64 - int(firstbitset(t.liberties[root][0])) - 1
-					atari.Push(v)
+					v = 64 - int(firstbitset(t.liberties[root][0])) - 1
 				} else if t.liberties[root][1] != 0 {
-					v := 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
-					atari.Push(v)
+					v = 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
 				}
+				if v != t.koVertex || color != t.koColor { atari[v] = true }
 			}
 		}
 	}
-	if atari.Len() > 0 {
-		return atari.At(rand.Intn(atari.Len()))
+	if len(atari) > 0 {
+		i := rand.Intn(len(atari))
+		for j, _ := range atari {
+			if i == 0 { return j }
+			i--
+		}
 	}
 	return -1
 }
@@ -211,10 +214,10 @@ func (t *GoTracker) playHeuristicMove(color byte) int {
 func (t *GoTracker) playPatternMove(color byte, last int, m PatternMatcher) int {
 	if m != nil {
 		suggestion := m.Match(color, last, t)
-    if suggestion != -1 && !t.Legal(color, suggestion) {
-      panic("dammit")
-    }
-    return suggestion
+		if suggestion != -1 && !t.Legal(color, suggestion) {
+			panic("dammit")
+		}
+		return suggestion
 	}
 	return -1
 }
@@ -236,18 +239,19 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 
 	// make sure vertex is empty
 	if t.board[vertex] != EMPTY { return false }
-  
-  if vertex == t.koVertex && color == t.koColor { return false }
-  
-  opp := Reverse(color)
-  friendly := 0
-  suicide := true
-  for i := 0; i < 4; i++ {
-  	n := t.adj[vertex][i]
-  	if n == -1 { friendly++; continue }
-  	// check if an adj vertex is empty
-  	if t.board[n] == EMPTY { return true }
-  	root := find(n, t.parent)
+
+	if vertex == t.koVertex && color == t.koColor { return false }
+
+	opp := Reverse(color)
+	off := 0
+	friendly := 0
+	suicide := true
+	for i := 0; i < 4; i++ {
+		n := t.adj[vertex][i]
+		if n == -1 { off++; continue }
+		// check if an adj vertex is empty
+		if t.board[n] == EMPTY { return true }
+		root := find(n, t.parent)
 		if t.board[root] == opp {
 			// a capture would definitely result in a legal position
 			if t.wouldCapture(vertex, root) { return true }
@@ -256,34 +260,21 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 			// refute suicide by connecting to self without removing last liberty
 			if bitcount(t.liberties[root][0], t.liberties[root][1]) > 1 { suicide = false }
 		}
-  }
-  // check for eyes
-  // vertex is counted as an eye if:
-  //   1. all 4 adjacent vertices are either the same color or off-board
-  //   2. at least one of the 4 diagonal vertices are the same color
-  if friendly == 4 {
-  	u := t.adj[vertex][UP]
-  	if u != -1 {
-  		if ul := t.adj[u][LEFT]; ul != -1 && t.board[ul] == color { return false }
-  		if ur := t.adj[u][RIGHT]; ur != -1 && t.board[ur] == color { return false }
-  	}
-  	d := t.adj[vertex][DOWN]
+	}
+	if friendly + off == 4 {
+		corners := 0
+		u := t.adj[vertex][UP]
+		if u != -1 {
+			if ul := t.adj[u][LEFT]; ul != -1 && t.board[ul] == color { corners++ }
+			if ur := t.adj[u][RIGHT]; ur != -1 && t.board[ur] == color { corners++ }
+		}
+		d := t.adj[vertex][DOWN]
 		if d != -1 {
-			if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color { return false }
-			if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color { return false }
-  	}
-  	l := t.adj[vertex][LEFT]
-  	if l != -1 {
-  		if lu := t.adj[l][UP]; lu != -1 && t.board[lu] == color { return false }
-  		if ld := t.adj[l][DOWN]; ld != -1 && t.board[ld] == color { return false }
-  	}
-  	r := t.adj[vertex][RIGHT]
-  	if r != -1 {
-  		if ru := t.adj[r][UP]; ru != -1 && t.board[ru] == color { return false }
-  		if rd := t.adj[r][DOWN]; rd != -1 && t.board[rd] == color { return false }
-  	}
-  }
-
+			if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color { corners++ }
+			if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color { corners++ }
+		}
+		if corners >= 2 || (off == 2 && corners >= 1) { return false }
+	}
 	return !suicide
 }
 
@@ -546,7 +537,7 @@ func (t *GoTracker) capture(v int) {
 	t.liberties[v][1] = 0
 	// add new liberty to go_adj occupied vertices
 	for i := 0; i < 4; i++ {
-  	n := t.adj[v][i]
+		n := t.adj[v][i]
 		if n == -1 { continue }
 		if t.board[n] != EMPTY {
 			root := find(n, t.parent)
@@ -592,10 +583,10 @@ func (t *GoTracker) wouldCapture(vertex int, n int) bool {
 func bitcount(u uint64, v uint64) (c uint) {
 	// c accumulates the total bits set in v
 	for c = 0; u != 0; c++ {
-  	u &= u - 1; // clear the least significant bit set
+		u &= u - 1; // clear the least significant bit set
 	}
 	for ; v != 0; c++ {
-  	v &= v - 1; // clear the least significant bit set
+		v &= v - 1; // clear the least significant bit set
 	}
 	return
 }
@@ -609,7 +600,7 @@ func firstbitset(u uint64) uint64 {
 }
 
 func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
-	s += "  "
+	s += "	"
 	for col := 0; col < boardsize; col++ {
 		alpha := col + 'A'
 		if alpha >= 'I' {
@@ -631,7 +622,7 @@ func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
 				bit = uint64(64 - vertex - 1)
 				v = v0
 			} else {
-				bit = uint64(64 - (vertex - 64)  - 1)
+				bit = uint64(64 - (vertex - 64)	- 1)
 				v = v1
 			}
 			var mask uint64 = 1 << bit
@@ -646,7 +637,7 @@ func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
 			s += "\n"
 		}
 	}
-	s += "\n  "
+	s += "\n	"
 	for col := 0; col < boardsize; col++ {
 		alpha := col + 'A'
 		if alpha >= 'I' {
@@ -703,7 +694,7 @@ func setup_go(boardsize int) {
 		if i < 64 {
 			masks[boardsize][i][0] = m << uint64(64 - i - 1)
 		} else {
-			masks[boardsize][i][1] = m << uint64(64 - (i - 64)  - 1)
+			masks[boardsize][i][1] = m << uint64(64 - (i - 64)	- 1)
 		}
 		masks[boardsize][i][2] = masks[boardsize][i][0] ^ 0xFFFFFFFFFFFFFFFF
 		masks[boardsize][i][3] = masks[boardsize][i][1] ^ 0xFFFFFFFFFFFFFFFF
