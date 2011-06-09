@@ -467,10 +467,12 @@ func (t *GoTracker) dead() []int {
 	dead := new(vector.IntVector)
 	cp := t.Copy().(*GoTracker)
 	color := BLACK
+	move := 0
 	for {
 		vertex := cp.RandLegal(color)
 		cp.Play(color, vertex)
-		if cp.Winner() != EMPTY { break }
+		move++
+		if move > 3 * t.sqsize || cp.Winner() != EMPTY { break }
 		color = Reverse(color)
 	}
 	for i := 0; i < t.sqsize; i++ {
