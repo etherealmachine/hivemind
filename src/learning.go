@@ -197,7 +197,7 @@ func (s *Swarm) evaluate(p *Particle) {
 			br := NewRoot(BLACK, t, &bc)
 			genmove(br, t)
 			vertex = br.Best().vertex
-			if br.wins / br.visits < 0.05 { vertex = -1 }
+			if br.wins / br.visits < 0.05 { break }
 		}
 		t.Play(BLACK, vertex)
 		move++
@@ -205,7 +205,7 @@ func (s *Swarm) evaluate(p *Particle) {
 		wr := NewRoot(WHITE, t, &wc)
 		genmove(wr, t)
 		vertex = wr.Best().vertex
-		if wr.wins / wr.visits < 0.05 { vertex = -1 }
+		if wr.wins / wr.visits < 0.05 { break }
 		t.Play(WHITE, vertex)
 		move++
 		if t.Winner() != EMPTY || move >= maxMoves { break }
