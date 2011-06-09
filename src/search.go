@@ -114,12 +114,6 @@ func genmove(root *Node, t Tracker) {
 		}
 		if root.config.matcher != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
-			if root.config.logpat {
-				log.Println("patterns:", patternLog)
-				for i := range patternLog {
-					patternLog[i] = 0
-				}
-			}
 			matches, queries = 0, 0
 		}
 	}

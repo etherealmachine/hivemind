@@ -47,7 +47,6 @@ type Config struct {
 	evalFile string
 	patFile string
 	tenuki bool
-	logpat bool
 
 	c float64
 	k float64
@@ -109,7 +108,6 @@ func NewConfig() *Config {
 	flag.StringVar(&config.evalFile, "efile", "", "Load pattern matcher from file")
 	flag.StringVar(&config.patFile, "pfile", "", "Load evaluator from file")
 	flag.BoolVar(&config.tenuki, "tenuki", false, "Use tenuki inside patterns")
-	flag.BoolVar(&config.logpat, "logpat", false, "Log patterns")
 
 	flag.Float64Var(&config.c, "c", 0.5, "UCT coefficient")
 	flag.Float64Var(&config.k, "k", 1000, "RAVE equivalency cutoff")

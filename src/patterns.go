@@ -8,8 +8,6 @@ import (
 var queries int
 var matches int
 
-var patternLog map[uint32]int
-
 type PatternMatcher interface {
 	Match(color byte, vertex int, t Tracker) int
 }
@@ -34,7 +32,6 @@ func (p *Particle) Match(color byte, v int, t Tracker) int {
 	neighbors := t.Neighbors(v, 2)
 	i := HashVertices(b, neighbors, 10)
 	pat := p.Get(i)
-	patternLog[i]++
 	for i := 0; i < len(neighbors); i++ {
 		if neighbors[i] == -1 || b[neighbors[i]] != EMPTY || !t.Legal(color, neighbors[i]) {
 			pat[i] = 0
@@ -78,7 +75,3 @@ func LoadPatternMatcher(config *Config) {
 		config.matcher = particle
 	}
 }	
-
-func init() {
-	patternLog = make(map[uint32]int)
-}
