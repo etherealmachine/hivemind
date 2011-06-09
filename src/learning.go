@@ -187,7 +187,7 @@ func (s *Swarm) evaluate(p *Particle) {
 	if wc.pat { wc.matcher = p }
 	t := NewTracker(p.swarm.config)
 	move := 0
-	maxMoves := 2 * t.Sqsize()
+	maxMoves := 3 * t.Sqsize()
 	winner := EMPTY
 	var vertex int
 	for {
@@ -212,7 +212,16 @@ func (s *Swarm) evaluate(p *Particle) {
 		move++
 		if winner != EMPTY || move >= maxMoves { break }
 	}
+	if winner != EMPTY && p.swarm.config.cgo {
+		gotracker := t.(*GoTracker)
+		dead := gotracker.dead()
+		for i := range dead { gotracker.board[dead[i]] = EMPTY }
+		bc, wc := gotracker.Score(gotracker.GetKomi())
+		winner = WHITE
+		if bc > wc { winner = BLACK }
+	}
 	log.Println(t.String())
+	log.Println(Ctoa(winner))
 	if winner == WHITE {
 		log.Println("win for white")
 		p.Fitness++
