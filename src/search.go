@@ -16,7 +16,7 @@ type Node struct {
 	sibling *Node
 	wins, visits, mean float64
 	amafWins, amafVisits, amafMean float64
-	neighborWins, neighborVisits, neighborMean float64
+	ancestorWins, ancestorVisits, ancestorMean float64
 	evalWins, evalVisits, evalMean float64
 	blendedMean float64
 	value float64
@@ -121,10 +121,20 @@ func genmove(root *Node, t Tracker) {
 
 func treeSearch(root *Node, t Tracker) {
 	start := time.Nanoseconds()
+	s := time.Nanoseconds()
+	trackers := make([]Tracker, 10000)
+	for i := 0; i < len(trackers); i++ { trackers[i] = t.Copy() }
+	root.copy_time += (time.Nanoseconds() - s)
+	tracker := 0
 	for {
-		s := time.Nanoseconds()
-		cp := t.Copy()
-		root.copy_time += time.Nanoseconds() - s
+		cp := trackers[tracker]
+		tracker++
+		if tracker >= len(trackers) {
+			s := time.Nanoseconds()
+			for i := 0; i < len(trackers); i++ { trackers[i] = t.Copy() }
+			root.copy_time += (time.Nanoseconds() - s)
+			tracker = 0
+		}
 		root.step(cp)
 		territory := cp.Territory(Reverse(root.color))
 		for i := range territory {
@@ -231,12 +241,12 @@ func (node *Node) expand(t Tracker) {
 				if cp.Winner() == child.color { child.wins = math.Inf(1) }
 			} else {
 				child.wins = 1
-				child.visits = 1 + 0.01 * rand.Float64()
-				if node.config.neighbors {
+				child.visits = 1 + rand.Float64()
+				if node.config.ancestor {
 					granduncle := child.granduncle()
 					if granduncle != nil {
-						child.neighborVisits += granduncle.visits + granduncle.neighborVisits + granduncle.amafVisits
-						child.neighborWins += granduncle.wins + granduncle.neighborWins + granduncle.amafWins
+						child.ancestorVisits += granduncle.visits + granduncle.amafVisits
+						child.ancestorWins += granduncle.wins + granduncle.amafWins
 					}
 				}
 				if node.config.eval {
@@ -278,46 +288,62 @@ func (node *Node) update(result float64, t Tracker) {
 	node.wins += result
 	node.visits++
 	node.recalc()
-	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
-		sibling.neighborWins += result
-		sibling.neighborVisits++
-		if t.WasPlayed(sibling.color, sibling.vertex) {
-			sibling.amafWins += result
-			sibling.amafVisits++
+	if node.config.amaf {
+		for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
+			if t.WasPlayed(sibling.color, sibling.vertex) {
+				sibling.amafWins += result
+				sibling.amafVisits++
+			}
+			sibling.recalc()
 		}
-		sibling.recalc()
 	}
 }
 
 func (node *Node) recalc() {
 	node.mean = node.wins / node.visits
-	node.amafMean = node.amafWins / node.amafVisits
-	node.neighborMean = node.neighborWins / node.neighborVisits
-	node.evalMean = node.evalWins / node.evalVisits
-	if math.IsNaN(node.mean) { node.mean = 0 }
-	if math.IsNaN(node.amafMean) { node.amafMean = 0 }
-	if math.IsNaN(node.neighborMean) { node.neighborMean = 0 }
-	if math.IsNaN(node.evalMean) { node.evalMean = 0 }
-	beta := math.Sqrt(node.config.k / (3*node.visits + node.config.k))
-	if !(node.config.amaf || node.config.neighbors || node.config.eval) || node.config.k == 0 || beta < 0 { beta = 0 }
-	estimatedMean := 0.0
-	samples := 0.0
-	if node.config.amaf {
-		estimatedMean += node.amafMean
-		samples++
+	node.blendedMean = node.mean
+	rave := node.config.amaf || node.config.neighbors || node.config.ancestor || node.config.eval
+	if rave {
+		beta := math.Sqrt(node.config.k / (3*node.visits + node.config.k))
+		if beta > 0 {
+			node.amafMean = node.amafWins / node.amafVisits
+			node.ancestorMean = node.ancestorWins / node.ancestorVisits
+			node.evalMean = node.evalWins / node.evalVisits
+			if math.IsNaN(node.mean) { node.mean = 0 }
+			if math.IsNaN(node.amafMean) { node.amafMean = 0 }
+			if math.IsNaN(node.ancestorMean) { node.ancestorMean = 0 }
+			if math.IsNaN(node.evalMean) { node.evalMean = 0 }
+			estimatedMean := 0.0
+			samples := 0.0
+			if node.config.amaf {
+				estimatedMean += node.amafMean
+				samples++
+			}
+			if node.config.neighbors {
+				neighborWins := 0.0
+				neighborVisits := 0.0
+				for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
+					if sibling.vertex != node.vertex {
+						neighborWins += sibling.wins
+						neighborVisits += sibling.visits
+					}
+				}
+				estimatedMean += neighborWins / neighborVisits
+			}
+			if node.config.ancestor {
+				estimatedMean += node.ancestorMean
+				samples++
+			}
+			if node.config.eval {
+				estimatedMean += node.evalMean
+				samples++
+			}
+			estimatedMean /= samples
+			if math.IsNaN(estimatedMean) { estimatedMean = 0 }
+			node.blendedMean = beta * estimatedMean + (1 - beta) * node.mean
+		}
 	}
-	if node.config.neighbors {
-		estimatedMean += node.neighborMean
-		samples++
-	}
-	if node.config.eval {
-		estimatedMean += node.evalMean
-		samples++
-	}
-	estimatedMean /= samples
-	if math.IsNaN(estimatedMean) { estimatedMean = 0 }
-	node.blendedMean = beta * estimatedMean + (1 - beta) * node.mean
-	r := math.Log(node.parent.visits) / node.visits
+	r := math.Log1p(node.parent.visits) / node.visits
 	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
 	node.value = node.blendedMean + node.config.c * math.Sqrt(r * math.Fmin(0.25, v))
 }
@@ -456,6 +482,26 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 		}
 	}
 	return nil
+}
+
+func (node *Node) String(depth int, t Tracker) (s string) {
+	if node.visits == 0 { return "" }
+	for i := 0; i < depth; i++ {
+		s += "  "
+	}
+	amaf := ""
+	if node.config.amaf { amaf = fmt.Sprintf("(%5.2f %6.0f)", node.amafMean, node.amafVisits) }
+	s += fmt.Sprintf("%s%s (%5.2f %5.2f %6.0f) %s\n",
+						Ctoa(node.color), t.Vtoa(node.vertex),
+						node.mean, node.value, node.visits, amaf)
+	if node.child != nil {
+		for child := node.child; child != nil; child = child.sibling {
+			if child.visits > 0 {
+				s += child.String(depth + 1, t)
+			}
+		}
+	}
+	return
 }
 
 func TestPPS(config *Config) {

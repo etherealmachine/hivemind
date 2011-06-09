@@ -463,6 +463,26 @@ func (t *GoTracker) String() (s string) {
 	return
 }
 
+func (t *GoTracker) dead() []int {
+	dead := new(vector.IntVector)
+	cp := t.Copy().(*GoTracker)
+	color := BLACK
+	for {
+		vertex := cp.RandLegal(color)
+		cp.Play(color, vertex)
+		if cp.Winner() != EMPTY { break }
+		color = Reverse(color)
+	}
+	for i := 0; i < t.sqsize; i++ {
+		if t.board[i] != EMPTY && cp.board[i] != t.board[i] {
+			dead.Push(i)
+		}
+	}
+	stones := make([]int, dead.Len())
+	for i := 0; i < dead.Len(); i++ { stones[i] = dead.At(i) }
+	return stones
+}
+
 func (t *GoTracker) reaches(vertex int, checked []bool) (reachesBlack bool, reachesWhite bool) {
 	checked[vertex] = true
 	if t.board[vertex] == BLACK {

@@ -146,25 +146,6 @@ func LegalBoard(t Tracker) (s string) {
 	return
 }
 
-func TreeToString(depth int, node *Node, t Tracker, config *Config) (s string) {
-	if node.visits == 0 && node.amafVisits == 0 { return "" }
-	for i := 0; i < depth; i++ {
-		s += "  "
-	}
-	s += fmt.Sprintf("%s%s UCT: (%5.2f %5.2f %6.0f) AMAF: (%5.2f %6.0f)\n",
-						Ctoa(node.color), t.Vtoa(node.vertex),
-						node.mean, node.value, node.visits,
-						node.amafMean, node.amafVisits)
-	if node.child != nil {
-		for child := node.child; child != nil; child = child.sibling {
-			if child.visits > 0 {
-				s += TreeToString(depth + 1, child, t, config)
-			}
-		}
-	}
-	return
-}
-
 var lastEmitTime int64;
 
 func EmitGFX(root *Node, t Tracker) {

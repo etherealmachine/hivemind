@@ -1,10 +1,10 @@
 #!/bin/bash
 if [[ -z $1 ]]; then
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -p 50000 -c 0.5 -e 50 -log gogo.log -amaf -neighbors -seed"
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 10 -e 50 -log gogo.log -amaf -neighbors -ancestor -seed"
 else 
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 20 -e 2 -log gogo.log -amaf -neighbors -seed -pat -pfile $1 -c 0.1 -cutoff 0.5"
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 20 -e 50 -log gogo.log -amaf -seed -neighbors -ancestor -pat -tenuki -pfile $1 -c 0.1 -cutoff 0.4"
 fi
-WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 1"
+WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 10"
 gogui-twogtp \
 	-black "gogui-display \"$BLACK\"" \
 	-white "$WHITE" \

@@ -53,6 +53,7 @@ type Config struct {
 	expandAfter float64
 	amaf bool
 	neighbors bool
+	ancestor bool
 	seedPlayouts bool
 
 	verbose bool
@@ -114,6 +115,7 @@ func NewConfig() *Config {
 	flag.Float64Var(&config.expandAfter, "e", 2, "Expand after")
 	flag.BoolVar(&config.amaf, "amaf", false, "Use AMAF results in RAVE mean")
 	flag.BoolVar(&config.neighbors, "neighbors", false, "Use neighbors results in RAVE mean")
+	flag.BoolVar(&config.ancestor, "ancestor", false, "Use ancestors results in RAVE mean")
 	flag.BoolVar(&config.seedPlayouts, "seed", false, "Seed the playouts using ancestor's results")
 
 	flag.BoolVar(&config.verbose, "v", false, "Verbose logging")

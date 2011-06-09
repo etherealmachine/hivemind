@@ -24,6 +24,7 @@ final_score
 showboard
 time_settings
 time_left
+final_status_list
 gogui-analyze_commands`
 var gogui_commands = `dboard/Visits/visits
 cboard/Territory/territory
@@ -74,10 +75,10 @@ func GTP(config *Config) {
 		if err == os.EOF {
 			break
 		}
-		cmds := strings.Split(s[0:len(s)-1], " ", -1)
+		args := strings.Split(s[0:len(s)-1], " ", -1)
 		var res string
 		var fail bool
-		switch cmds[0] {
+		switch args[0] {
 			case "protocol_version":
 				res = "2"
 			case "name":
@@ -85,16 +86,16 @@ func GTP(config *Config) {
 			case "version":
 				res = "0.1"
 			case "known_command":
-				res = known_command(cmds[1])
+				res = known_command(args[1])
 			case "list_commands":
 				res = supported_commands
 			case "quit":
 				fmt.Fprint(os.Stdout, "=\n\n")
 				return
 			case "boardsize":
-				boardsize, err = strconv.Atoi(cmds[1])
+				boardsize, err = strconv.Atoi(args[1])
 				if err != nil {
-					res = fmt.Sprintf("Could not convert %s to integer", cmds[1])
+					res = fmt.Sprintf("Could not convert %s to integer", args[1])
 					fail = true
 				}
 				config.size = boardsize
@@ -105,19 +106,20 @@ func GTP(config *Config) {
 				movecount = 0
 				game_over = false
 			case "komi":
-				new_komi, err := strconv.Atof64(cmds[1])
+				new_komi, err := strconv.Atof64(args[1])
 				if err != nil {
-					res = fmt.Sprintf("Could not convert %s to float", cmds[1])
+					res = fmt.Sprintf("Could not convert %s to float", args[1])
 					fail = true
 				} else {
 					t.SetKomi(new_komi)
 				}
 			case "play":
-				if len(cmds) != 3 {
+				if len(args) != 3 {
+					fail = true
 					res = "missing argument"
 				} else {
-					color = Atoc(cmds[1])
-					vertex := t.Atov(cmds[2])
+					color = Atoc(args[1])
+					vertex := t.Atov(args[2])
 					t.Play(color, vertex)
 					movecount++
 					t.String()
@@ -127,13 +129,14 @@ func GTP(config *Config) {
 					}
 				}
 			case "genmove":
-				if len(cmds) != 2 {
+				if len(args) != 2 {
+					fail = true
 					res = "missing argument"
 				} else if config.cgo && passcount >= 3 {
 					res = t.Vtoa(-1)
 				} else {
 					saved_timelimit := config.timelimit
-					color = Atoc(cmds[1])
+					color = Atoc(args[1])
 					if time_left_time != -1 && color == time_left_color { config.timelimit = set_timelimit(time_left_time) }
 					var vertex int
 					// HEX, swap-safe: if black and first move of game, play a move that should be safe from swapping
@@ -178,7 +181,7 @@ func GTP(config *Config) {
 			case "final_score":
 				res = FormatScore(t)
 			case "showboard":
-				res = ""
+				res = t.String()
 			case "gogui-analyze_commands":
 				res = gogui_commands
 			case "visits":
@@ -200,17 +203,29 @@ func GTP(config *Config) {
 			case "legal":
 				res = LegalBoard(t)
 			case "time_settings":
-				main_time, _ = strconv.Atoi(cmds[1])
-				byo_yomi_time, _ := strconv.Atoi(cmds[2])
-				byo_yomi_stones, _ := strconv.Atoi(cmds[3])
+				main_time, _ = strconv.Atoi(args[1])
+				byo_yomi_time, _ := strconv.Atoi(args[2])
+				byo_yomi_stones, _ := strconv.Atoi(args[3])
 				log.Printf("Time settings: m: %d, b: %d, s: %d\n", main_time, byo_yomi_time, byo_yomi_stones)
 			case "time_left":
-				time_left_color = Atoc(cmds[1])
-				time_left_time, _ = strconv.Atoi(cmds[2])
-				time_left_stones, _ := strconv.Atoi(cmds[3])
+				time_left_color = Atoc(args[1])
+				time_left_time, _ = strconv.Atoi(args[2])
+				time_left_stones, _ := strconv.Atoi(args[3])
 				log.Printf("Time Left: %s, %d, %d\n", Ctoa(time_left_color), time_left_time, time_left_stones)
+			case "final_status_list":
+				if config.cgo {
+					gotracker := t.(*GoTracker)
+					stones := gotracker.dead()
+					for i := range stones {
+						res += t.Vtoa(stones[i])
+						if i != len(stones) - 1 { res += "\n" }
+					}
+				} else {
+					fail = true
+					res = "cannot determine status for hex"
+				}
 		}
-		if known_command(cmds[0]) == "false" {
+		if known_command(args[0]) == "false" {
 			fail = true
 			res = "unknown command"
 		}
