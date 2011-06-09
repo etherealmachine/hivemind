@@ -186,7 +186,6 @@ func (s *Swarm) evaluate(p *Particle) {
 	if wc.eval { wc.evaluator = p }
 	if wc.pat { wc.matcher = p }
 	t := NewTracker(p.swarm.config)
-	t.SetKomi(7.5)
 	move := 0
 	maxMoves := 2 * t.Sqsize()
 	winner := EMPTY
