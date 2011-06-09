@@ -38,12 +38,12 @@ type GoTracker struct {
 // board will be modified during use, should be a copy of the real board
 func NewGoTracker(config *Config) (t *GoTracker) {
 	t = new(GoTracker)
-	
+
 	t.boardsize = config.size
 	t.adj = go_adj[config.size]
 	t.mask = masks[config.size]
 	t.sqsize = config.size * config.size
-	
+
 	t.parent = make([]int, t.sqsize)
 	t.rank = make([]int, t.sqsize)
 	t.captured = make([]bool, t.sqsize)
@@ -67,7 +67,7 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 
 func (t *GoTracker) Copy() Tracker {
 	cp := new(GoTracker)
-	
+
 	cp.boardsize = t.boardsize
 	cp.adj = t.adj
 	cp.mask = t.mask
@@ -84,13 +84,13 @@ func (t *GoTracker) Copy() Tracker {
 	cp.empty = new(vector.IntVector)
 	*cp.empty = t.empty.Copy()
 	shuffle(cp.empty)
-	
+
 	cp.komi = t.komi
 	cp.koVertex = t.koVertex
 	cp.koColor = t.koColor
-	
+
 	cp.played = make([]byte, t.sqsize)
-	
+
 	return cp
 }
 
@@ -101,7 +101,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		t.passes = 0
 		t.koVertex = -1
 		t.koColor = EMPTY
-	
+
 		// mask out adjacent liberties
 		l0 := uint64(0)
 		l1 := uint64(0)
@@ -114,7 +114,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		}
 		t.liberties[vertex][0] = l0
 		t.liberties[vertex][1] = l1
-		
+
 		// remove liberty from adjacent hostiles
 		for i := 0; i < 4; i++ {
 			n := t.adj[vertex][i]
@@ -123,15 +123,15 @@ func (t *GoTracker) Play(color byte, vertex int) {
 				t.remove(color, root, find(n, t.parent))
 			}
 		}
-	
+
 		// merge with adjacent friendlies
 		for i := 0; i < 4; i++ {
 			n := t.adj[vertex][i]
 			if n != -1 && t.board[n] == color {
 				t.merge(color, vertex, n)
 			}
-		}	
-		
+		}
+
 		// or in liberties?
 		root := find(vertex, t.parent)
 		l0 = t.liberties[root][0]
@@ -145,10 +145,10 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		}
 		l0 &= t.mask[vertex][2]
 		l1 &= t.mask[vertex][3]
-	
+
 		t.liberties[root][0] = l0
 		t.liberties[root][1] = l1
-	
+
 		// modify the board
 		t.board[vertex] = color
 		// remove vertex from empty
@@ -273,7 +273,8 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 			if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color { corners++ }
 			if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color { corners++ }
 		}
-		if corners >= 2 || (off == 2 && corners >= 1) { return false }
+		if off >= 1 && corners >= 1 { return false }
+		if off == 0 && corners >= 3 { return false }
 	}
 	return !suicide
 }
@@ -339,21 +340,22 @@ func (t *GoTracker) Neighbors(vertex int, size int) []int {
 	return go_neighbors[t.boardsize][size][vertex]
 }
 
-func (t *GoTracker) Territory() []byte {
-	cp := make([]byte, t.sqsize)
-	for i := 0; i < t.sqsize; i++ {
-		cp[i] = t.board[i]
-		if cp[i] == EMPTY {
+func (t *GoTracker) Territory(color byte) []float64 {
+	territory := make([]float64, t.sqsize)
+	for i := range t.board {
+		if t.board[i] == EMPTY {
 			checked := make([]bool, t.sqsize)
 			reachesBlack, reachesWhite := t.reaches(i, checked)
-			if reachesBlack && !reachesWhite {
-				cp[i] = BLACK
-			} else if reachesWhite && !reachesBlack {
-				cp[i] = WHITE
+			if reachesBlack && !reachesWhite && color == BLACK {
+				territory[i] = 1
+			} else if reachesWhite && !reachesBlack && color == WHITE {
+				territory[i] = 1
 			}
+		} else if t.board[i] == color {
+				territory[i] = 1
 		}
 	}
-	return cp
+	return territory
 }
 
 func (t *GoTracker) Verify() {

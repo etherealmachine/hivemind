@@ -183,8 +183,14 @@ func (t *HexTracker) Board() []byte {
 	return t.board
 }
 
-func (t *HexTracker) Territory() []byte {
-	return t.board
+func (t *HexTracker) Territory(color byte) []float64 {
+	territory := make([]float64, t.sqsize)
+	for i := range t.board {
+		if t.board[i] == color {
+			territory[i] = 1
+		}
+	}
+	return territory
 }
 
 func (t *HexTracker) Verify() {

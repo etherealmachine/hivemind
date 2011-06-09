@@ -33,7 +33,7 @@ type Tracker interface {
 	Boardsize() int
 	Sqsize() int
 	Board() []byte
-	Territory() []byte
+	Territory(color byte) []float64
 	Verify()
 	Neighbors(vertex int, size int) []int
 	Adj(vertex int) []int

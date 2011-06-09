@@ -91,12 +91,12 @@ func VisitsBoard(root *Node, t Tracker) (s string) {
 	return
 }
 
-func TerritoryBoard(root *Node, t Tracker) (s string) {
+func TerritoryBoard(territory []float64, samples float64, t Tracker) (s string) {
 	boardsize := t.Boardsize()
 	for row := 0; row < boardsize; row++ {
 		for col := 0; col < boardsize; col++ {
 			v := row * boardsize + col
-			r := root.territory[v] / root.visits
+			r := territory[v] / samples
 			red := uint32(0)
 			green := uint32(r * 255)
 			blue := uint32((1 - r) * 255)

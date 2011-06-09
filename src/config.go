@@ -11,6 +11,7 @@ type Config struct {
 
 	maxPlayouts uint
 	timelimit int
+	cutoff float64
 
 	file string
 	configFile string
@@ -72,6 +73,7 @@ func NewConfig() *Config {
 
 	flag.UintVar(&config.maxPlayouts, "p", 10000, "Max number of playouts")
 	flag.IntVar(&config.timelimit, "t", -1, "Max number of seconds")
+	flag.Float64Var(&config.cutoff, "cutoff", -1, "End search if ratio of visits to top 2 moves is greater than cutoff")
 
 	flag.StringVar(&config.file, "file", "", "Load data from file")
 	flag.StringVar(&config.configFile, "config", "", "Load config from file")

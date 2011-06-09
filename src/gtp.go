@@ -67,6 +67,7 @@ func GTP(config *Config) {
 	time_left_time := -1
 	passcount := 0
 	movecount := 0
+	game_over := false
 	r := bufio.NewReader(os.Stdin)
 	for {
 		s, err := r.ReadString('\n')
@@ -102,6 +103,7 @@ func GTP(config *Config) {
 				color = WHITE
 				passcount = 0
 				movecount = 0
+				game_over = false
 			case "komi":
 				new_komi, err := strconv.Atof64(cmds[1])
 				if err != nil {
@@ -134,14 +136,20 @@ func GTP(config *Config) {
 					color = Atoc(cmds[1])
 					if time_left_time != -1 && color == time_left_color { config.timelimit = set_timelimit(time_left_time) }
 					var vertex int
+					// HEX, swap-safe: if black and first move of game, play a move that should be safe from swapping
 					if config.hex && color == BLACK && config.swapsafe && movecount == 0 {
-						vertex = t.Boardsize() + 2
-					} else if config.timelimit != 0 && t.Winner() == EMPTY {
+						vertex = (3 * t.Boardsize()) + 2
+					// Pass if: no time left, game definitely won
+					} else if config.timelimit != 0 && t.Winner() == EMPTY && !game_over {
 						if root == nil {
 							root = NewRoot(color, t, config)
 						}
 						if config.useBook { vertex = book.Load(color, t) }
 						genmove(root, t)
+						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
+						if root.wins / root.visits > 0.95 { game_over = true }
+						// if genmove predicts win in <5% of playouts, set a flag and pass next time around
+						if root.wins / root.visits < 0.05 { game_over = true }
 						if config.useBook { book.Save(root, t) }
 						if root == nil || root.Best() == nil {
 							vertex = -1
@@ -182,12 +190,12 @@ func GTP(config *Config) {
 					res = ""
 				}
 			case "territory":
-				if !(config.hex && t.Winner() != EMPTY) {
+				if t.Winner() == EMPTY {
 					tmpRoot := NewRoot(Reverse(color), t, config)
 					genmove(tmpRoot, t)
-					res = TerritoryBoard(tmpRoot, t)
+					res = TerritoryBoard(tmpRoot.territory, tmpRoot.visits, t)
 				} else {
-					res = ""
+					res = TerritoryBoard(t.Territory(color), 1, t)
 				}
 			case "legal":
 				res = LegalBoard(t)

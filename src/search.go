@@ -24,6 +24,8 @@ type Node struct {
 	vertex int
 	territory []float64
 	seeds, totalseeds int
+	playout_time, update_time, win_calc_time, next_time, play_time, copy_time int64
+	next_count, play_count int64
 	config *Config
 }
 
@@ -54,16 +56,43 @@ func genmove(root *Node, t Tracker) {
 	}
 	start := time.Nanoseconds()
 	root.territory = make([]float64, t.Sqsize())
+	root.playout_time = 0
+	root.update_time = 0
+	root.win_calc_time = 0
+	root.next_time = 0
+	root.play_time = 0
+	root.copy_time = 0
+	root.next_count = 0
+	root.play_count = 0
 	treeSearch(root, t)
-	elapsed := float64(time.Nanoseconds() - start) / 1e9
+	elapsed := time.Nanoseconds() - start
+	elapsed_seconds := float64(elapsed) / 1e9
 	if root.config.stats {
-		pps := float64(root.visits) / elapsed
-		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.visits, elapsed, pps)
+		pps := float64(root.visits) / elapsed_seconds
+		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.visits, elapsed_seconds, pps)
+		if root.config.verbose {
+			avg_playout_time := float64(root.playout_time) / root.visits
+			avg_update_time := float64(root.update_time) / root.visits
+			avg_win_calc_time := float64(root.win_calc_time) / root.visits
+			avg_next_time := float64(root.next_time) / float64(root.next_count)
+			avg_play_time := float64(root.play_time) / float64(root.play_count)
+			avg_copy_time := float64(root.copy_time) / root.visits
+			pps = 1e9 / avg_playout_time
+			log.Printf("%.0f nanoseconds per playout, %.2f pps\n", avg_playout_time, pps)
+			log.Printf("%.0f nanoseconds per update\n", avg_update_time)
+			log.Printf("%.0f nanoseconds per win_calc\n", avg_win_calc_time)
+			log.Printf("%.0f nanoseconds per next\n", avg_next_time)
+			log.Printf("%.0f nanoseconds per play\n", avg_play_time)
+			log.Printf("%.0f nanoseconds per copy\n", avg_copy_time)
+			unaccounted := elapsed - 
+				root.playout_time - root.update_time - root.win_calc_time - root.next_time - root.play_time - root.copy_time
+			log.Printf("%.2f seconds unaccounted\n", float64(unaccounted) / 1e9)
+		}
 		if root.config.timelimit > 0 {
-			if elapsed > float64(root.config.timelimit) {
-				log.Printf("%.2f seconds overtime\n", elapsed - float64(root.config.timelimit))
+			if elapsed_seconds > float64(root.config.timelimit) {
+				log.Printf("%.2f seconds overtime\n", elapsed_seconds - float64(root.config.timelimit))
 			} else {
-				log.Printf("%.2f seconds left\n", float64(root.config.timelimit) - elapsed)
+				log.Printf("%.2f seconds left\n", float64(root.config.timelimit) - elapsed_seconds)
 			}
 		}
 		log.Printf("winrate: %.2f\n", root.wins / root.visits)
@@ -79,8 +108,10 @@ func genmove(root *Node, t Tracker) {
 		territory_var /= float64(t.Sqsize())
 		log.Printf("territory: mean: %.2f, var: %.2f\n", territory_mean, territory_var)
 		log.Printf("max depth: %d\n", root.maxdepth())
-		seeds, totalseeds := root.seedstats()
-		log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
+		if root.config.seedPlayouts {
+			seeds, totalseeds := root.seedstats()
+			log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
+		}
 		if root.config.matcher != nil {
 			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
 			if root.config.logpat {
@@ -97,16 +128,27 @@ func genmove(root *Node, t Tracker) {
 func treeSearch(root *Node, t Tracker) {
 	start := time.Nanoseconds()
 	for {
+		s := time.Nanoseconds()
 		cp := t.Copy()
+		root.copy_time += time.Nanoseconds() - s
 		root.step(cp)
+		territory := cp.Territory(Reverse(root.color))
+		for i := range territory {
+			root.territory[i] += territory[i]
+		}
 		if root.config.gfx {
-			board := cp.Territory()
-			for v := 0; v < cp.Sqsize(); v++ {
-				if board[v] == Reverse(root.color) {
-					root.territory[v]++
+			EmitGFX(root, cp)
+		}
+		if root.visits > 1000 && root.config.cutoff != -1 {
+			var bests [2]float64
+			for child := root.child; child != nil; child = child.sibling {
+				if child.visits > bests[0] {
+					bests[0] = child.visits
+				} else if child.visits > bests[1] {
+					bests[1] = child.visits
 				}
 			}
-			EmitGFX(root, cp)
+			if (bests[0] - bests[1]) / root.visits > root.config.cutoff { break }
 		}
 		if root.config.timelimit != -1 {
 			elapsed := time.Nanoseconds() - start
@@ -119,13 +161,20 @@ func treeSearch(root *Node, t Tracker) {
 
 // navigate through the tree until a leaf node is found to playout
 func (root *Node) step(t Tracker) {
+	var start int64
 	path := new(vector.Vector)
+	start = time.Nanoseconds()
 	curr := root.Next(root, t)
+	root.next_time += time.Nanoseconds() - start
+	root.next_count++
 	if curr == nil { root.visits = math.Inf(1); return }
 	for {
 		path.Push(curr)
 		// apply node's position to the board
+		start = time.Nanoseconds()
 		t.Play(curr.color, curr.vertex)
+		root.play_time += time.Nanoseconds() - start
+		root.play_count++
 		if curr.visits <= root.config.expandAfter {
 			var color byte
 			if root.config.seedPlayouts {
@@ -133,24 +182,34 @@ func (root *Node) step(t Tracker) {
 			} else {
 				color = Reverse(curr.color)
 			}
+			start = time.Nanoseconds()
 			t.Playout(color, root.config.matcher)
+			root.playout_time += time.Nanoseconds() - start
 			break
 		}
+		time.Nanoseconds()
 		next := curr.Next(root, t)
+		root.next_time += time.Nanoseconds() - start
+		root.next_count++
 		curr = next
 		if curr == nil { break }
 	}
+	start = time.Nanoseconds()
 	winner := t.Winner()
+	root.win_calc_time += time.Nanoseconds() - start
 	var result float64
 	if winner == root.color {
 		result = 0.0
 	} else {
 		result = 1.0
 	}
+	start = time.Nanoseconds()
+	c := result
 	for j := 0; j < path.Len(); j++ {
 		path.At(j).(*Node).update(result, t)
-		result = 1 - result
+		result = c - result
 	}
+	root.update_time += time.Nanoseconds() - start
 	if winner == Reverse(root.color) {
 		root.wins++
 	}
