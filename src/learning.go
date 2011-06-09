@@ -189,6 +189,7 @@ func (s *Swarm) evaluate(p *Particle) {
 	t.SetKomi(7.5)
 	move := 0
 	maxMoves := 2 * t.Sqsize()
+	winner := EMPTY
 	var vertex int
 	for {
 		if move == 0 && p.swarm.config.hex {
@@ -197,20 +198,24 @@ func (s *Swarm) evaluate(p *Particle) {
 			br := NewRoot(BLACK, t, &bc)
 			genmove(br, t)
 			vertex = br.Best().vertex
-			if br.wins / br.visits < 0.05 { break }
+			if br.wins / br.visits < 0.01 { winner = WHITE; break }
 		}
 		t.Play(BLACK, vertex)
+		winner = t.Winner()
 		move++
-		if t.Winner() != EMPTY || move >= maxMoves { break }
+		if winner != EMPTY || move >= maxMoves { break }
 		wr := NewRoot(WHITE, t, &wc)
 		genmove(wr, t)
 		vertex = wr.Best().vertex
-		if wr.wins / wr.visits < 0.05 { break }
+		if wr.wins / wr.visits < 0.01 { winner = BLACK; break }
 		t.Play(WHITE, vertex)
+		winner = t.Winner()
 		move++
-		if t.Winner() != EMPTY || move >= maxMoves { break }
+		if winner != EMPTY || move >= maxMoves { break }
 	}
-	if t.Winner() == WHITE {
+	log.Println(t.String())
+	if winner == WHITE {
+		log.Println("win for white")
 		p.Fitness++
 	}
 }
