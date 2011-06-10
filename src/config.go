@@ -5,15 +5,19 @@ import (
 )
 
 type Config struct {
-	Help bool
-	Gtp  bool
+	Help  bool
+	Gtp   bool
+	Test  bool
+	Speed bool
 
 	MaxPlayouts uint
 	Timelimit   int
 	Cutoff      float64
 
-	File       string
-	ConfigFile string
+	Prefix string
+	Sfile  string
+	Efile  string
+	Pfile  string
 
 	Stats bool
 
@@ -21,10 +25,8 @@ type Config struct {
 	Hex      bool
 	Swapsafe bool
 
-	Test  bool
-	Size  int
-	Komi  float64
-	Speed bool
+	Size int
+	Komi float64
 
 	Train       bool
 	Pswarm      bool
@@ -34,14 +36,11 @@ type Config struct {
 	Parents     uint
 	Lambda      uint
 	Samples     uint
-	Prefix      string
 
 	Gfx bool
 
 	Eval   bool
 	Pat    bool
-	Efile  string
-	Pfile  string
 	Tenuki bool
 
 	Explore     float64
@@ -66,13 +65,17 @@ func NewConfig() *Config {
 
 	flag.BoolVar(&config.Help, "h", false, "Print this usage message")
 	flag.BoolVar(&config.Gtp, "gtp", false, "Listen on stdin for GTP commands")
+	flag.BoolVar(&config.Test, "test", false, "Just generate a single move")
+	flag.BoolVar(&config.Speed, "pps", false, "Gather data on the playouts per second")
 
 	flag.UintVar(&config.MaxPlayouts, "p", 10000, "Max number of playouts")
 	flag.IntVar(&config.Timelimit, "t", -1, "Max number of seconds")
 	flag.Float64Var(&config.Cutoff, "cutoff", -1, "End search if ratio of visits to top 2 moves is greater than cutoff")
 
-	flag.StringVar(&config.File, "file", "", "Load data from file")
-	flag.StringVar(&config.ConfigFile, "config", "", "Load config from file")
+	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
+	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
+	flag.StringVar(&config.Efile, "efile", "", "Load evaluator from file")
+	flag.StringVar(&config.Pfile, "pfile", "", "Load pattern matcher from file")
 
 	flag.BoolVar(&config.Stats, "stats", false, "Print out tree search statistics")
 
@@ -80,10 +83,8 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Hex, "hex", false, "Play Hex")
 	flag.BoolVar(&config.Swapsafe, "swapsafe", false, "When playing hex, black will choose a swap-safe opening move")
 
-	flag.BoolVar(&config.Test, "test", false, "Just generate a single move")
 	flag.IntVar(&config.Size, "size", 9, "Boardsize")
 	flag.Float64Var(&config.Komi, "komi", 6.5, "Komi")
-	flag.BoolVar(&config.Speed, "pps", false, "Gather data on the playouts per second")
 
 	flag.BoolVar(&config.Train, "train", false, "Do crazy unsupervised training stuff")
 	flag.BoolVar(&config.Pswarm, "pswarm", false, "Train with particle swarm")
@@ -93,14 +94,11 @@ func NewConfig() *Config {
 	flag.UintVar(&config.Parents, "parents", 2, "(Training) Parents per child")
 	flag.UintVar(&config.Lambda, "lambda", 50, "(Training) Children")
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
-	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 
 	flag.BoolVar(&config.Gfx, "gfx", false, "Emit live graphics for gogui")
 
 	flag.BoolVar(&config.Eval, "eval", false, "Use evaluator")
 	flag.BoolVar(&config.Pat, "pat", false, "Use patterns")
-	flag.StringVar(&config.Efile, "efile", "", "Load pattern matcher from file")
-	flag.StringVar(&config.Pfile, "pfile", "", "Load evaluator from file")
 	flag.BoolVar(&config.Tenuki, "tenuki", false, "Use tenuki inside patterns")
 
 	flag.Float64Var(&config.Explore, "c", 0.5, "UCT coefficient")

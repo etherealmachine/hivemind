@@ -514,8 +514,8 @@ func LoadBest(filename string, config *Config) *Particle {
 func Train(config *Config) {
 	var s *Swarm
 	s = NewSwarm(config)
-	if config.File != "" {
-		s.LoadSwarm(config.File, config)
+	if config.Sfile != "" {
+		s.LoadSwarm(config.Sfile, config)
 	}
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
