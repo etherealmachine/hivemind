@@ -203,8 +203,8 @@ func (s *Swarm) evaluate(p *Particle) {
 		} else {
 			br := NewRoot(BLACK, t, &bc)
 			genmove(br, t)
-			vertex = br.Best().vertex
-			if br.wins/br.visits < 0.01 {
+			vertex = br.Best().Vertex
+			if br.Wins/br.Visits < 0.01 {
 				winner = WHITE
 				break
 			}
@@ -217,8 +217,8 @@ func (s *Swarm) evaluate(p *Particle) {
 		}
 		wr := NewRoot(WHITE, t, &wc)
 		genmove(wr, t)
-		vertex = wr.Best().vertex
-		if wr.wins/wr.visits < 0.01 {
+		vertex = wr.Best().Vertex
+		if wr.Wins/wr.Visits < 0.01 {
 			winner = BLACK
 			break
 		}

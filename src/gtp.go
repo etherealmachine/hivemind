@@ -154,15 +154,15 @@ func GTP(config *Config) {
 					if vertex == -1 {
 						genmove(root, t)
 						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
-						if root.wins/root.visits > 0.95 {
+						if root.Wins/root.Visits > 0.95 {
 							game_over = true
 						}
 						// if genmove predicts win in <5% of playouts, set a flag and pass next time around
-						if root.wins/root.visits < 0.05 {
+						if root.Wins/root.Visits < 0.05 {
 							game_over = true
 						}
 						if root != nil && root.Best() != nil {
-							vertex = root.Best().vertex
+							vertex = root.Best().Vertex
 						}
 					}
 				}
@@ -200,7 +200,7 @@ func GTP(config *Config) {
 			if t.Winner() == EMPTY {
 				tmpRoot := NewRoot(Reverse(color), t, config)
 				genmove(tmpRoot, t)
-				res = TerritoryBoard(tmpRoot.territory, tmpRoot.visits, t)
+				res = TerritoryBoard(tmpRoot.territory, tmpRoot.Visits, t)
 			} else {
 				res = TerritoryBoard(t.Territory(color), 1, t)
 			}

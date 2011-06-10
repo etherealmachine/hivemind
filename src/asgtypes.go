@@ -70,10 +70,10 @@ func Reverse(c byte) byte {
 func VisitsBoard(root *Node, t Tracker) (s string) {
 	boardsize := t.Boardsize()
 	board := make([]float64, boardsize*boardsize)
-	for child := root.child; child != nil; child = child.sibling {
-		board[child.vertex] = math.Log(child.visits) / math.Log(root.visits)
-		if child.color == WHITE {
-			board[child.vertex] = -board[child.vertex]
+	for child := root.Child; child != nil; child = child.Sibling {
+		board[child.Vertex] = math.Log(child.Visits) / math.Log(root.Visits)
+		if child.Color == WHITE {
+			board[child.Vertex] = -board[child.Vertex]
 		}
 	}
 	for row := 0; row < boardsize; row++ {
@@ -155,7 +155,7 @@ func EmitGFX(root *Node, t Tracker) {
 	fmt.Fprintln(os.Stderr, "gogui-gfx:")
 
 	for v := 0; v < t.Sqsize(); v++ {
-		r := root.territory[v] / root.visits
+		r := root.territory[v] / root.Visits
 		red := uint32(0)
 		green := uint32(r * 255)
 		blue := uint32((1 - r) * 255)
@@ -165,9 +165,9 @@ func EmitGFX(root *Node, t Tracker) {
 	maxValue := 0.0
 	for v := 0; v < t.Sqsize(); v++ {
 		value := float64(0)
-		for child := root.child; child != nil; child = child.sibling {
-			if child.vertex == v {
-				value = child.visits
+		for child := root.Child; child != nil; child = child.Sibling {
+			if child.Vertex == v {
+				value = child.Visits
 			}
 		}
 		if value > maxValue {
@@ -177,9 +177,9 @@ func EmitGFX(root *Node, t Tracker) {
 	influenceString := ""
 	for v := 0; v < t.Sqsize(); v++ {
 		value := 0.0
-		for child := root.child; child != nil; child = child.sibling {
-			if child.vertex == v {
-				value = child.visits
+		for child := root.Child; child != nil; child = child.Sibling {
+			if child.Vertex == v {
+				value = child.Visits
 			}
 		}
 		influenceString += t.Vtoa(v)

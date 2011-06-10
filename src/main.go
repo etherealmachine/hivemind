@@ -41,7 +41,7 @@ func main() {
 		t, color := Load(config.SGF)
 		root := NewRoot(color, t, config)
 		genmove(root, t)
-		vertex := root.Best().vertex
+		vertex := root.Best().Vertex
 		t.Play(color, vertex)
 		fmt.Println(Ctoa(color), t.Vtoa(vertex))
 		fmt.Println(t.String())
