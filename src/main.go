@@ -30,8 +30,6 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
-	LoadPatternMatcher(config)
-	LoadBoardEvaluator(config)
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)

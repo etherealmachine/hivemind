@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"os"
+	"json"
 )
 
 type Config struct {
@@ -56,6 +58,10 @@ type Config struct {
 
 	SGF string
 
+	// private flag, used to load config from json file
+	cfile  string
+	
+	// private fields, set by Pfile and Efile
 	matcher   PatternMatcher
 	evaluator BoardEvaluator
 }
@@ -76,6 +82,7 @@ func NewConfig() *Config {
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
 	flag.StringVar(&config.Efile, "efile", "", "Load evaluator from file")
 	flag.StringVar(&config.Pfile, "pfile", "", "Load pattern matcher from file")
+	flag.StringVar(&config.cfile, "cfile", "", "Load config from file")
 
 	flag.BoolVar(&config.Stats, "stats", false, "Print out tree search statistics")
 
@@ -115,6 +122,13 @@ func NewConfig() *Config {
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 
 	flag.Parse()
+	
+	if config.cfile != "" {
+		config.Load()
+	}
+	
+	LoadPatternMatcher(config)
+	LoadBoardEvaluator(config)
 
 	if !(config.Go || config.Hex) {
 		config.Go = true
@@ -136,4 +150,18 @@ func NewConfig() *Config {
 	}
 
 	return config
+}
+
+
+func (config *Config) Load() {
+	f, err := os.Open(config.cfile)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { f.Close() }()
+	d := json.NewDecoder(f)
+	err = d.Decode(config)
+	if err != nil {
+		panic(err)
+	}
 }
