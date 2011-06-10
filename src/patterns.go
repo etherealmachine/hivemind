@@ -29,49 +29,49 @@ func (m *ColorDuplexingMatcher) Match(color byte, v int, t Tracker) int {
 func (p *Particle) Match(color byte, v int, t Tracker) int {
 	queries++
 	b := t.Board()
-	neighbors := t.Neighbors(v, 2)
-	i := HashVertices(b, neighbors, 10)
-	pat := p.Get(i)
-	for i := 0; i < len(neighbors); i++ {
-		if neighbors[i] == -1 || b[neighbors[i]] != EMPTY || !t.Legal(color, neighbors[i]) {
-			pat[i] = 0
+	Neighbors := t.Neighbors(v, 2)
+	i := HashVertices(b, Neighbors, 10)
+	Pat := p.Get(i)
+	for i := 0; i < len(Neighbors); i++ {
+		if Neighbors[i] == -1 || b[Neighbors[i]] != EMPTY || !t.Legal(color, Neighbors[i]) {
+			Pat[i] = 0
 		}
 	}
 	sum := 0.0
-	for i := range pat {
-		sum += pat[i]
+	for i := range Pat {
+		sum += Pat[i]
 	}
 	if sum == 0 {
 		return -1
 	}
 	r := rand.Float64()
-	for i := range pat {
-		r -= pat[i] / sum
+	for i := range Pat {
+		r -= Pat[i] / sum
 		if r <= 0 {
-			if i == len(neighbors) {
+			if i == len(Neighbors) {
 				return -1
 			}
 			matches++
-			return neighbors[i]
+			return Neighbors[i]
 		}
 	}
 	log.Println(t.Vtoa(v))
 	log.Println(t.String())
-	log.Println(pat)
+	log.Println(Pat)
 	panic("pattern error, not a valid probability distribution")
 }
 
 func LoadPatternMatcher(config *Config) {
-	if config.pat && config.patFile != "" {
-		particle := LoadBest(config.patFile, config)
+	if config.Pat && config.Pfile != "" {
+		particle := LoadBest(config.Pfile, config)
 		/*
-		for i := range disabled {
-			pattern := particle.Position[disabled[i]]
-			for j := range pattern {
-				pattern[j] = 0.0
+			for i := range disabled {
+				pattern := particle.Position[disabled[i]]
+				for j := range pattern {
+					pattern[j] = 0.0
+				}
 			}
-		}
 		*/
 		config.matcher = particle
 	}
-}	
+}

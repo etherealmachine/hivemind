@@ -8,22 +8,22 @@ import (
 )
 
 type HexTracker struct {
-	boardsize int
-	sqsize int
-	parent []int
-	rank []int
-	board []byte
-	empty *vector.IntVector
-	winner byte
-	played []byte
-	adj []int
+	boardsize                                 int
+	sqsize                                    int
+	parent                                    []int
+	rank                                      []int
+	board                                     []byte
+	empty                                     *vector.IntVector
+	winner                                    byte
+	played                                    []byte
+	adj                                       []int
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
 
 func NewHexTracker(config *Config) *HexTracker {
 	t := new(HexTracker)
-	
-	t.boardsize = config.size
+
+	t.boardsize = config.Size
 	t.sqsize = t.boardsize * t.boardsize
 	t.adj = hex_adj[t.boardsize]
 	t.SIDE_UP = t.sqsize
@@ -31,11 +31,11 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.SIDE_LEFT = t.sqsize + 2
 	t.SIDE_RIGHT = t.sqsize + 3
 	t.board = make([]byte, t.sqsize)
-	t.parent = make([]int, t.sqsize + 4)
-	t.rank = make([]int, t.sqsize + 4)
+	t.parent = make([]int, t.sqsize+4)
+	t.rank = make([]int, t.sqsize+4)
 	t.empty = new(vector.IntVector)
 	// initialize union-find data structure
-	for i := 0; i < t.sqsize + 4; i++ {
+	for i := 0; i < t.sqsize+4; i++ {
 		t.parent[i] = i
 		if i < t.sqsize {
 			t.rank[i] = 1
@@ -45,17 +45,17 @@ func NewHexTracker(config *Config) *HexTracker {
 		}
 	}
 	shuffle(t.empty)
-	
+
 	t.winner = EMPTY
-	
+
 	t.played = make([]byte, t.sqsize)
-	
+
 	return t
 }
 
 func (t *HexTracker) Copy() Tracker {
 	cp := new(HexTracker)
-	
+
 	cp.boardsize = t.boardsize
 	cp.adj = t.adj
 	cp.SIDE_UP = t.SIDE_UP
@@ -64,19 +64,19 @@ func (t *HexTracker) Copy() Tracker {
 	cp.SIDE_RIGHT = t.SIDE_RIGHT
 	cp.sqsize = t.sqsize
 	cp.board = make([]byte, cp.sqsize)
-	cp.parent = make([]int, cp.sqsize + 4)
-	cp.rank = make([]int, cp.sqsize + 4)
+	cp.parent = make([]int, cp.sqsize+4)
+	cp.rank = make([]int, cp.sqsize+4)
 	copy(cp.parent, t.parent)
 	copy(cp.rank, t.rank)
 	copy(cp.board, t.board)
 	cp.empty = new(vector.IntVector)
 	*cp.empty = t.empty.Copy()
 	shuffle(cp.empty)
-	
+
 	cp.winner = t.winner
-	
+
 	cp.played = make([]byte, cp.sqsize)
-	
+
 	return cp
 }
 
@@ -85,26 +85,30 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		root := find(vertex, t.parent)
 		for i := 0; i < 6; i++ {
 			adj := find(t.adj[vertex*6+i], t.parent)
-			if adj == -1 { continue }
-			if (color == BLACK &&
-					((root == t.SIDE_UP && adj == t.SIDE_DOWN) || (root == t.SIDE_DOWN && adj == t.SIDE_UP))) {
+			if adj == -1 {
+				continue
+			}
+			if color == BLACK &&
+				((root == t.SIDE_UP && adj == t.SIDE_DOWN) || (root == t.SIDE_DOWN && adj == t.SIDE_UP)) {
 				t.winner = BLACK
 				break
-			} else if (color == WHITE &&
-					((root == t.SIDE_LEFT && adj == t.SIDE_RIGHT) || (root == t.SIDE_RIGHT && adj == t.SIDE_LEFT))) {
+			} else if color == WHITE &&
+				((root == t.SIDE_LEFT && adj == t.SIDE_RIGHT) || (root == t.SIDE_RIGHT && adj == t.SIDE_LEFT)) {
 				t.winner = WHITE
 				break
 			}
-			if 	(adj < t.sqsize && t.board[adj] == color) ||
-					(color == BLACK && (adj == t.SIDE_UP || adj == t.SIDE_DOWN)) ||
-					(color == WHITE && (adj == t.SIDE_LEFT || adj == t.SIDE_RIGHT)) {
+			if (adj < t.sqsize && t.board[adj] == color) ||
+				(color == BLACK && (adj == t.SIDE_UP || adj == t.SIDE_DOWN)) ||
+				(color == WHITE && (adj == t.SIDE_LEFT || adj == t.SIDE_RIGHT)) {
 				root = fastUnion(root, adj, t.parent, t.rank)
 			}
 		}
 		t.board[vertex] = color
 		// remove vertex from empty
-		if t.empty.Len() > 0 && t.empty.Last() == vertex { t.empty.Pop() }
-	
+		if t.empty.Len() > 0 && t.empty.Last() == vertex {
+			t.empty.Pop()
+		}
+
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
 		}
@@ -114,7 +118,9 @@ func (t *HexTracker) Play(color byte, vertex int) {
 func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	for {
-		if vertex == -1 { vertex = t.RandLegal(color) }
+		if vertex == -1 {
+			vertex = t.RandLegal(color)
+		}
 		t.Play(color, vertex)
 		if t.winner != EMPTY {
 			return
@@ -142,15 +148,17 @@ func (t *HexTracker) Legal(color byte, vertex int) bool {
 }
 
 func (t *HexTracker) RandLegal(color byte) int {
-	for i := t.empty.Len()-1; i >= 0; i-- {
+	for i := t.empty.Len() - 1; i >= 0; i-- {
 		v := t.empty.At(i)
-		if t.Legal(color, v) { return v }
+		if t.Legal(color, v) {
+			return v
+		}
 		t.empty.Delete(i)
 	}
 	return -1
 }
 
-func (t *HexTracker) Score(komi float64) (float64, float64) {
+func (t *HexTracker) Score(Komi float64) (float64, float64) {
 	if t.winner == BLACK {
 		return 1, 0
 	} else if t.winner == WHITE {
@@ -163,7 +171,7 @@ func (t *HexTracker) Winner() byte {
 	return t.winner
 }
 
-func (t *HexTracker) SetKomi(komi float64) {
+func (t *HexTracker) SetKomi(Komi float64) {
 
 }
 
@@ -197,19 +205,23 @@ func (t *HexTracker) Verify() {
 }
 
 func (t *HexTracker) Adj(vertex int) []int {
-	return t.adj[vertex*6:(vertex+1)*6]
+	return t.adj[vertex*6 : (vertex+1)*6]
 }
 
-func (t *HexTracker) Neighbors(vertex int, size int) []int {
-	return hex_neighbors[t.boardsize][size][vertex]
+func (t *HexTracker) Neighbors(vertex int, Size int) []int {
+	return hex_neighbors[t.boardsize][Size][vertex]
 }
 
 func (t *HexTracker) Vtoa(v int) string {
-	if v == -1 { return "PASS" }
-	alpha, num := v % t.boardsize, v / t.boardsize
+	if v == -1 {
+		return "PASS"
+	}
+	alpha, num := v%t.boardsize, v/t.boardsize
 	num++
 	alpha = alpha + 'A'
-	if alpha >= 'I' { alpha++ }
+	if alpha >= 'I' {
+		alpha++
+	}
 	return fmt.Sprintf("%s%d", string(alpha), num)
 }
 
@@ -221,22 +233,28 @@ func (t *HexTracker) Atov(s string) int {
 	col := byte(strings.ToUpper(s)[0])
 	row, err := strconv.Atoi(s[1:len(s)])
 	row--
-	if col >= 'I' { col-- }
+	if col >= 'I' {
+		col--
+	}
 	if err != nil {
 		panic("Failed to convert string to vertex")
 	}
-	return row * t.boardsize + int(col - 'A')
+	return row*t.boardsize + int(col-'A')
 }
 
 func (t *HexTracker) String() (s string) {
 	s += " "
-	if t.boardsize > 9 { s += " " }
+	if t.boardsize > 9 {
+		s += " "
+	}
 	for col := 0; col < t.boardsize; col++ {
 		alpha := col + 'A'
-		if alpha >= 'I' { alpha++ }
+		if alpha >= 'I' {
+			alpha++
+		}
 		s += string(alpha)
-		if col != t.boardsize - 1 {
-				s += " "
+		if col != t.boardsize-1 {
+			s += " "
 		}
 	}
 	s += "\n"
@@ -246,28 +264,32 @@ func (t *HexTracker) String() (s string) {
 		}
 		s += fmt.Sprintf("%2.d ", row+1)
 		for col := 0; col < t.boardsize; col++ {
-			v := row * t.boardsize + col
+			v := row*t.boardsize + col
 			s += Ctoa(t.board[v])
-			if col != t.boardsize - 1 {
+			if col != t.boardsize-1 {
 				s += " "
 			}
 		}
 		s += fmt.Sprintf(" %2.d", row+1)
-		if row != t.boardsize - 1 {
+		if row != t.boardsize-1 {
 			s += "\n"
 		}
 	}
 	s += "\n  "
-	if t.boardsize > 9 { s += " " }
+	if t.boardsize > 9 {
+		s += " "
+	}
 	for i := 0; i < t.boardsize; i++ {
 		s += " "
 	}
 	for col := 0; col < t.boardsize; col++ {
 		alpha := col + 'A'
-		if alpha >= 'I' { alpha++ }
+		if alpha >= 'I' {
+			alpha++
+		}
 		s += string(alpha)
-		if col != t.boardsize - 1 {
-				s += " "
+		if col != t.boardsize-1 {
+			s += " "
 		}
 	}
 	return
@@ -275,6 +297,7 @@ func (t *HexTracker) String() (s string) {
 
 var hex_adj map[int][]int
 var hex_neighbors map[int][][][]int
+
 func init() {
 	hex_adj = make(map[int][]int)
 	hex_neighbors = make(map[int][][][]int)
@@ -287,12 +310,12 @@ func init() {
 func setup_hex_adj(boardsize int) {
 	s := boardsize * boardsize
 	hex_adj[boardsize] = make([]int, s*6)
-	
+
 	SIDE_UP = s
 	SIDE_DOWN = s + 1
 	SIDE_LEFT = s + 2
 	SIDE_RIGHT = s + 3
-	
+
 	for i := 0; i < s; i++ {
 		hex_adj[boardsize][i*6+UP] = -1
 		hex_adj[boardsize][i*6+DOWN] = -1
@@ -301,7 +324,7 @@ func setup_hex_adj(boardsize int) {
 		hex_adj[boardsize][i*6+UP_LEFT] = -1
 		hex_adj[boardsize][i*6+DOWN_LEFT] = -1
 	}
-	
+
 	for i := 0; i < s; i++ {
 		hex_adj[boardsize][i*6+UP_LEFT] = i - boardsize
 		hex_adj[boardsize][i*6+UP_RIGHT] = hex_adj[boardsize][i*6+UP_LEFT] + 1
@@ -313,65 +336,71 @@ func setup_hex_adj(boardsize int) {
 			hex_adj[boardsize][i*6+UP_LEFT] = SIDE_UP
 			hex_adj[boardsize][i*6+UP_RIGHT] = SIDE_UP
 		}
-		if i > s - boardsize - 1 {
+		if i > s-boardsize-1 {
 			hex_adj[boardsize][i*6+DOWN_LEFT] = SIDE_DOWN
 			hex_adj[boardsize][i*6+DOWN_RIGHT] = SIDE_DOWN
 		}
-		if i % boardsize == 0 {
+		if i%boardsize == 0 {
 			hex_adj[boardsize][i*6+LEFT] = SIDE_LEFT
 			hex_adj[boardsize][i*6+DOWN_LEFT] = SIDE_LEFT
 		}
-		if (i + 1) % boardsize == 0 {
+		if (i+1)%boardsize == 0 {
 			hex_adj[boardsize][i*6+RIGHT] = SIDE_RIGHT
 			hex_adj[boardsize][i*6+UP_RIGHT] = SIDE_RIGHT
 		}
 	}
 }
 
-func setup_hex_neighbors(size int) {
-	hex_neighbors[size] = make([][][]int, 3)
-	hex_neighbors[size][0] = make([][]int, size*size)
-	hex_neighbors[size][1] = make([][]int, size*size)
-	hex_neighbors[size][2] = make([][]int, size*size)
+func setup_hex_neighbors(Size int) {
+	hex_neighbors[Size] = make([][][]int, 3)
+	hex_neighbors[Size][0] = make([][]int, Size*Size)
+	hex_neighbors[Size][1] = make([][]int, Size*Size)
+	hex_neighbors[Size][2] = make([][]int, Size*Size)
 
-	neighbors := make([][]int, size*size)
-	for vertex := 0; vertex < size*size; vertex++ {
-		hex_neighbors[size][0][vertex] = []int{vertex}
+	Neighbors := make([][]int, Size*Size)
+	for vertex := 0; vertex < Size*Size; vertex++ {
+		hex_neighbors[Size][0][vertex] = []int{vertex}
 		v2 := vertex + 1
-		v3 := vertex + size
-		v4 := vertex + size + 1
-		if (vertex + 1) % size == 0 { v2 = -1; v4 = -1 }
-		if vertex >= (size * size) - size { v3 = -1; v4 = -1 }
-		hex_neighbors[size][1][vertex] = []int{vertex, v2, v3, v4}
-	
-		neighbors[vertex] = make([]int, 7)
-		neighbors[vertex][0] = vertex - size
-		neighbors[vertex][1] = vertex - size + 1
-		neighbors[vertex][2] = vertex + 1
-		neighbors[vertex][3] = vertex + size
-		neighbors[vertex][4] = vertex + size - 1
-		neighbors[vertex][5] = vertex - 1
-		neighbors[vertex][6] = vertex
-		if vertex % size == 0 {
+		v3 := vertex + Size
+		v4 := vertex + Size + 1
+		if (vertex+1)%Size == 0 {
+			v2 = -1
+			v4 = -1
+		}
+		if vertex >= (Size*Size)-Size {
+			v3 = -1
+			v4 = -1
+		}
+		hex_neighbors[Size][1][vertex] = []int{vertex, v2, v3, v4}
+
+		Neighbors[vertex] = make([]int, 7)
+		Neighbors[vertex][0] = vertex - Size
+		Neighbors[vertex][1] = vertex - Size + 1
+		Neighbors[vertex][2] = vertex + 1
+		Neighbors[vertex][3] = vertex + Size
+		Neighbors[vertex][4] = vertex + Size - 1
+		Neighbors[vertex][5] = vertex - 1
+		Neighbors[vertex][6] = vertex
+		if vertex%Size == 0 {
 			// left
-			neighbors[vertex][4] = -1
-			neighbors[vertex][5] = -1
+			Neighbors[vertex][4] = -1
+			Neighbors[vertex][5] = -1
 		}
-		if (vertex + 1) % size == 0 {
+		if (vertex+1)%Size == 0 {
 			// right
-			neighbors[vertex][1] = -1
-			neighbors[vertex][2] = -1
+			Neighbors[vertex][1] = -1
+			Neighbors[vertex][2] = -1
 		}
-		if vertex < size {
+		if vertex < Size {
 			// top
-			neighbors[vertex][0] = -1
-			neighbors[vertex][1] = -1
+			Neighbors[vertex][0] = -1
+			Neighbors[vertex][1] = -1
 		}
-		if vertex >= (size * size) - size {
+		if vertex >= (Size*Size)-Size {
 			// bottom
-			neighbors[vertex][3] = -1
-			neighbors[vertex][4] = -1
+			Neighbors[vertex][3] = -1
+			Neighbors[vertex][4] = -1
 		}
 	}
-	hex_neighbors[size][2] = neighbors
+	hex_neighbors[Size][2] = Neighbors
 }

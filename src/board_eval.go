@@ -16,8 +16,8 @@ func (p *Particle) Eval(color byte, t Tracker) float64 {
 }
 
 func LoadBoardEvaluator(config *Config) {
-	if config.eval && config.evalFile != "" {
-		particle := LoadBest(config.evalFile, config)
+	if config.Eval && config.Efile != "" {
+		particle := LoadBest(config.Efile, config)
 		config.evaluator = particle
 	}
-}	
+}

@@ -4,13 +4,13 @@ import "container/vector"
 import "rand"
 
 const (
-	UP = 0
-	DOWN = 1
-	LEFT = 2
-	RIGHT = 3
-	UP_LEFT = 0
-	UP_RIGHT = 1
-	DOWN_LEFT = 4
+	UP         = 0
+	DOWN       = 1
+	LEFT       = 2
+	RIGHT      = 3
+	UP_LEFT    = 0
+	UP_RIGHT   = 1
+	DOWN_LEFT  = 4
 	DOWN_RIGHT = 5
 )
 
@@ -26,16 +26,16 @@ type Tracker interface {
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
 	RandLegal(color byte) int
-	Score(komi float64) (float64, float64)
+	Score(Komi float64) (float64, float64)
 	Winner() byte
-	SetKomi(komi float64)
+	SetKomi(Komi float64)
 	GetKomi() float64
 	Boardsize() int
 	Sqsize() int
 	Board() []byte
 	Territory(color byte) []float64
 	Verify()
-	Neighbors(vertex int, size int) []int
+	Neighbors(vertex int, Size int) []int
 	Adj(vertex int) []int
 	String() string
 	Vtoa(vertex int) string
@@ -43,9 +43,9 @@ type Tracker interface {
 }
 
 func NewTracker(config *Config) Tracker {
-	if config.cgo {
+	if config.Go {
 		return NewGoTracker(config)
-	} else if config.hex {
+	} else if config.Hex {
 		return NewHexTracker(config)
 	}
 	return nil
@@ -53,8 +53,12 @@ func NewTracker(config *Config) Tracker {
 
 // standard union-find Find op, also does path compression
 func find(i int, parent []int) int {
-	if i == parent[i] { return i }
-	if i == -1 { return i }
+	if i == parent[i] {
+		return i
+	}
+	if i == -1 {
+		return i
+	}
 	root := i
 	for root != parent[root] {
 		root = parent[root]
@@ -75,13 +79,13 @@ func union(i int, j int, parent []int, rank []int) int {
 	if rank[i] > rank[j] {
 		parent[j] = i
 		rank[i] += rank[j]
-		return i;
+		return i
 	} else if i != j {
 		parent[i] = j
 		rank[j] += rank[i]
-		return j;
+		return j
 	}
-	return i;
+	return i
 }
 
 // union find that assumes i and j are the parents of their respective trees
@@ -90,19 +94,19 @@ func fastUnion(i int, j int, parent []int, rank []int) int {
 		if rank[i] > rank[j] {
 			parent[j] = i
 			rank[i] += rank[j]
-			return i;
+			return i
 		} else {
 			parent[i] = j
 			rank[j] += rank[i]
-			return j;
+			return j
 		}
 	}
-	return i;
+	return i
 }
 
 // Fisher-Yates (Knuth) Shuffle
 func shuffle(v *vector.IntVector) {
-	for i := v.Len()-1; i >= 1; i-- {
+	for i := v.Len() - 1; i >= 1; i-- {
 		v.Swap(i, rand.Intn(i+1))
 	}
 }

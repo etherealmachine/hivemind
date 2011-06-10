@@ -17,12 +17,12 @@ func main() {
 	config := NewConfig()
 	var f *os.File
 	var err os.Error
-	if config.logFile == "" && config.modeGTP && config.gfx {
+	if config.Lfile == "" && config.Gtp && config.Gfx {
 		f, err = os.Create("/dev/null")
-	} else if config.logFile == "" {
+	} else if config.Lfile == "" {
 		f = os.Stderr
 	} else {
-		f, err = os.Create(config.logFile)
+		f, err = os.Create(config.Lfile)
 	}
 	if err != nil {
 		panic("could not create log file")
@@ -32,26 +32,26 @@ func main() {
 	log.SetOutput(f)
 	LoadPatternMatcher(config)
 	LoadBoardEvaluator(config)
-	if config.help {
+	if config.Help {
 		flag.Usage()
 		os.Exit(0)
-	} else if config.modeGTP {
+	} else if config.Gtp {
 		GTP(config)
-	} else if config.sgf != "" {
-		t, color := Load(config.sgf)
+	} else if config.SGF != "" {
+		t, color := Load(config.SGF)
 		root := NewRoot(color, t, config)
 		genmove(root, t)
 		vertex := root.Best().vertex
 		t.Play(color, vertex)
 		fmt.Println(Ctoa(color), t.Vtoa(vertex))
 		fmt.Println(t.String())
-	} else if config.train {
+	} else if config.Train {
 		Train(config)
-	} else if config.test {
+	} else if config.Test {
 		t := NewTracker(config)
 		root := NewRoot(BLACK, t, config)
 		genmove(root, t)
-	} else if config.testPPS {
+	} else if config.Speed {
 		TestPPS(config)
 	}
 }

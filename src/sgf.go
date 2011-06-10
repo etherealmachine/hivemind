@@ -1,9 +1,9 @@
 package main
 
 import (
-	//"os"
-	//"bufio"
-	//"fmt"
+//"os"
+//"bufio"
+//"fmt"
 )
 
 const (
@@ -38,45 +38,45 @@ func (p *Property) String() string {
 
 func Load(filename string) (Tracker, byte) {
 	/*
-	file, _ := os.Open(filename)
-	defer func() { file.Close() }()
-	reader := bufio.NewReader(file)
-	// consume opening '('
-	reader.ReadString('(')
-	// consume opening ';'
-	reader.ReadString(';')
-	// throw out first node
-	reader.ReadString(';')
-	t := NewTracker(size)
-	more := true
-	var color byte
-	for more {
-		var s string
-		// pull out move nodes until no more left
-		s, _ = reader.ReadString(';')
-		if s == "" {
-			s, _ = reader.ReadString(')')
-			more = false
+		file, _ := os.Open(filename)
+		defer func() { file.Close() }()
+		reader := bufio.NewReader(file)
+		// consume opening '('
+		reader.ReadString('(')
+		// consume opening ';'
+		reader.ReadString(';')
+		// throw out first node
+		reader.ReadString(';')
+		t := NewTracker(size)
+		more := true
+		var color byte
+		for more {
+			var s string
+			// pull out move nodes until no more left
+			s, _ = reader.ReadString(';')
+			if s == "" {
+				s, _ = reader.ReadString(')')
+				more = false
+			}
+			if len(s) == 6 || len(s) == 7 {
+				color = Atoc(string(s[0]))
+				row := s[2] - 97
+				col := s[3] - 97
+				vertex := int(col*uint8(size) + row)
+				t.Play(color, vertex)
+			}
 		}
-		if len(s) == 6 || len(s) == 7 {
-			color = Atoc(string(s[0]))
-			row := s[2] - 97
-			col := s[3] - 97
-			vertex := int(col*uint8(size) + row)
-			t.Play(color, vertex)
-		}
-	}
-	return t, Reverse(color)
+		return t, Reverse(color)
 	*/
 	return nil, EMPTY
 }
 
-func SGFMove(color byte, vertex int, size int) (s string) {
+func SGFMove(color byte, vertex int, Size int) (s string) {
 	s += Ctoa(color)
 	s += "["
 	if vertex != -1 {
-		col := vertex % size
-		row := vertex / size
+		col := vertex % Size
+		row := vertex / Size
 		s += string(col + 97)
 		s += string(row + 97)
 	}
@@ -87,16 +87,16 @@ func SGFMove(color byte, vertex int, size int) (s string) {
 func SGF(t Tracker) string {
 	panic("broken")
 	/*
-	sgf := fmt.Sprintf("(;FF[4]CA[UTF-8]SZ[%d]KM[%.1f]!RE[%s]", t.Boardsize(), t.GetKomi(), FormatScore(t))
-	color := BLACK
-	record := t.Record()
-	moves := t.MoveCount()
-	for i := 0; i < moves; i++ {
-		sgf += fmt.Sprintf(";%s", SGFMove(color, record[i], t.Boardsize()))
-		color = Reverse(color)
-	}
-	sgf += ")"
-	return sgf
+		sgf := fmt.Sprintf("(;FF[4]CA[UTF-8]SZ[%d]KM[%.1f]!RE[%s]", t.Boardsize(), t.GetKomi(), FormatScore(t))
+		color := BLACK
+		record := t.Record()
+		moves := t.MoveCount()
+		for i := 0; i < moves; i++ {
+			sgf += fmt.Sprintf(";%s", SGFMove(color, record[i], t.Boardsize()))
+			color = Reverse(color)
+		}
+		sgf += ")"
+		return sgf
 	*/
 	return ""
 }
