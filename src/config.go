@@ -27,9 +27,6 @@ type Config struct {
 	komi float64
 	testPPS bool
 
-	makeBook bool
-	useBook bool
-
 	train bool
 	pswarm bool
 	esswarm bool
@@ -89,9 +86,6 @@ func NewConfig() *Config {
 	flag.Float64Var(&config.komi, "komi", 6.5, "Komi")
 	flag.BoolVar(&config.testPPS, "pps", false, "Gather data on the playouts per second")
 
-	flag.BoolVar(&config.makeBook, "makebook", false, "Construct opening book")
-	flag.BoolVar(&config.useBook, "book", false, "Use opening book")
-
 	flag.BoolVar(&config.train, "train", false, "Do crazy unsupervised training stuff")
 	flag.BoolVar(&config.pswarm, "pswarm", false, "Train with particle swarm")
 	flag.BoolVar(&config.esswarm, "esswarm", false, "Train with evolution strategies")
@@ -100,7 +94,7 @@ func NewConfig() *Config {
 	flag.UintVar(&config.parents, "parents", 2, "(Training) Parents per child")
 	flag.UintVar(&config.lambda, "lambda", 50, "(Training) Children")
 	flag.UintVar(&config.samples, "samples", 7, "(Training) Evaluations per generation")
-	flag.StringVar(&config.prefix, "prefix", "swarm", "Prefix to use when saving swarm")
+	flag.StringVar(&config.prefix, "prefix", "", "Prefix to use when saving file")
 
 	flag.BoolVar(&config.gfx, "gfx", false, "Emit live graphics for gogui")
 
@@ -124,13 +118,13 @@ func NewConfig() *Config {
 	flag.StringVar(&config.sgf, "sgf", "", "Load sgf file and generate move")
 
 	flag.Parse()
-	
+
 	if !(config.cgo || config.hex) { config.cgo = true }
 	if config.cgo { config.hex = false }
 	if config.hex { config.cgo = false }
 	if !(config.pswarm || config.esswarm) { config.esswarm = true }
 	if config.pswarm { config.esswarm = false }
 	if config.esswarm { config.pswarm = false }
-	
+
 	return config
 }

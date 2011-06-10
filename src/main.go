@@ -51,10 +51,7 @@ func main() {
 		t := NewTracker(config)
 		root := NewRoot(BLACK, t, config)
 		genmove(root, t)
-		fmt.Println(t.Vtoa(root.Best().vertex))
 	} else if config.testPPS {
 		TestPPS(config)
-	} else if config.makeBook {
-		MakeBook(config)
 	}
 }

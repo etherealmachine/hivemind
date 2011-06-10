@@ -10,23 +10,23 @@ import (
 )
 
 type Node struct {
-	parent *Node
-	child *Node
-	last *Node
-	sibling *Node
-	wins, visits, mean float64
-	amafWins, amafVisits, amafMean float64
-	ancestorWins, ancestorVisits, ancestorMean float64
-	evalWins, evalVisits, evalMean float64
-	blendedMean float64
-	value float64
-	color byte
-	vertex int
-	territory []float64
-	seeds, totalseeds int
+	parent                                                                    *Node
+	child                                                                     *Node
+	last                                                                      *Node
+	sibling                                                                   *Node
+	wins, visits, mean                                                        float64
+	amafWins, amafVisits, amafMean                                            float64
+	ancestorWins, ancestorVisits, ancestorMean                                float64
+	evalWins, evalVisits, evalMean                                            float64
+	blendedMean                                                               float64
+	value                                                                     float64
+	color                                                                     byte
+	vertex                                                                    int
+	territory                                                                 []float64
+	seeds, totalseeds                                                         int
 	playout_time, update_time, win_calc_time, next_time, play_time, copy_time int64
-	next_count, play_count int64
-	config *Config
+	next_count, play_count                                                    int64
+	config                                                                    *Config
 }
 
 func NewRoot(color byte, t Tracker, config *Config) *Node {
@@ -48,7 +48,9 @@ func NewNode(parent *Node, color byte, vertex int) *Node {
 
 // step through the tree for some number of playouts
 func genmove(root *Node, t Tracker) {
-	if root.config.stats { log.Printf("kept %.0f visits\n", root.visits) }
+	if root.config.stats {
+		log.Printf("kept %.0f visits\n", root.visits)
+	}
 	root.wins = 0
 	root.visits = 0
 	if t.Winner() != EMPTY {
@@ -84,18 +86,18 @@ func genmove(root *Node, t Tracker) {
 			log.Printf("%.0f nanoseconds per next\n", avg_next_time)
 			log.Printf("%.0f nanoseconds per play\n", avg_play_time)
 			log.Printf("%.0f nanoseconds per copy\n", avg_copy_time)
-			unaccounted := elapsed - 
+			unaccounted := elapsed -
 				root.playout_time - root.update_time - root.win_calc_time - root.next_time - root.play_time - root.copy_time
-			log.Printf("%.2f seconds unaccounted\n", float64(unaccounted) / 1e9)
+			log.Printf("%.2f seconds unaccounted\n", float64(unaccounted)/1e9)
 		}
 		if root.config.timelimit > 0 {
 			if elapsed_seconds > float64(root.config.timelimit) {
-				log.Printf("%.2f seconds overtime\n", elapsed_seconds - float64(root.config.timelimit))
+				log.Printf("%.2f seconds overtime\n", elapsed_seconds-float64(root.config.timelimit))
 			} else {
-				log.Printf("%.2f seconds left\n", float64(root.config.timelimit) - elapsed_seconds)
+				log.Printf("%.2f seconds left\n", float64(root.config.timelimit)-elapsed_seconds)
 			}
 		}
-		log.Printf("winrate: %.2f\n", root.wins / root.visits)
+		log.Printf("winrate: %.2f\n", root.wins/root.visits)
 		territory_mean := 0.0
 		for v := 0; v < t.Sqsize(); v++ {
 			territory_mean += root.territory[v] / root.visits
@@ -103,17 +105,18 @@ func genmove(root *Node, t Tracker) {
 		territory_mean /= float64(t.Sqsize())
 		territory_var := 0.0
 		for v := 0; v < t.Sqsize(); v++ {
-			territory_var += math.Pow((root.territory[v] / root.visits) - territory_mean, 2)
+			territory_var += math.Pow((root.territory[v]/root.visits)-territory_mean, 2)
 		}
 		territory_var /= float64(t.Sqsize())
 		log.Printf("territory: mean: %.2f, var: %.2f\n", territory_mean, territory_var)
 		log.Printf("max depth: %d\n", root.maxdepth())
+		log.Printf("nodes: %d\n", root.nodes())
 		if root.config.seedPlayouts {
 			seeds, totalseeds := root.seedstats()
-			log.Printf("seeds: %.2f\n", float64(seeds) / float64(totalseeds))
+			log.Printf("seeds: %.2f\n", float64(seeds)/float64(totalseeds))
 		}
 		if root.config.matcher != nil {
-			log.Printf("patterns stats: %.2f\n", float64(matches) / float64(queries))
+			log.Printf("patterns stats: %.2f\n", float64(matches)/float64(queries))
 			matches, queries = 0, 0
 		}
 	}
@@ -123,7 +126,9 @@ func treeSearch(root *Node, t Tracker) {
 	start := time.Nanoseconds()
 	s := time.Nanoseconds()
 	trackers := make([]Tracker, 10000)
-	for i := 0; i < len(trackers); i++ { trackers[i] = t.Copy() }
+	for i := 0; i < len(trackers); i++ {
+		trackers[i] = t.Copy()
+	}
 	root.copy_time += (time.Nanoseconds() - s)
 	tracker := 0
 	for {
@@ -131,7 +136,9 @@ func treeSearch(root *Node, t Tracker) {
 		tracker++
 		if tracker >= len(trackers) {
 			s := time.Nanoseconds()
-			for i := 0; i < len(trackers); i++ { trackers[i] = t.Copy() }
+			for i := 0; i < len(trackers); i++ {
+				trackers[i] = t.Copy()
+			}
 			root.copy_time += (time.Nanoseconds() - s)
 			tracker = 0
 		}
@@ -152,11 +159,15 @@ func treeSearch(root *Node, t Tracker) {
 					bests[1] = child.visits
 				}
 			}
-			if (bests[0] - bests[1]) / root.visits > root.config.cutoff { break }
+			if (bests[0]-bests[1])/root.visits > root.config.cutoff {
+				break
+			}
 		}
 		if root.config.timelimit != -1 {
 			elapsed := time.Nanoseconds() - start
-			if uint64(elapsed) > uint64(root.config.timelimit) * uint64(1e9) { break }
+			if uint64(elapsed) > uint64(root.config.timelimit)*uint64(1e9) {
+				break
+			}
 		} else if root.visits >= float64(root.config.maxPlayouts) {
 			break
 		}
@@ -171,7 +182,10 @@ func (root *Node) step(t Tracker) {
 	curr := root.Next(root, t)
 	root.next_time += time.Nanoseconds() - start
 	root.next_count++
-	if curr == nil { root.visits = math.Inf(1); return }
+	if curr == nil {
+		root.visits = math.Inf(1)
+		return
+	}
 	for {
 		path.Push(curr)
 		// apply node's position to the board
@@ -196,7 +210,9 @@ func (root *Node) step(t Tracker) {
 		root.next_time += time.Nanoseconds() - start
 		root.next_count++
 		curr = next
-		if curr == nil { break }
+		if curr == nil {
+			break
+		}
 	}
 	start = time.Nanoseconds()
 	winner := t.Winner()
@@ -238,7 +254,9 @@ func (node *Node) expand(t Tracker) {
 			if cp.Winner() != EMPTY {
 				child.visits = math.Inf(1)
 				child.wins = 0
-				if cp.Winner() == child.color { child.wins = math.Inf(1) }
+				if cp.Winner() == child.color {
+					child.wins = math.Inf(1)
+				}
 			} else {
 				child.wins = 1
 				child.visits = 1 + rand.Float64()
@@ -280,7 +298,10 @@ func (node *Node) Best() *Node {
 			best = child
 		}
 	}
-	if best == nil { node.vertex = -1; return node }
+	if best == nil {
+		node.vertex = -1
+		return node
+	}
 	return best
 }
 
@@ -309,10 +330,18 @@ func (node *Node) recalc() {
 			node.amafMean = node.amafWins / node.amafVisits
 			node.ancestorMean = node.ancestorWins / node.ancestorVisits
 			node.evalMean = node.evalWins / node.evalVisits
-			if math.IsNaN(node.mean) { node.mean = 0 }
-			if math.IsNaN(node.amafMean) { node.amafMean = 0 }
-			if math.IsNaN(node.ancestorMean) { node.ancestorMean = 0 }
-			if math.IsNaN(node.evalMean) { node.evalMean = 0 }
+			if math.IsNaN(node.mean) {
+				node.mean = 0
+			}
+			if math.IsNaN(node.amafMean) {
+				node.amafMean = 0
+			}
+			if math.IsNaN(node.ancestorMean) {
+				node.ancestorMean = 0
+			}
+			if math.IsNaN(node.evalMean) {
+				node.evalMean = 0
+			}
 			estimatedMean := 0.0
 			samples := 0.0
 			if node.config.amaf {
@@ -339,13 +368,15 @@ func (node *Node) recalc() {
 				samples++
 			}
 			estimatedMean /= samples
-			if math.IsNaN(estimatedMean) { estimatedMean = 0 }
-			node.blendedMean = beta * estimatedMean + (1 - beta) * node.mean
+			if math.IsNaN(estimatedMean) {
+				estimatedMean = 0
+			}
+			node.blendedMean = beta*estimatedMean + (1-beta)*node.mean
 		}
 	}
 	r := math.Log1p(node.parent.visits) / node.visits
-	v := node.blendedMean - (node.blendedMean*node.blendedMean) + math.Sqrt(2*r)
-	node.value = node.blendedMean + node.config.c * math.Sqrt(r * math.Fmin(0.25, v))
+	v := node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r)
+	node.value = node.blendedMean + node.config.c*math.Sqrt(r*math.Fmin(0.25, v))
 }
 
 // return node's grandparent's sibling corrosponding to node's move
@@ -402,7 +433,9 @@ func (node *Node) seedPlayout(t Tracker) byte {
 
 // use win-rate distribution of node to play a legal move in tracker
 func (node *Node) seed(t Tracker, path []int) bool {
-	if node.parent == nil { return false }
+	if node.parent == nil {
+		return false
+	}
 	dist := new(vector.Vector)
 	sum := 0.0
 	for sibling := node.parent.child; sibling != nil; sibling = sibling.sibling {
@@ -431,11 +464,9 @@ func (node *Node) seed(t Tracker, path []int) bool {
 }
 
 func (root *Node) merge(node *Node) {
-	for child1, child2 := root.child, node.child;
-			child1 != nil && child2 != nil;
-			child1, child2 = child1.sibling, child2.sibling {
-			child1.wins += child2.wins
-			child1.visits += child2.visits
+	for child1, child2 := root.child, node.child; child1 != nil && child2 != nil; child1, child2 = child1.sibling, child2.sibling {
+		child1.wins += child2.wins
+		child1.visits += child2.visits
 	}
 	root.wins += node.wins
 	root.visits += node.visits
@@ -446,10 +477,22 @@ func (node *Node) maxdepth() int {
 	if node.child != nil {
 		for child := node.child; child != nil; child = child.sibling {
 			d := child.maxdepth()
-			if d > max { max = d }
+			if d > max {
+				max = d
+			}
 		}
 	}
 	return max + 1
+}
+
+func (node *Node) nodes() int {
+	children := 0
+	if node.child != nil {
+		for child := node.child; child != nil; child = child.sibling {
+			children += child.nodes()
+		}
+	}
+	return children + 1
 }
 
 func (node *Node) seedstats() (int, int) {
@@ -485,19 +528,23 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 }
 
 func (node *Node) String(depth int, t Tracker) (s string) {
-	if node.visits == 0 { return "" }
+	if node.visits == 0 {
+		return ""
+	}
 	for i := 0; i < depth; i++ {
 		s += "  "
 	}
 	amaf := ""
-	if node.config.amaf { amaf = fmt.Sprintf("(%5.2f %6.0f)", node.amafMean, node.amafVisits) }
+	if node.config.amaf {
+		amaf = fmt.Sprintf("(%5.2f %6.0f)", node.amafMean, node.amafVisits)
+	}
 	s += fmt.Sprintf("%s%s (%5.2f %5.2f %6.0f) %s\n",
-						Ctoa(node.color), t.Vtoa(node.vertex),
-						node.mean, node.value, node.visits, amaf)
+		Ctoa(node.color), t.Vtoa(node.vertex),
+		node.mean, node.value, node.visits, amaf)
 	if node.child != nil {
 		for child := node.child; child != nil; child = child.sibling {
 			if child.visits > 0 {
-				s += child.String(depth + 1, t)
+				s += child.String(depth+1, t)
 			}
 		}
 	}
@@ -518,10 +565,14 @@ func TestPPS(config *Config) {
 		end1 := time.Nanoseconds()
 		playoutTime += end1 - start1
 		elapsed = time.Nanoseconds() - start
-		if config.timelimit == -1 && i >= int(config.maxPlayouts) { break }
-		if config.timelimit != -1 && float64(elapsed) / 1e9 >= float64(config.timelimit) { break }
+		if config.timelimit == -1 && i >= int(config.maxPlayouts) {
+			break
+		}
+		if config.timelimit != -1 && float64(elapsed)/1e9 >= float64(config.timelimit) {
+			break
+		}
 	}
 	pps := float64(i) / (float64(elapsed) / 1e9)
-	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", i, float64(elapsed) / 1e9, pps)
-	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime) / float64(elapsed))
+	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", i, float64(elapsed)/1e9, pps)
+	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime)/float64(elapsed))
 }

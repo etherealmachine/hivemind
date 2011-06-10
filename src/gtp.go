@@ -28,6 +28,7 @@ final_status_list
 gogui-analyze_commands`
 var gogui_commands = `dboard/Visits/visits
 cboard/Territory/territory
+cboard/Book/book
 cboard/Legal/legal`
 
 func known_command(command_name string) string {
@@ -62,7 +63,6 @@ func GTP(config *Config) {
 	var t Tracker
 	var root *Node
 	var color byte
-	book := NewBook()
 	main_time := -1
 	time_left_color := EMPTY
 	time_left_time := -1
@@ -138,7 +138,7 @@ func GTP(config *Config) {
 					saved_timelimit := config.timelimit
 					color = Atoc(args[1])
 					if time_left_time != -1 && color == time_left_color { config.timelimit = set_timelimit(time_left_time) }
-					var vertex int
+					vertex := -1
 					// HEX, swap-safe: if black and first move of game, play a move that should be safe from swapping
 					if config.hex && color == BLACK && config.swapsafe && movecount == 0 {
 						vertex = (3 * t.Boardsize()) + 2
@@ -147,20 +147,16 @@ func GTP(config *Config) {
 						if root == nil {
 							root = NewRoot(color, t, config)
 						}
-						if config.useBook { vertex = book.Load(color, t) }
-						genmove(root, t)
-						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
-						if root.wins / root.visits > 0.95 { game_over = true }
-						// if genmove predicts win in <5% of playouts, set a flag and pass next time around
-						if root.wins / root.visits < 0.05 { game_over = true }
-						if config.useBook { book.Save(root, t) }
-						if root == nil || root.Best() == nil {
-							vertex = -1
-						} else {
-							vertex = root.Best().vertex
+						if vertex == -1 {
+							genmove(root, t)
+							// if genmove predicts win in >95% of playouts, set a flag and pass next time around
+							if root.wins / root.visits > 0.95 { game_over = true }
+							// if genmove predicts win in <5% of playouts, set a flag and pass next time around
+							if root.wins / root.visits < 0.05 { game_over = true }
+							if root != nil && root.Best() != nil {
+								vertex = root.Best().vertex
+							}
 						}
-					} else {
-						vertex = -1
 					}
 					t.Play(color, vertex)
 					movecount++
@@ -200,6 +196,9 @@ func GTP(config *Config) {
 				} else {
 					res = TerritoryBoard(t.Territory(color), 1, t)
 				}
+			case "book":
+				book := make([]float64, t.Sqsize())
+				res = TerritoryBoard(book, 1, t)
 			case "legal":
 				res = LegalBoard(t)
 			case "time_settings":
