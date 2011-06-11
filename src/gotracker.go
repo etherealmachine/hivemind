@@ -317,30 +317,42 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 		}
 	}
 	if friendly+off == 4 {
-		corners := 0
-		u := t.adj[vertex][UP]
-		if u != -1 {
-			if ul := t.adj[u][LEFT]; ul != -1 && t.board[ul] == color {
-				corners++
+		if off == 2 {
+			chain := -1
+			for i := 0; i < 4; i++ {
+				n := t.adj[vertex][i]
+				if n != -1 && chain == -1 {
+					chain = find(n, t.parent)
+				} else if n != -1 && chain == find(n, t.parent) {
+					return false
+				}
 			}
-			if ur := t.adj[u][RIGHT]; ur != -1 && t.board[ur] == color {
-				corners++
+		} else {
+			corners := 0
+			u := t.adj[vertex][UP]
+			if u != -1 {
+				if ul := t.adj[u][LEFT]; ul != -1 && t.board[ul] == color {
+					corners++
+				}
+				if ur := t.adj[u][RIGHT]; ur != -1 && t.board[ur] == color {
+					corners++
+				}
 			}
-		}
-		d := t.adj[vertex][DOWN]
-		if d != -1 {
-			if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color {
-				corners++
+			d := t.adj[vertex][DOWN]
+			if d != -1 {
+				if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color {
+					corners++
+				}
+				if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color {
+					corners++
+				}
 			}
-			if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color {
-				corners++
+			if off >= 1 && corners >= 1 {
+				return false
 			}
-		}
-		if off >= 1 && corners >= 1 {
-			return false
-		}
-		if off == 0 && corners >= 3 {
-			return false
+			if off == 0 && corners >= 3 {
+				return false
+			}
 		}
 	}
 	return !suicide
