@@ -22,7 +22,7 @@ type GoTracker struct {
 	captured  []bool
 	liberties [][2]uint64
 	board     []byte
-	Komi      float64
+	komi      float64
 	koVertex  int
 	koColor   byte
 	played    []byte
@@ -31,6 +31,8 @@ type GoTracker struct {
 	mask      [][4]uint64
 	passes    int
 	winner    byte
+	superko   bool
+	history		*vector.Vector
 }
 
 // parent must be initialized so each element is a pointer to itself
@@ -58,10 +60,12 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 		t.empty.Push(i)
 	}
 	shuffle(t.empty)
-	t.Komi = config.Komi
+	t.komi = config.Komi
 	t.koVertex = -1
 	t.koColor = EMPTY
 	t.winner = EMPTY
+	t.superko = true
+	t.history = new(vector.Vector)
 	return
 }
 
@@ -85,11 +89,16 @@ func (t *GoTracker) Copy() Tracker {
 	*cp.empty = t.empty.Copy()
 	shuffle(cp.empty)
 
-	cp.Komi = t.Komi
+	cp.komi = t.komi
 	cp.koVertex = t.koVertex
 	cp.koColor = t.koColor
+	cp.winner = t.winner
 
 	cp.played = make([]byte, t.sqsize)
+	
+	cp.superko = true
+	cp.history = new(vector.Vector)
+	*cp.history = t.history.Copy()
 
 	return cp
 }
@@ -149,6 +158,15 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		t.liberties[root][0] = l0
 		t.liberties[root][1] = l1
 
+		if t.superko {
+			if t.history.Len() == 0 {
+				t.history.Push(*NewHash(t.boardsize))
+			}
+			cp := t.Copy()
+			cp.(*GoTracker).superko = false
+			cp.Play(color, vertex)
+			t.history.Push(*MakeHash(cp))
+		}
 		// modify the board
 		t.board[vertex] = color
 		// remove vertex from empty
@@ -169,6 +187,7 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
 	last := -1
 	move := 0
+	t.superko = false
 	for {
 		vertex = t.playHeuristicMove(color)
 		if vertex == -1 && last != -1 {
@@ -189,6 +208,7 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 		last = vertex
 		vertex = -1
 	}
+	t.superko = true
 }
 
 func (t *GoTracker) playHeuristicMove(color byte) int {
@@ -256,6 +276,16 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 
 	if vertex == t.koVertex && color == t.koColor {
 		return false
+	} else if t.superko {
+		cp := t.Copy()
+		cp.(*GoTracker).superko = false
+		cp.Play(color, vertex)
+		pos := *MakeHash(cp)
+		for i := 0; i < t.history.Len(); i++ {
+			if pos == t.history.At(i).(Hash) {
+				return false
+			}
+		}
 	}
 
 	opp := Reverse(color)
@@ -316,7 +346,7 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 	return !suicide
 }
 
-func (t *GoTracker) Score(Komi float64) (float64, float64) {
+func (t *GoTracker) Score(komi float64) (float64, float64) {
 	bc, wc := 0.0, 0.0
 	for i := 0; i < t.sqsize; i++ {
 		if t.board[i] == BLACK {
@@ -333,7 +363,7 @@ func (t *GoTracker) Score(Komi float64) (float64, float64) {
 			}
 		}
 	}
-	wc += Komi
+	wc += komi
 	return bc, wc
 }
 
@@ -344,7 +374,7 @@ func (t *GoTracker) Winner() byte {
 	if t.winner != EMPTY {
 		return t.winner
 	}
-	bc, wc := t.Score(t.Komi)
+	bc, wc := t.Score(t.komi)
 	if bc > wc {
 		t.winner = BLACK
 	} else {
@@ -353,12 +383,12 @@ func (t *GoTracker) Winner() byte {
 	return t.winner
 }
 
-func (t *GoTracker) SetKomi(Komi float64) {
-	t.Komi = Komi
+func (t *GoTracker) SetKomi(komi float64) {
+	t.komi = komi
 }
 
 func (t *GoTracker) GetKomi() float64 {
-	return t.Komi
+	return t.komi
 }
 
 func (t *GoTracker) Boardsize() int {
@@ -512,6 +542,10 @@ func (t *GoTracker) String() (s string) {
 		}
 	}
 	return
+}
+
+func (t *GoTracker) SuperKo(superko bool) {
+	t.superko = superko
 }
 
 func (t *GoTracker) dead() []int {
