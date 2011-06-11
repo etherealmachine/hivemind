@@ -193,6 +193,9 @@ func (s *Swarm) evaluate(p *Particle) {
 		wc.matcher = p
 	}
 	t := NewTracker(p.swarm.config)
+	if p.swarm.config.Go {
+		t.(*GoTracker).SuperKo(false)
+	}
 	move := 0
 	maxMoves := 3 * t.Sqsize()
 	winner := EMPTY

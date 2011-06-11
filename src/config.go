@@ -60,6 +60,7 @@ type Config struct {
 	Explore     float64
 	RAVE        float64
 	ExpandAfter float64
+	Var         bool
 	AMAF        bool
 	Neighbors   bool
 	Ancestor    bool
@@ -125,6 +126,7 @@ func NewConfig() *Config {
 	flag.Float64Var(&config.Explore, "c", 0.5, "UCT coefficient")
 	flag.Float64Var(&config.RAVE, "k", 1000, "RAVE equivalency cutoff")
 	flag.Float64Var(&config.ExpandAfter, "e", 50, "Expand after")
+	flag.BoolVar(&config.Var, "var", false, "Use variance in UCB value")
 	flag.BoolVar(&config.AMAF, "amaf", false, "Use AMAF results in RAVE mean")
 	flag.BoolVar(&config.Neighbors, "neighbors", false, "Use neighbors results in RAVE mean")
 	flag.BoolVar(&config.Ancestor, "ancestor", false, "Use ancestors results in RAVE mean")

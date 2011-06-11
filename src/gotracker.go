@@ -15,24 +15,26 @@ import (
 // liberties returns the number of liberties for the chain
 // it is only correct for the root of the set
 type GoTracker struct {
-	boardsize int
-	sqsize    int
-	parent    []int
-	rank      []int
-	captured  []bool
-	liberties [][2]uint64
-	board     []byte
-	komi      float64
-	koVertex  int
-	koColor   byte
-	played    []byte
-	empty     *vector.IntVector
-	adj       [][]int
-	mask      [][4]uint64
-	passes    int
-	winner    byte
-	superko   bool
-	history		*vector.Vector
+	boardsize      int
+	sqsize         int
+	parent         []int
+	rank           []int
+	captured       []bool
+	liberties      [][2]uint64
+	board          []byte
+	komi           float64
+	koVertex       int
+	koColor        byte
+	played         []byte
+	empty          *vector.IntVector
+	adj            [][]int
+	mask           [][4]uint64
+	passes         int
+	winner         byte
+	superko        bool
+	history        *vector.Vector
+	friendly_atari map[int]bool
+	opp_atari      map[int]bool
 }
 
 // parent must be initialized so each element is a pointer to itself
@@ -59,13 +61,15 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 		t.rank[i] = 1
 		t.empty.Push(i)
 	}
-	shuffle(t.empty)
 	t.komi = config.Komi
 	t.koVertex = -1
 	t.koColor = EMPTY
 	t.winner = EMPTY
 	t.superko = true
 	t.history = new(vector.Vector)
+
+	t.friendly_atari = make(map[int]bool)
+	t.opp_atari = make(map[int]bool)
 	return
 }
 
@@ -87,7 +91,6 @@ func (t *GoTracker) Copy() Tracker {
 	copy(cp.board, t.board)
 	cp.empty = new(vector.IntVector)
 	*cp.empty = t.empty.Copy()
-	shuffle(cp.empty)
 
 	cp.komi = t.komi
 	cp.koVertex = t.koVertex
@@ -95,10 +98,13 @@ func (t *GoTracker) Copy() Tracker {
 	cp.winner = t.winner
 
 	cp.played = make([]byte, t.sqsize)
-	
+
 	cp.superko = true
 	cp.history = new(vector.Vector)
 	*cp.history = t.history.Copy()
+	
+	cp.friendly_atari = make(map[int]bool)
+	cp.opp_atari = make(map[int]bool)
 
 	return cp
 }
@@ -188,13 +194,14 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	last := -1
 	move := 0
 	t.superko = false
+	shuffle(t.empty)
 	for {
 		vertex = t.playHeuristicMove(color)
 		if vertex == -1 && last != -1 {
 			vertex = t.playPatternMove(color, last, m)
 		}
 		if vertex == -1 {
-			vertex = t.RandLegal(color)
+			vertex = t.randLegal(color)
 		}
 		t.Play(color, vertex)
 		move++
@@ -212,31 +219,51 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 }
 
 func (t *GoTracker) playHeuristicMove(color byte) int {
-	atari := make(map[int]bool)
 	for i := 0; i < t.sqsize; i++ {
-		if t.board[i] == Reverse(color) {
-			root := find(i, t.parent)
-			if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
-				var v int
-				if t.liberties[root][0] != 0 {
-					v = 64 - int(firstbitset(t.liberties[root][0])) - 1
-				} else if t.liberties[root][1] != 0 {
-					v = 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
-				}
-				if v != t.koVertex || color != t.koColor {
-					atari[v] = true
-				}
+		if t.board[i] == EMPTY {
+			continue
+		}
+		root := find(i, t.parent)
+		if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
+			var v int
+			if t.liberties[root][0] != 0 {
+				v = 64 - int(firstbitset(t.liberties[root][0])) - 1
+			} else if t.liberties[root][1] != 0 {
+				v = 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
+			}
+			if v == t.koVertex && color == t.koColor {
+				continue
+			}
+			if t.board[i] == color {
+				t.friendly_atari[v] = true
+			} else {
+				t.opp_atari[v] = true
 			}
 		}
 	}
-	if len(atari) > 0 {
-		i := rand.Intn(len(atari))
-		for j, _ := range atari {
+	if len(t.friendly_atari) > 0 {
+		i := rand.Intn(len(t.friendly_atari))
+		v := -1
+		for j, _ := range t.friendly_atari {
+			t.friendly_atari[j] = false, false
 			if i == 0 {
-				return j
+				v = j
 			}
 			i--
 		}
+		return v
+	}
+	if len(t.opp_atari) > 0 {
+		i := rand.Intn(len(t.opp_atari))
+		v := -1
+		for j, _ := range t.opp_atari {
+			t.opp_atari[j] = false, false
+			if i == 0 {
+				v = j
+			}
+			i--
+		}
+		return v
 	}
 	return -1
 }
@@ -252,7 +279,7 @@ func (t *GoTracker) playPatternMove(color byte, last int, m PatternMatcher) int 
 	return -1
 }
 
-func (t *GoTracker) RandLegal(color byte) int {
+func (t *GoTracker) randLegal(color byte) int {
 	for i := t.empty.Len() - 1; i >= 0; i-- {
 		v := t.empty.At(i)
 		if t.Legal(color, v) {
@@ -567,7 +594,7 @@ func (t *GoTracker) dead() []int {
 	color := BLACK
 	move := 0
 	for {
-		vertex := cp.RandLegal(color)
+		vertex := cp.randLegal(color)
 		cp.Play(color, vertex)
 		move++
 		if move > 3*t.sqsize || cp.Winner() != EMPTY {

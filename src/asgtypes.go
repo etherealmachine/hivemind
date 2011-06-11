@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-	"math"
 )
 
 const (
@@ -70,9 +69,15 @@ func Reverse(c byte) byte {
 func VisitsBoard(root *Node, t Tracker) (s string) {
 	boardsize := t.Boardsize()
 	board := make([]float64, boardsize*boardsize)
+	max := 0.0
 	for child := root.Child; child != nil; child = child.Sibling {
-		board[child.Vertex] = math.Log(child.Visits) / math.Log(root.Visits)
-		if child.Color == WHITE {
+		if child.Visits > max {
+			max = child.Visits
+		}
+	}
+	for child := root.Child; child != nil; child = child.Sibling {
+		board[child.Vertex] = child.Visits / max
+		if root.Color == Reverse(WHITE) {
 			board[child.Vertex] = -board[child.Vertex]
 		}
 	}
@@ -106,6 +111,30 @@ func TerritoryBoard(territory []float64, Samples float64, t Tracker) (s string) 
 			}
 		}
 		if row != boardsize-1 {
+			s += "\n"
+		}
+	}
+	return
+}
+
+func StatsBoard(root *Node, t Tracker) (s string) {
+	board := make([]string, t.Sqsize())
+	for child := root.Child; child != nil; child = child.Sibling {
+		board[child.Vertex] = fmt.Sprintf("%.0f/%.0f", child.Wins, child.Visits)
+	}
+	for row := 0; row < t.Boardsize(); row++ {
+		for col := 0; col < t.Boardsize(); col++ {
+			v := row * t.Boardsize() + col
+			if board[v] == "" {
+				s += "\"\""
+			} else {
+				s += board[v]
+			}
+			if col != t.Boardsize() - 1 {
+				s += " "
+			}
+		}
+		if row != t.Boardsize() - 1 {
 			s += "\n"
 		}
 	}

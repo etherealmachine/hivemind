@@ -44,7 +44,6 @@ func NewHexTracker(config *Config) *HexTracker {
 			t.rank[i] = t.sqsize
 		}
 	}
-	shuffle(t.empty)
 
 	t.winner = EMPTY
 
@@ -71,7 +70,6 @@ func (t *HexTracker) Copy() Tracker {
 	copy(cp.board, t.board)
 	cp.empty = new(vector.IntVector)
 	*cp.empty = t.empty.Copy()
-	shuffle(cp.empty)
 
 	cp.winner = t.winner
 
@@ -117,9 +115,10 @@ func (t *HexTracker) Play(color byte, vertex int) {
 
 func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 	vertex := -1
+	shuffle(t.empty)
 	for {
 		if vertex == -1 {
-			vertex = t.RandLegal(color)
+			vertex = t.randLegal(color)
 		}
 		t.Play(color, vertex)
 		if t.winner != EMPTY {
@@ -139,15 +138,7 @@ func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 	panic("should never happen")
 }
 
-func (t *HexTracker) WasPlayed(color byte, vertex int) bool {
-	return t.played[vertex] == color
-}
-
-func (t *HexTracker) Legal(color byte, vertex int) bool {
-	return t.board[vertex] == EMPTY
-}
-
-func (t *HexTracker) RandLegal(color byte) int {
+func (t *HexTracker) randLegal(color byte) int {
 	for i := t.empty.Len() - 1; i >= 0; i-- {
 		v := t.empty.At(i)
 		if t.Legal(color, v) {
@@ -156,6 +147,14 @@ func (t *HexTracker) RandLegal(color byte) int {
 		t.empty.Delete(i)
 	}
 	return -1
+}
+
+func (t *HexTracker) WasPlayed(color byte, vertex int) bool {
+	return t.played[vertex] == color
+}
+
+func (t *HexTracker) Legal(color byte, vertex int) bool {
+	return t.board[vertex] == EMPTY
 }
 
 func (t *HexTracker) Score(Komi float64) (float64, float64) {

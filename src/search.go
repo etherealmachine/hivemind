@@ -375,8 +375,11 @@ func (node *Node) recalc() {
 		}
 	}
 	r := math.Log1p(node.parent.Visits) / node.Visits
-	v := node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r)
-	node.value = node.blendedMean + node.config.Explore*math.Sqrt(r*math.Fmin(0.25, v))
+	v := 1.0
+	if node.config.Var {
+		v = math.Fmin(0.25, node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r))
+	}
+	node.value = node.blendedMean + node.config.Explore*math.Sqrt(r*v)
 	if node.Visits == 1 {
 		node.value += rand.Float64()
 	} else {

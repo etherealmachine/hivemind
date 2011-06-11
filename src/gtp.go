@@ -29,7 +29,8 @@ gogui-analyze_commands`
 var gogui_commands = `dboard/Visits/visits
 cboard/Territory/territory
 cboard/Book/book
-cboard/Legal/legal`
+cboard/Legal/legal
+sboard/Stats/stats`
 
 func known_command(command_name string) string {
 	for _, s := range strings.Split(supported_commands, "\n", -1) {
@@ -124,12 +125,15 @@ func GTP(config *Config) {
 				color = Atoc(args[1])
 				vertex := t.Atov(args[2])
 				t.Play(color, vertex)
+				log.Print(t.String())
 				movecount++
-				t.String()
 				if vertex == -1 {
 					passcount++
 				}
 				if root != nil {
+					if config.Verbose {
+						log.Println(root.String(0, 1, t))
+					}
 					root = root.Play(color, vertex, t)
 				}
 				if book != nil {
@@ -166,6 +170,9 @@ func GTP(config *Config) {
 							root = NewRoot(color, t, config)
 						}
 						genmove(root, t)
+						if config.Verbose {
+							log.Println(root.String(0, 1, t))
+						}
 						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
 						if root.Wins/root.Visits > 0.95 && passcount != 0 {
 							game_over = true
@@ -174,16 +181,11 @@ func GTP(config *Config) {
 						if root.Wins/root.Visits < 0.05 && passcount != 0 {
 							game_over = true
 						}
-						if root != nil && root.Best() != nil {
-							vertex = root.Best().Vertex
-						}
+						vertex = root.Best().Vertex
 					}
 				}
 				t.Play(color, vertex)
 				movecount++
-				if config.Verbose {
-					t.Verify()
-				}
 				log.Print(t.String())
 				if root != nil {
 					root = root.Play(color, vertex, t)
@@ -212,13 +214,17 @@ func GTP(config *Config) {
 		case "gogui-analyze_commands":
 			res = gogui_commands
 		case "visits":
-			if !(config.Hex && t.Winner() != EMPTY) {
-				tmpRoot := NewRoot(Reverse(color), t, config)
-				genmove(tmpRoot, t)
-				res = VisitsBoard(tmpRoot, t)
-			} else {
-				res = ""
+			if root == nil {
+				root = NewRoot(Reverse(color), t, config)
+				genmove(root, t)
 			}
+			res = VisitsBoard(root, t)
+		case "stats":
+			if root == nil {
+				root = NewRoot(Reverse(color), t, config)
+				genmove(root, t)
+			}
+			res = StatsBoard(root, t)
 		case "territory":
 			if t.Winner() == EMPTY {
 				tmpRoot := NewRoot(Reverse(color), t, config)

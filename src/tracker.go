@@ -25,7 +25,6 @@ type Tracker interface {
 	Playout(color byte, m PatternMatcher)
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
-	RandLegal(color byte) int
 	Score(Komi float64) (float64, float64)
 	Winner() byte
 	SetKomi(Komi float64)
