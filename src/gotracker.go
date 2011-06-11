@@ -317,6 +317,15 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 		}
 	}
 	if friendly+off == 4 {
+		for i := 0; i < 4; i++ {
+			n := t.adj[vertex][i]
+			if n != -1 && t.board[n] == color {
+				root := find(n, t.parent)
+				if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
+					return !suicide
+				}
+			}
+		}
 		if off == 2 {
 			return false
 		} else {
