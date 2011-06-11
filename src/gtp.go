@@ -140,8 +140,6 @@ func GTP(config *Config) {
 			if len(args) != 2 {
 				fail = true
 				res = "missing argument"
-			} else if config.Go && passcount >= 3 {
-				res = t.Vtoa(-1)
 			} else {
 				saved_timelimit := config.Timelimit
 				color = Atoc(args[1])
@@ -166,11 +164,11 @@ func GTP(config *Config) {
 						}
 						genmove(root, t)
 						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
-						if root.Wins/root.Visits > 0.95 {
+						if root.Wins/root.Visits > 0.95 && passcount != 0 {
 							game_over = true
 						}
 						// if genmove predicts win in <5% of playouts, set a flag and pass next time around
-						if root.Wins/root.Visits < 0.05 {
+						if root.Wins/root.Visits < 0.05 && passcount != 0 {
 							game_over = true
 						}
 						if root != nil && root.Best() != nil {
