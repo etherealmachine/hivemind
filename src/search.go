@@ -259,8 +259,8 @@ func (node *Node) expand(t Tracker) {
 					child.Wins = math.Inf(1)
 				}
 			} else {
-				child.Wins = 0
-				child.Visits = 0
+				child.Wins = 5
+				child.Visits = 10
 				if node.config.Ancestor {
 					granduncle := child.granduncle()
 					if granduncle != nil {
@@ -326,8 +326,8 @@ func (node *Node) update(t Tracker) {
 }
 
 func (node *Node) recalc() {
-	if node.Visits == 0 {
-		node.value = 1.1
+	if node.Visits == 10 {
+		node.value = 1 + 0.1 * rand.Float64()
 		return
 	}
 	node.Mean = node.Wins / node.Visits
