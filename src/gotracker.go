@@ -318,15 +318,7 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 	}
 	if friendly+off == 4 {
 		if off == 2 {
-			chain := -1
-			for i := 0; i < 4; i++ {
-				n := t.adj[vertex][i]
-				if n != -1 && chain == -1 {
-					chain = find(n, t.parent)
-				} else if n != -1 && chain == find(n, t.parent) {
-					return false
-				}
-			}
+			return false
 		} else {
 			corners := 0
 			u := t.adj[vertex][UP]
@@ -350,7 +342,7 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 			if off >= 1 && corners >= 1 {
 				return false
 			}
-			if off == 0 && corners >= 3 {
+			if off == 0 && corners >= 2 {
 				return false
 			}
 		}

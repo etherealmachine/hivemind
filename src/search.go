@@ -221,17 +221,9 @@ func (root *Node) step(t Tracker) {
 	start = time.Nanoseconds()
 	winner := t.Winner()
 	root.win_calc_time += time.Nanoseconds() - start
-	var result float64
-	if winner == root.Color {
-		result = 0.0
-	} else {
-		result = 1.0
-	}
 	start = time.Nanoseconds()
-	c := result
 	for j := 0; j < path.Len(); j++ {
-		path.At(j).(*Node).update(result, t)
-		result = c - result
+		path.At(j).(*Node).update(t)
 	}
 	root.update_time += time.Nanoseconds() - start
 	if winner == Reverse(root.Color) {
@@ -309,14 +301,18 @@ func (node *Node) Best() *Node {
 	return best
 }
 
-func (node *Node) update(result float64, t Tracker) {
-	node.Wins += result
+func (node *Node) update(t Tracker) {
+	if t.Winner() == node.Color {
+		node.Wins++
+	}
 	node.Visits++
 	node.recalc()
 	if node.config.AMAF {
 		for sibling := node.parent.Child; sibling != nil; sibling = sibling.Sibling {
-			if t.WasPlayed(sibling.Color, sibling.Vertex) {
-				sibling.amafWins += result
+			if sibling != node && t.WasPlayed(sibling.Color, sibling.Vertex) {
+				if t.Winner() == sibling.Color {
+					sibling.amafWins++
+				}
 				sibling.amafVisits++
 			}
 			sibling.recalc()
