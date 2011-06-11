@@ -220,3 +220,35 @@ func EmitGFX(root *Node, t Tracker) {
 	fmt.Fprintln(os.Stderr)
 	lastEmitTime = time.Nanoseconds()
 }
+
+func Version(config *Config) string {
+	version := "0.2"
+	version += fmt.Sprintf("_c=%.2f", config.Explore)
+	version += fmt.Sprintf("_k=%.2f", config.RAVE)
+	version += fmt.Sprintf("_e=%.0f", config.ExpandAfter)
+	version += fmt.Sprintf("_p=%d", config.MaxPlayouts)
+	version += fmt.Sprintf("_t=%d", config.Timelimit)
+	version += fmt.Sprintf("_o=%.2f", config.Cutoff)
+	if config.Var {
+		version += "_var"
+	}
+	if config.AMAF {
+		version += "_amaf"
+	}
+	if config.Neighbors {
+		version += "_neighbors"
+	}
+	if config.Ancestor {
+		version += "_ancestor"
+	}
+	if config.Seed {
+		version += "_seed"
+	}
+	if config.Pat {
+		version += "_pat"
+	}
+	if config.Eval {
+		version += "_eval"
+	}
+	return version
+}

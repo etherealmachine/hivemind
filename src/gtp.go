@@ -86,7 +86,7 @@ func GTP(config *Config) {
 		case "name":
 			res = "GoGo"
 		case "version":
-			res = "0.1"
+			res = Version(config)
 		case "known_command":
 			res = known_command(args[1])
 		case "list_commands":
