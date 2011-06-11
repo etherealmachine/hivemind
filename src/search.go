@@ -166,7 +166,7 @@ func treeSearch(root *Node, t Tracker) uint {
 				break
 			}
 		}
-		if root.config.Timelimit != -1 {
+		if root.config.Timelimit > 0 {
 			elapsed := time.Nanoseconds() - start
 			if uint64(elapsed) > uint64(root.config.Timelimit)*uint64(1e9) {
 				break

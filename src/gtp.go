@@ -45,7 +45,7 @@ func known_command(command_name string) string {
 	return "false"
 }
 
-func set_timelimit(timeleft int) int {
+func get_timelimit(timeleft int) int {
 	if timeleft < 15 {
 		return 0
 	} else if timeleft < 30 {
@@ -144,7 +144,10 @@ func GTP(config *Config) {
 				saved_timelimit := config.Timelimit
 				color = Atoc(args[1])
 				if time_left_time != -1 && color == time_left_color {
-					config.Timelimit = set_timelimit(time_left_time)
+					limit := get_timelimit(time_left_time)
+					if saved_timelimit > 0 && limit > 0 {
+						config.Timelimit = limit
+					}
 				}
 				vertex := -1
 				// HEX, swap-safe: if black and first move of game, play a move that should be safe from swapping
