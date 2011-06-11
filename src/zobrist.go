@@ -14,7 +14,7 @@ func init() {
 	emptyBoard = make(map[int][]Hash)
 	blackBoard = make(map[int][]Hash)
 	whiteBoard = make(map[int][]Hash)
-	for Size := 3; Size < 19; Size++ {
+	for Size := 3; Size <= 19; Size++ {
 		setupHash(Size)
 	}
 }

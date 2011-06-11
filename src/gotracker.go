@@ -224,20 +224,11 @@ func (t *GoTracker) playHeuristicMove(color byte) int {
 			continue
 		}
 		root := find(i, t.parent)
-		if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
-			var v int
-			if t.liberties[root][0] != 0 {
-				v = 64 - int(firstbitset(t.liberties[root][0])) - 1
-			} else if t.liberties[root][1] != 0 {
-				v = 64 - int(firstbitset(t.liberties[root][1])) + 64 - 1
-			}
-			if v == t.koVertex && color == t.koColor {
-				continue
-			}
+		if t.wouldCapture(i, root) {
 			if t.board[i] == color {
-				t.friendly_atari[v] = true
+				t.friendly_atari[i] = true
 			} else {
-				t.opp_atari[v] = true
+				t.opp_atari[i] = true
 			}
 		}
 	}
@@ -500,7 +491,7 @@ func (t *GoTracker) Verify() {
 		if !found {
 			fmt.Fprintln(os.Stderr, t.Vtoa(i), t.Vtoa(parent))
 			fmt.Fprintln(os.Stderr, t.String())
-			panic("could not verify connected points")
+			panic("could not verify connected points: " + t.Vtoa(i) + " " + t.Vtoa(parent))
 		}
 		liberties := bitcount(t.liberties[parent][0], t.liberties[parent][1])
 		if uint(empty) != liberties {

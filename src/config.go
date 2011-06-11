@@ -68,6 +68,7 @@ type Config struct {
 
 	// Logging
 	Verbose bool
+	Verify  bool
 	Lfile   string
 
 	// private flag, used to load config from json file
@@ -133,6 +134,7 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Seed, "seed", false, "Seed the playouts using ancestor's results")
 
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose logging")
+	flag.BoolVar(&config.Verify, "vv", false, "Verify correctness of playout")
 	flag.StringVar(&config.Lfile, "log", "", "Log to filename")
 
 	flag.Parse()

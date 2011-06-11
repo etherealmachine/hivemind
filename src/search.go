@@ -166,7 +166,9 @@ func treeSearch(root *Node, t Tracker) uint {
 				break
 			}
 		}
-		if root.config.Timelimit > 0 {
+		if root.Child == nil {
+			break
+		} else if root.config.Timelimit > 0 {
 			elapsed := time.Nanoseconds() - start
 			if uint64(elapsed) > uint64(root.config.Timelimit)*uint64(1e9) {
 				break
@@ -206,6 +208,9 @@ func (root *Node) step(t Tracker) {
 			}
 			start = time.Nanoseconds()
 			t.Playout(color, root.config.matcher)
+			if root.config.Verify {
+				t.Verify()
+			}
 			root.playout_time += time.Nanoseconds() - start
 			break
 		}
@@ -254,8 +259,8 @@ func (node *Node) expand(t Tracker) {
 					child.Wins = math.Inf(1)
 				}
 			} else {
-				child.Wins = 1
-				child.Visits = 1
+				child.Wins = 0
+				child.Visits = 0
 				if node.config.Ancestor {
 					granduncle := child.granduncle()
 					if granduncle != nil {
@@ -309,7 +314,7 @@ func (node *Node) update(t Tracker) {
 	node.recalc()
 	if node.config.AMAF {
 		for sibling := node.parent.Child; sibling != nil; sibling = sibling.Sibling {
-			if sibling != node && t.WasPlayed(sibling.Color, sibling.Vertex) {
+			if t.WasPlayed(sibling.Color, sibling.Vertex) {
 				if t.Winner() == sibling.Color {
 					sibling.amafWins++
 				}
@@ -321,6 +326,10 @@ func (node *Node) update(t Tracker) {
 }
 
 func (node *Node) recalc() {
+	if node.Visits == 0 {
+		node.value = 1.1
+		return
+	}
 	node.Mean = node.Wins / node.Visits
 	node.blendedMean = node.Mean
 	rave := node.config.AMAF || node.config.Neighbors || node.config.Ancestor || node.config.Eval
@@ -379,12 +388,7 @@ func (node *Node) recalc() {
 	if node.config.Var {
 		v = math.Fmin(0.25, node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r))
 	}
-	node.value = node.blendedMean + node.config.Explore*math.Sqrt(r*v)
-	if node.Visits == 1 {
-		node.value += rand.Float64()
-	} else {
-		node.value += 0.01 * rand.Float64()
-	}
+	node.value = node.blendedMean + node.config.Explore * math.Sqrt(r*v)
 }
 
 // return node's grandparent's sibling corresponding to node's move
