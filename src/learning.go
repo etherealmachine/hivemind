@@ -472,7 +472,13 @@ func (s *Swarm) Best() (best *Particle) {
 	return best
 }
 
-func (s *Swarm) SaveSwarm(filename string) {
+func (s *Swarm) SaveSwarm() {
+	var filename string
+	if s.config.Prefix != "" {
+		filename = fmt.Sprintf(s.config.Prefix+".swarm.%d.gob", s.Generation)
+	} else {
+		filename = fmt.Sprintf("swarm.%d.gob", s.Generation)
+	}
 	f, err := os.Create(filename)
 	if err != nil {
 		panic(err)
@@ -525,8 +531,7 @@ func Train(config *Config) {
 			s.PSStep()
 		}
 		s.Generation++
-		filename := fmt.Sprintf(s.config.Prefix+".%d.gob", s.Generation)
-		s.SaveSwarm(filename)
+		s.SaveSwarm()
 		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
 			s.Generation, s.config.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)

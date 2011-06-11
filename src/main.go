@@ -50,6 +50,13 @@ func main() {
 		root := NewRoot(BLACK, t, config)
 		genmove(root, t)
 	} else if config.Speed {
-		TestPPS(config)
+		SpeedTest(config)
+	} else if config.Book {
+		t := NewTracker(config)
+		genmove(config.book, t)
+		config.book.SaveBook()
+		if config.Verbose {
+			log.Println(config.book.String(0, 2, t))
+		}
 	}
 }

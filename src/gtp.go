@@ -61,6 +61,7 @@ func set_timelimit(timeleft int) int {
 func GTP(config *Config) {
 	var boardsize int
 	var t Tracker
+	var book *Node
 	var root *Node
 	var color byte
 	main_time := -1
@@ -105,6 +106,8 @@ func GTP(config *Config) {
 			passcount = 0
 			movecount = 0
 			game_over = false
+			book = config.book
+			root = nil
 		case "komi":
 			new_komi, err := strconv.Atof64(args[1])
 			if err != nil {
@@ -129,6 +132,9 @@ func GTP(config *Config) {
 				if root != nil {
 					root = root.Play(color, vertex, t)
 				}
+				if book != nil {
+					book = book.Play(color, vertex, t)
+				}
 			}
 		case "genmove":
 			if len(args) != 2 {
@@ -148,10 +154,16 @@ func GTP(config *Config) {
 					vertex = (3 * t.Boardsize()) + 2
 					// Pass if: no time left, game definitely won
 				} else if config.Timelimit != 0 && t.Winner() == EMPTY && !game_over {
-					if root == nil {
-						root = NewRoot(color, t, config)
+					if book != nil {
+						best := book.Best()
+						if best.Visits > 1000 {
+							vertex = best.Vertex
+						}
 					}
 					if vertex == -1 {
+						if root == nil {
+							root = NewRoot(color, t, config)
+						}
 						genmove(root, t)
 						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
 						if root.Wins/root.Visits > 0.95 {
@@ -175,6 +187,9 @@ func GTP(config *Config) {
 				if root != nil {
 					root = root.Play(color, vertex, t)
 				}
+				if book != nil {
+					book = book.Play(color, vertex, t)
+				}
 				if vertex == -1 && config.Hex && t.Winner() == Reverse(color) {
 					res = "resign"
 				} else {
@@ -183,6 +198,13 @@ func GTP(config *Config) {
 				config.Timelimit = saved_timelimit
 			}
 		case "final_score":
+			if config.Go {
+				gotracker := t.(*GoTracker)
+				dead := gotracker.dead()
+				for i := range dead {
+					gotracker.board[dead[i]] = EMPTY
+				}
+			}
 			res = FormatScore(t)
 		case "showboard":
 			res = t.String()
@@ -205,8 +227,17 @@ func GTP(config *Config) {
 				res = TerritoryBoard(t.Territory(color), 1, t)
 			}
 		case "book":
-			book := make([]float64, t.Sqsize())
-			res = TerritoryBoard(book, 1, t)
+			value := make([]float64, t.Sqsize())
+			max := 0.0
+			for child := book.Child; child != nil; child = child.Sibling {
+				if child.Visits > max {
+					max = child.Visits
+				}
+			}
+			for child := book.Child; child != nil; child = child.Sibling {
+				value[child.Vertex] = child.Visits / max
+			}
+			res = TerritoryBoard(value, 1, t)
 		case "legal":
 			res = LegalBoard(t)
 		case "time_settings":

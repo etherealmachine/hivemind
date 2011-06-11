@@ -7,10 +7,12 @@ import (
 	"log"
 	"rand"
 	"container/vector"
+	"os"
+	"gob"
 )
 
 type Node struct {
-	Parent                                                                    *Node
+	parent                                                                    *Node
 	Child                                                                     *Node
 	Last                                                                      *Node
 	Sibling                                                                   *Node
@@ -39,7 +41,7 @@ func NewRoot(color byte, t Tracker, config *Config) *Node {
 
 func NewNode(parent *Node, color byte, vertex int) *Node {
 	node := new(Node)
-	node.Parent = parent
+	node.parent = parent
 	node.Color = color
 	node.Vertex = vertex
 	node.config = parent.config
@@ -51,8 +53,6 @@ func genmove(root *Node, t Tracker) {
 	if root.config.Stats {
 		log.Printf("kept %.0f visits\n", root.Visits)
 	}
-	root.Wins = 0
-	root.Visits = 0
 	if t.Winner() != EMPTY {
 		return
 	}
@@ -66,16 +66,16 @@ func genmove(root *Node, t Tracker) {
 	root.copy_time = 0
 	root.next_count = 0
 	root.play_count = 0
-	treeSearch(root, t)
+	playouts := float64(treeSearch(root, t))
 	elapsed := time.Nanoseconds() - start
 	elapsed_seconds := float64(elapsed) / 1e9
 	if root.config.Stats {
-		pps := float64(root.Visits) / elapsed_seconds
-		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", root.Visits, elapsed_seconds, pps)
+		pps := float64(playouts) / elapsed_seconds
+		log.Printf("%.0f playouts in %.2f s, %.2f pps\n", playouts, elapsed_seconds, pps)
 		if root.config.Verbose {
-			avg_playout_time := float64(root.playout_time) / root.Visits
-			avg_update_time := float64(root.update_time) / root.Visits
-			avg_win_calc_time := float64(root.win_calc_time) / root.Visits
+			avg_playout_time := float64(root.playout_time) / playouts
+			avg_update_time := float64(root.update_time) / playouts
+			avg_win_calc_time := float64(root.win_calc_time) / playouts
 			avg_next_time := float64(root.next_time) / float64(root.next_count)
 			avg_play_time := float64(root.play_time) / float64(root.play_count)
 			avg_copy_time := float64(root.copy_time) / root.Visits
@@ -111,6 +111,7 @@ func genmove(root *Node, t Tracker) {
 		log.Printf("territory: mean: %.2f, var: %.2f\n", territory_mean, territory_var)
 		log.Printf("max depth: %d\n", root.maxdepth())
 		log.Printf("nodes: %d\n", root.nodes())
+		log.Printf("visits: %.0f\n", root.Visits)
 		if root.config.Seed {
 			seeds, totalseeds := root.seedstats()
 			log.Printf("seeds: %.2f\n", float64(seeds)/float64(totalseeds))
@@ -122,7 +123,8 @@ func genmove(root *Node, t Tracker) {
 	}
 }
 
-func treeSearch(root *Node, t Tracker) {
+func treeSearch(root *Node, t Tracker) uint {
+	playouts := uint(0)
 	start := time.Nanoseconds()
 	s := time.Nanoseconds()
 	trackers := make([]Tracker, 10000)
@@ -143,6 +145,7 @@ func treeSearch(root *Node, t Tracker) {
 			tracker = 0
 		}
 		root.step(cp)
+		playouts++
 		territory := cp.Territory(Reverse(root.Color))
 		for i := range territory {
 			root.territory[i] += territory[i]
@@ -168,10 +171,11 @@ func treeSearch(root *Node, t Tracker) {
 			if uint64(elapsed) > uint64(root.config.Timelimit)*uint64(1e9) {
 				break
 			}
-		} else if root.Visits >= float64(root.config.MaxPlayouts) {
+		} else if playouts >= root.config.MaxPlayouts {
 			break
 		}
 	}
+	return playouts
 }
 
 // navigate through the tree until a leaf node is found to playout
@@ -259,7 +263,7 @@ func (node *Node) expand(t Tracker) {
 				}
 			} else {
 				child.Wins = 1
-				child.Visits = 1 + rand.Float64()
+				child.Visits = 1
 				if node.config.Ancestor {
 					granduncle := child.granduncle()
 					if granduncle != nil {
@@ -310,7 +314,7 @@ func (node *Node) update(result float64, t Tracker) {
 	node.Visits++
 	node.recalc()
 	if node.config.AMAF {
-		for sibling := node.Parent.Child; sibling != nil; sibling = sibling.Sibling {
+		for sibling := node.parent.Child; sibling != nil; sibling = sibling.Sibling {
 			if t.WasPlayed(sibling.Color, sibling.Vertex) {
 				sibling.amafWins += result
 				sibling.amafVisits++
@@ -351,7 +355,7 @@ func (node *Node) recalc() {
 			if node.config.Neighbors {
 				neighborWins := 0.0
 				neighborVisits := 0.0
-				for sibling := node.Parent.Child; sibling != nil; sibling = sibling.Sibling {
+				for sibling := node.parent.Child; sibling != nil; sibling = sibling.Sibling {
 					if sibling.Vertex != node.Vertex {
 						neighborWins += sibling.Wins
 						neighborVisits += sibling.Visits
@@ -374,17 +378,22 @@ func (node *Node) recalc() {
 			node.blendedMean = beta*estimatedMean + (1-beta)*node.Mean
 		}
 	}
-	r := math.Log1p(node.Parent.Visits) / node.Visits
+	r := math.Log1p(node.parent.Visits) / node.Visits
 	v := node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r)
 	node.value = node.blendedMean + node.config.Explore*math.Sqrt(r*math.Fmin(0.25, v))
+	if node.Visits == 1 {
+		node.value += rand.Float64()
+	} else {
+		node.value += 0.01 * rand.Float64()
+	}
 }
 
-// return node's grandparent's sibling corrosponding to node's move
+// return node's grandparent's sibling corresponding to node's move
 func (node *Node) granduncle() *Node {
-	if node.Parent == nil || node.Parent.Parent == nil || node.Parent.Parent.Parent == nil {
+	if node.parent == nil || node.parent.parent == nil || node.parent.parent.parent == nil {
 		return nil
 	}
-	great_grandparent := node.Parent.Parent.Parent
+	great_grandparent := node.parent.parent.parent
 	for granduncle := great_grandparent.Child; granduncle != nil; granduncle = granduncle.Sibling {
 		if granduncle.Vertex == node.Vertex {
 			return granduncle
@@ -401,14 +410,14 @@ func (node *Node) granduncle() *Node {
 func (node *Node) seedPlayout(t Tracker) byte {
 	color := Reverse(node.Color)
 	var parent, grandparent, great_grandparent *Node
-	if node.Parent != nil {
-		parent = node.Parent
+	if node.parent != nil {
+		parent = node.parent
 	}
 	if parent != nil {
-		grandparent = parent.Parent
+		grandparent = parent.parent
 	}
 	if grandparent != nil {
-		great_grandparent = grandparent.Parent
+		great_grandparent = grandparent.parent
 	}
 	// if it exists, try seeding using great_grandparent
 	if great_grandparent != nil {
@@ -433,12 +442,12 @@ func (node *Node) seedPlayout(t Tracker) byte {
 
 // use win-rate distribution of node to play a legal move in tracker
 func (node *Node) seed(t Tracker, path []int) bool {
-	if node.Parent == nil {
+	if node.parent == nil {
 		return false
 	}
 	dist := new(vector.Vector)
 	sum := 0.0
-	for sibling := node.Parent.Child; sibling != nil; sibling = sibling.Sibling {
+	for sibling := node.parent.Child; sibling != nil; sibling = sibling.Sibling {
 		for i := 0; i < len(path); i++ {
 			if sibling.Vertex == path[i] {
 				continue
@@ -520,14 +529,62 @@ func (node *Node) Play(color byte, vertex int, t Tracker) *Node {
 				Ctoa(best.Color), t.Vtoa(best.Vertex), best.Visits))
 			log.Print(fmt.Sprintf("actual:    %s%s(%.0f)",
 				Ctoa(child.Color), t.Vtoa(child.Vertex), child.Visits))
-			child.Parent = nil
+			child.parent = nil
 			return child
 		}
 	}
 	return nil
 }
 
-func (node *Node) String(depth int, t Tracker) (s string) {
+func (root *Node) SaveBook() {
+	var filename string
+	if root.config.Prefix != "" {
+		filename = fmt.Sprintf(root.config.Prefix + ".book.gob")
+	} else {
+		filename = fmt.Sprintf("book.gob")
+	}
+	f, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { f.Close() }()
+	e := gob.NewEncoder(f)
+	err = e.Encode(root)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (node *Node) fix_refs(config *Config) {
+	node.config = config
+	for child := node.Child; child != nil; child = child.Sibling {
+		child.parent = node
+		child.fix_refs(config)
+	}
+	if node.parent != nil {
+		node.recalc()
+	}
+}
+
+func LoadBook(config *Config) {
+	t := NewTracker(config)
+	config.book = NewRoot(BLACK, t, config)
+	if config.Bfile != "" {
+		f, err := os.Open(config.Bfile)
+		if err != nil {
+			panic(err)
+		}
+		defer func() { f.Close() }()
+		d := gob.NewDecoder(f)
+		err = d.Decode(config.book)
+		if err != nil {
+			panic(err)
+		}
+		config.book.fix_refs(config)
+	}
+}
+
+func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 	if node.Visits == 0 {
 		return ""
 	}
@@ -538,20 +595,20 @@ func (node *Node) String(depth int, t Tracker) (s string) {
 	if node.config.AMAF {
 		AMAF = fmt.Sprintf("(%5.2f %6.0f)", node.amafMean, node.amafVisits)
 	}
-	s += fmt.Sprintf("%s%s (%5.2f %5.2f %6.0f) %s\n",
+	s += fmt.Sprintf("%s%s (%5.2f %5.2f %6.2f %6.2f) %s\n",
 		Ctoa(node.Color), t.Vtoa(node.Vertex),
-		node.Mean, node.value, node.Visits, AMAF)
-	if node.Child != nil {
+		node.Mean, node.value, node.Wins, node.Visits, AMAF)
+	if depth < maxdepth && node.Child != nil {
 		for child := node.Child; child != nil; child = child.Sibling {
 			if child.Visits > 0 {
-				s += child.String(depth+1, t)
+				s += child.String(depth + 1, maxdepth, t)
 			}
 		}
 	}
 	return
 }
 
-func TestPPS(config *Config) {
+func SpeedTest(config *Config) {
 	t := NewTracker(config)
 	playoutTime := int64(0)
 	start := time.Nanoseconds()
