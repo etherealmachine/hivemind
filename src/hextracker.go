@@ -113,7 +113,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 	}
 }
 
-func (t *HexTracker) Playout(color byte, m PatternMatcher) {
+func (t *HexTracker) Playout(color byte, config *Config) {
 	vertex := -1
 	shuffle(t.empty)
 	for {
@@ -125,8 +125,8 @@ func (t *HexTracker) Playout(color byte, m PatternMatcher) {
 			return
 		}
 		color = Reverse(color)
-		if m != nil && vertex != -1 {
-			suggestion := m.Match(color, vertex, t)
+		if config.matcher != nil && vertex != -1 {
+			suggestion := config.matcher.Match(color, vertex, t)
 			vertex = suggestion
 			if suggestion != -1 && t.board[suggestion] != EMPTY {
 				panic("dammit")

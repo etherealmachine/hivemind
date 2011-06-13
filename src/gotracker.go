@@ -110,7 +110,6 @@ func (t *GoTracker) Copy() Tracker {
 }
 
 // apply color to vertex, modifying board and updating liberties of any go_adj strings
-// return true if the play was legal and resulted in modifying the GoTracker's state
 func (t *GoTracker) Play(color byte, vertex int) {
 	if vertex != -1 {
 		t.passes = 0
@@ -147,7 +146,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 			}
 		}
 
-		// or in liberties?
+		// or in liberties to new chain
 		root := find(vertex, t.parent)
 		l0 = t.liberties[root][0]
 		l1 = t.liberties[root][1]
@@ -183,13 +182,28 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
 		}
+		// check for atari
+		for i := 0; i < 4; i++ {
+			n := t.adj[vertex][i]
+			if n != -1 && t.board[n] != EMPTY {
+				root = find(n, t.parent)
+				if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
+					atari := t.firstliberty(root)
+					if t.board[n] == color && bitcount(t.liberties[atari][0], t.liberties[atari][1]) != 0 {
+						t.friendly_atari[atari] = true
+					} else {
+						t.opp_atari[atari] = true
+					}
+				}
+			}
+		}
 	} else {
 		t.passes++
 	}
 }
 
 // playout simulated game, call Winner() to retrive winner based on final territory
-func (t *GoTracker) Playout(color byte, m PatternMatcher) {
+func (t *GoTracker) Playout(color byte, config *Config) {
 	vertex := -1
 	last := -1
 	move := 0
@@ -197,15 +211,25 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 	shuffle(t.empty)
 	for {
 		vertex = t.playHeuristicMove(color)
+		if vertex != -1 && !t.Legal(color, vertex) {
+			fmt.Fprintln(os.Stderr, Ctoa(color) + t.Vtoa(vertex))
+			fmt.Fprintln(os.Stderr, bitcount(t.liberties[vertex][0], t.liberties[vertex][1]))
+			panic("illegal heuristic move")
+		}
 		if vertex == -1 && last != -1 {
-			vertex = t.playPatternMove(color, last, m)
+			vertex = t.playPatternMove(color, last, config.matcher)
 		}
 		if vertex == -1 {
 			vertex = t.randLegal(color)
 		}
 		t.Play(color, vertex)
+		if config.Verify {
+			fmt.Fprintln(os.Stderr, Ctoa(color) + t.Vtoa(vertex))
+			fmt.Fprintln(os.Stderr, t.String())
+			t.Verify()
+		}
 		move++
-		if move > 3*t.sqsize {
+		if move > 2*t.sqsize {
 			break
 		}
 		if t.Winner() != EMPTY {
@@ -219,19 +243,6 @@ func (t *GoTracker) Playout(color byte, m PatternMatcher) {
 }
 
 func (t *GoTracker) playHeuristicMove(color byte) int {
-	for i := 0; i < t.sqsize; i++ {
-		if t.board[i] == EMPTY {
-			continue
-		}
-		root := find(i, t.parent)
-		if t.wouldCapture(i, root) {
-			if t.board[i] == color {
-				t.friendly_atari[i] = true
-			} else {
-				t.opp_atari[i] = true
-			}
-		}
-	}
 	if len(t.friendly_atari) > 0 {
 		i := rand.Intn(len(t.friendly_atari))
 		v := -1
@@ -263,7 +274,7 @@ func (t *GoTracker) playPatternMove(color byte, last int, m PatternMatcher) int 
 	if m != nil {
 		suggestion := m.Match(color, last, t)
 		if suggestion != -1 && !t.Legal(color, suggestion) {
-			panic("dammit")
+			panic("assert")
 		}
 		return suggestion
 	}
@@ -491,6 +502,7 @@ func (t *GoTracker) Verify() {
 		if !found {
 			fmt.Fprintln(os.Stderr, t.Vtoa(i), t.Vtoa(parent))
 			fmt.Fprintln(os.Stderr, t.String())
+			fmt.Fprintln(os.Stderr, t.parentboard())
 			panic("could not verify connected points: " + t.Vtoa(i) + " " + t.Vtoa(parent))
 		}
 		liberties := bitcount(t.liberties[parent][0], t.liberties[parent][1])
@@ -498,7 +510,7 @@ func (t *GoTracker) Verify() {
 			fmt.Fprintln(os.Stderr, t.Vtoa(parent))
 			fmt.Fprintln(os.Stderr, t.String())
 			fmt.Fprintln(os.Stderr, empty, liberties)
-			fmt.Fprintln(os.Stderr, bitboard(t.liberties[parent][0], t.liberties[parent][1], t.boardsize))
+			fmt.Fprintln(os.Stderr, t.bitboard(parent))
 			panic("liberties don't match up")
 		}
 	}
@@ -739,33 +751,48 @@ func bitcount(u uint64, v uint64) (c uint) {
 	return
 }
 
-// return the index of the first bit set in u
-func firstbitset(u uint64) uint64 {
-	for i := uint64(0); i < 64; i++ {
-		if ((1 << i) & u) != 0 {
-			return i
+// return the index of the first liberty
+func (t *GoTracker) firstliberty(root int) int {
+	v0, v1 := t.liberties[root][0], t.liberties[root][1]
+	for row := 0; row < t.boardsize; row++ {
+		for col := 0; col < t.boardsize; col++ {
+			vertex := row * t.boardsize + col
+			var v uint64
+			var bit uint64
+			if vertex < 64 {
+				bit = uint64(64 - vertex - 1)
+				v = v0
+			} else {
+				bit = uint64(64 - (vertex - 64) - 1)
+				v = v1
+			}
+			var mask uint64 = 1 << bit
+			if (mask & v) != 0 {
+				return vertex
+			}
 		}
 	}
-	return 64
+	return -1
 }
 
-func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
-	s += "	"
-	for col := 0; col < boardsize; col++ {
+func (t *GoTracker) bitboard(root int) (s string) {
+	v0, v1 := t.liberties[root][0], t.liberties[root][1]
+	s += "  "
+	for col := 0; col < t.boardsize; col++ {
 		alpha := col + 'A'
 		if alpha >= 'I' {
 			alpha = alpha + 1
 		}
 		s += string(alpha)
-		if col != boardsize-1 {
+		if col != t.boardsize-1 {
 			s += " "
 		}
 	}
 	s += "\n"
-	for row := 0; row < boardsize; row++ {
-		s += fmt.Sprintf("%d ", boardsize-row)
-		for col := 0; col < boardsize; col++ {
-			vertex := row*boardsize + col
+	for row := 0; row < t.boardsize; row++ {
+		s += fmt.Sprintf("%d ", t.boardsize-row)
+		for col := 0; col < t.boardsize; col++ {
+			vertex := row * t.boardsize + col
 			var v uint64
 			var bit uint64
 			if vertex < 64 {
@@ -782,19 +809,19 @@ func bitboard(v0 uint64, v1 uint64, boardsize int) (s string) {
 				s += "1 "
 			}
 		}
-		s += fmt.Sprintf(" %d", boardsize-row)
-		if row != boardsize-1 {
+		s += fmt.Sprintf(" %d", t.boardsize - row)
+		if row != t.boardsize - 1 {
 			s += "\n"
 		}
 	}
-	s += "\n	"
-	for col := 0; col < boardsize; col++ {
+	s += "\n  "
+	for col := 0; col < t.boardsize; col++ {
 		alpha := col + 'A'
 		if alpha >= 'I' {
 			alpha = alpha + 1
 		}
 		s += string(alpha)
-		if col != boardsize-1 {
+		if col != t.boardsize - 1 {
 			s += " "
 		}
 	}

@@ -9,7 +9,7 @@ import (
 	"time"
 	"fmt"
 	"log"
-	"runtime"
+	"container/vector"
 )
 
 type Swarm struct {
@@ -29,7 +29,7 @@ func NewSwarm(config *Config) *Swarm {
 		if config.Tenuki {
 			stride++
 		}
-		min = 0.01
+		min = 0
 		max = 100
 		vmax = 20
 	} else if config.Eval {
@@ -68,6 +68,7 @@ type Particle struct {
 	Fitness        float64
 	Stride         int
 	swarm          *Swarm
+	log            map[uint32]bool
 }
 
 func NewParticle(swarm *Swarm, min, max, vMax float64, stride int) *Particle {
@@ -81,6 +82,7 @@ func NewParticle(swarm *Swarm, min, max, vMax float64, stride int) *Particle {
 	p.VMax = vMax
 	p.PBest = p.Copy()
 	p.Stride = stride
+	p.log = make(map[uint32]bool)
 	return p
 }
 
@@ -176,80 +178,75 @@ func (p *Particle) Init(i uint32) {
 	}
 }
 
-func (s *Swarm) evaluate(p *Particle) {
-	bc := *p.swarm.config
-	bc.Pat = false
-	bc.matcher = nil
-	bc.Eval = false
-	bc.evaluator = nil
-	wc := *p.swarm.config
-	if wc.Eval && wc.Pat {
-		panic("evaluator and pattern matching are mutually exclusive")
+func (s *Swarm) playOneGame() (moves *vector.IntVector, result byte) {
+	config := *s.config
+	config.Pat = false
+	moves = new(vector.IntVector)
+	t := NewTracker(s.config)
+	if s.config.Go {
+		t.(*GoTracker).SuperKo(true)
 	}
-	if wc.Eval {
-		wc.evaluator = p
-	}
-	if wc.Pat {
-		wc.matcher = p
-	}
-	t := NewTracker(p.swarm.config)
-	if p.swarm.config.Go {
-		t.(*GoTracker).SuperKo(false)
-	}
-	move := 0
-	maxMoves := 3 * t.Sqsize()
-	winner := EMPTY
+	result = EMPTY
+	var br, wr *Node
 	var vertex int
 	for {
-		if move == 0 && p.swarm.config.Hex {
-			vertex = p.swarm.config.Size + 2
-		} else {
-			br := NewRoot(BLACK, t, &bc)
-			genmove(br, t)
-			vertex = br.Best().Vertex
-			if br.Wins/br.Visits < 0.01 {
-				winner = WHITE
-				break
-			}
-		}
+		br = NewRoot(BLACK, t, &config)
+		genmove(br, t)
+		vertex = br.Best().Vertex
+		moves.Push(vertex)
 		t.Play(BLACK, vertex)
-		winner = t.Winner()
-		move++
-		if winner != EMPTY || move >= maxMoves {
+		log.Println(t.String())
+		result = t.Winner()
+		if result != EMPTY || moves.Len() >= 2 * t.Sqsize() {
+			result = WHITE
 			break
 		}
-		wr := NewRoot(WHITE, t, &wc)
+		wr = NewRoot(WHITE, t, &config)
 		genmove(wr, t)
 		vertex = wr.Best().Vertex
-		if wr.Wins/wr.Visits < 0.01 {
-			winner = BLACK
-			break
-		}
+		moves.Push(vertex)
 		t.Play(WHITE, vertex)
-		winner = t.Winner()
-		move++
-		if winner != EMPTY || move >= maxMoves {
+		log.Println(t.String())
+		result = t.Winner()
+		if result != EMPTY || moves.Len() >= 2 * t.Sqsize() {
+			result = BLACK
 			break
-		}
-	}
-	if winner != EMPTY && p.swarm.config.Go {
-		gotracker := t.(*GoTracker)
-		dead := gotracker.dead()
-		for i := range dead {
-			gotracker.board[dead[i]] = EMPTY
-		}
-		bc, wc := gotracker.Score(gotracker.GetKomi())
-		winner = WHITE
-		if bc > wc {
-			winner = BLACK
 		}
 	}
 	log.Println(t.String())
-	log.Println(Ctoa(winner))
-	if winner == WHITE {
-		log.Println("win for white")
-		p.Fitness++
+	return moves, result
+}
+
+type Visits float64
+
+func (f1 Visits) Less(f2 interface{}) bool {
+	return f1 > f2.(Visits)
+}
+
+func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, result byte) {
+	p.log = make(map[uint32]bool)
+	gamma := 0.95
+	discount := gamma
+	t := NewTracker(s.config)
+	color := BLACK
+	config := *s.config
+	config.matcher = p
+	for i := 0; i < moves.Len(); i++ {
+		vertex := moves.At(i)
+		t.Play(color, vertex)
+		if vertex != -1 {
+			for j := uint(0); j < s.Samples; j++ {
+				cp := t.Copy()
+				cp.Playout(Reverse(color), &config)
+				if cp.Winner() == result {
+					p.Fitness += discount
+				}
+			}
+		}
+		color = Reverse(color)
+		discount *= gamma
 	}
+	p.Fitness /= float64(moves.Len()) * float64(s.Samples)
 }
 
 /**
@@ -285,32 +282,12 @@ func (s *Swarm) ESStep() {
 		children[i].Fitness = 0
 	}
 
-	Eval := make(chan uint, s.Lambda)
-	done := make(chan bool)
-
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		go func(s *Swarm) {
-			runtime.LockOSThread()
-			for j := range Eval {
-				for k := uint(0); k < s.Samples; k++ {
-					s.evaluate(children[j])
-					done <- true
-				}
-			}
-		}(s)
-	}
-
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
-		Eval <- i
+		log.Printf("evaluating %d/%d\n", i, s.Lambda)
+		s.evaluate(children[i], moves, result)
+		log.Printf("fitness of %d: %.2f\n", i, children[i].Fitness)
 	}
-	for i := uint(0); i < s.Lambda; i++ {
-		for j := uint(0); j < s.Samples; j++ {
-			<-done
-			log.Printf("%d / %d\n", i*s.Samples+j, s.Lambda*s.Samples)
-		}
-	}
-	close(Eval)
 
 	// select mu parents from either children (,) or children + parents (+)
 	sort.Sort(children)
@@ -336,7 +313,7 @@ func (s *Swarm) update_particle(i uint) {
 	s.Particles[i].PBest.Fitness *= 0.9
 	s.Particles[i].Fitness = 0
 	for j := uint(0); j < s.Samples; j++ {
-		s.evaluate(s.Particles[i])
+		//s.evaluate(s.Particles[i])
 		log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
 	}
 	s.update_gbest(i)
@@ -377,21 +354,24 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 /*
 	return a new particle that is the average of the given p particles
 */
-func (s *Swarm) recombine(Parents Particles) (r *Particle) {
-	r = NewParticle(Parents[0].swarm, Parents[0].Min, Parents[0].Max, Parents[0].VMax, Parents[0].Stride)
+func (s *Swarm) recombine(parents Particles) (r *Particle) {
+	r = NewParticle(parents[0].swarm, parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride)
 	superset := make(map[uint32]bool)
-	for i := range Parents {
-		for j := range Parents[i].Position {
+	for i := range parents {
+		for j := range parents[i].Position {
 			superset[j] = true
+		}
+		for pos := range parents[i].log {
+			r.log[pos] = true
 		}
 	}
 	for i := range superset {
 		r.Position[i] = make([]float64, r.Stride)
 		count := 0
-		for j := range Parents {
-			if Parents[j].Position[i] != nil {
+		for j := range parents {
+			if parents[j].Position[i] != nil {
 				for k := 0; k < r.Stride; k++ {
-					r.Position[i][k] += Parents[j].Position[i][k]
+					r.Position[i][k] += parents[j].Position[i][k]
 				}
 				count++
 			}
@@ -520,12 +500,16 @@ func LoadBest(filename string, config *Config) *Particle {
 	return s.Best()
 }
 
+var moves *vector.IntVector
+var result byte
+
 func Train(config *Config) {
 	var s *Swarm
 	s = NewSwarm(config)
 	if config.Sfile != "" {
 		s.LoadSwarm(config.Sfile, config)
 	}
+	moves, result = s.playOneGame()
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
 		if config.ESswarm {
@@ -535,7 +519,7 @@ func Train(config *Config) {
 		}
 		s.Generation++
 		s.SaveSwarm()
-		log.Printf("generation %d/%d, best %.0f wins, took %d seconds",
+		log.Printf("generation %d/%d, best: %.2f, took %d seconds",
 			s.Generation, s.config.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)
 	}

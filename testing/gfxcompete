@@ -1,5 +1,5 @@
 #!/bin/bash
-	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 15 -c 0.44 -k 550 -cutoff 0.2 -log gogo.log -var -amaf -seed"
+	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 15 -c 0.44 -k 550 -cutoff 0.2 -log gogo.log -var -amaf -seed -book -bfile $HOME/code/gogo/book.gob"
 if [[ !(-z $1) ]]; then
 	BLACK="$BLACK -pat -tenuki -pfile $1"
 fi

@@ -207,10 +207,7 @@ func (root *Node) step(t Tracker) {
 				color = Reverse(curr.Color)
 			}
 			start = time.Nanoseconds()
-			t.Playout(color, root.config.matcher)
-			if root.config.Verify {
-				t.Verify()
-			}
+			t.Playout(color, root.config)
 			root.playout_time += time.Nanoseconds() - start
 			break
 		}
@@ -620,7 +617,7 @@ func SpeedTest(config *Config) {
 	for {
 		cp := t.Copy()
 		start1 := time.Nanoseconds()
-		cp.Playout(BLACK, matcher)
+		cp.Playout(BLACK, config)
 		i++
 		end1 := time.Nanoseconds()
 		playoutTime += end1 - start1

@@ -22,7 +22,7 @@ var SIDE_RIGHT int
 type Tracker interface {
 	Copy() Tracker
 	Play(color byte, vertex int)
-	Playout(color byte, m PatternMatcher)
+	Playout(color byte, config *Config)
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
 	Score(Komi float64) (float64, float64)

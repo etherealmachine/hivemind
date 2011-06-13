@@ -161,7 +161,7 @@ func GTP(config *Config) {
 				} else if config.Timelimit != 0 && t.Winner() == EMPTY && !game_over {
 					if book != nil {
 						best := book.Best()
-						if best.Visits > 1000 {
+						if best.Visits > 100 {
 							vertex = best.Vertex
 						}
 					}
@@ -174,11 +174,11 @@ func GTP(config *Config) {
 							log.Println(root.String(0, 1, t))
 						}
 						// if genmove predicts win in >95% of playouts, set a flag and pass next time around
-						if root.Wins/root.Visits > 0.95 && passcount != 0 {
+						if (root.Wins/root.Visits > 0.95 && passcount != 0) || root.Wins/root.Visits > 0.99 {
 							game_over = true
 						}
 						// if genmove predicts win in <5% of playouts, set a flag and pass next time around
-						if root.Wins/root.Visits < 0.05 && passcount != 0 {
+						if root.Wins/root.Visits < 0.05 {
 							game_over = true
 						}
 						vertex = root.Best().Vertex

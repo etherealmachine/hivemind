@@ -2,7 +2,6 @@ package main
 
 import (
 	"rand"
-	"log"
 )
 
 var queries int
@@ -29,36 +28,35 @@ func (m *ColorDuplexingMatcher) Match(color byte, v int, t Tracker) int {
 func (p *Particle) Match(color byte, v int, t Tracker) int {
 	queries++
 	b := t.Board()
-	Neighbors := t.Neighbors(v, 2)
-	i := HashVertices(b, Neighbors, 10)
-	Pat := p.Get(i)
-	for i := 0; i < len(Neighbors); i++ {
-		if Neighbors[i] == -1 || b[Neighbors[i]] != EMPTY || !t.Legal(color, Neighbors[i]) {
-			Pat[i] = 0
+	neighbors := t.Neighbors(v, 2)
+	pos := HashVertices(b, neighbors, 10)
+	pat := p.Get(pos)
+	for i := 0; i < len(neighbors); i++ {
+		if neighbors[i] == -1 || b[neighbors[i]] != EMPTY || !t.Legal(color, neighbors[i]) {
+			pat[i] = 0
 		}
 	}
 	sum := 0.0
-	for i := range Pat {
-		sum += Pat[i]
+	for i := range pat {
+		sum += pat[i]
 	}
-	if sum == 0 {
-		return -1
-	}
-	r := rand.Float64()
-	for i := range Pat {
-		r -= Pat[i] / sum
-		if r <= 0 {
-			if i == len(Neighbors) {
-				return -1
+	if sum > 0 {
+		r := rand.Float64()
+		for i := range pat {
+			r -= pat[i] / sum
+			if r <= 0 {
+				if i == len(neighbors) {
+					if p.log != nil {
+						p.log[pos] = true
+					}
+					return -1
+				}
+				matches++
+				return neighbors[i]
 			}
-			matches++
-			return Neighbors[i]
 		}
 	}
-	log.Println(t.Vtoa(v))
-	log.Println(t.String())
-	log.Println(Pat)
-	panic("pattern error, not a valid probability distribution")
+	return -1
 }
 
 func LoadPatternMatcher(config *Config) {
