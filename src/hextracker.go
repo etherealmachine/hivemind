@@ -17,6 +17,7 @@ type HexTracker struct {
 	winner                                    byte
 	played                                    []byte
 	adj                                       []int
+	config                                    *Config
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
 
@@ -48,6 +49,8 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.winner = EMPTY
 
 	t.played = make([]byte, t.sqsize)
+	
+	t.config = config
 
 	return t
 }
@@ -74,6 +77,8 @@ func (t *HexTracker) Copy() Tracker {
 	cp.winner = t.winner
 
 	cp.played = make([]byte, cp.sqsize)
+	
+	cp.config = t.config
 
 	return cp
 }
@@ -113,10 +118,10 @@ func (t *HexTracker) Play(color byte, vertex int) {
 	}
 }
 
-func (t *HexTracker) Playout(color byte, config *Config) {
-	vertex := -1
+func (t *HexTracker) Playout(color byte) {
 	shuffle(t.empty)
 	for {
+		vertex := -1
 		if vertex == -1 {
 			vertex = t.randLegal(color)
 		}
@@ -125,15 +130,6 @@ func (t *HexTracker) Playout(color byte, config *Config) {
 			return
 		}
 		color = Reverse(color)
-		if config.matcher != nil && vertex != -1 {
-			suggestion := config.matcher.Match(color, vertex, t)
-			vertex = suggestion
-			if suggestion != -1 && t.board[suggestion] != EMPTY {
-				panic("dammit")
-			}
-		} else {
-			vertex = -1
-		}
 	}
 	panic("should never happen")
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"rand"
 	"time"
+	"runtime/pprof"
 )
 
 func main() {
@@ -27,6 +28,20 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
+	
+	if config.Profile {
+		f, err := os.Create("cpu.pprof")
+		if err != nil {
+			panic(err)
+		}
+		defer func() { f.Close() }()
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			panic(err)
+		}
+		defer func() { pprof.StopCPUProfile() }()
+	}
+	
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)

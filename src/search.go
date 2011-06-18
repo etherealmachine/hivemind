@@ -116,10 +116,6 @@ func genmove(root *Node, t Tracker) {
 			seeds, totalseeds := root.seedstats()
 			log.Printf("seeds: %.2f\n", float64(seeds)/float64(totalseeds))
 		}
-		if root.config.matcher != nil {
-			log.Printf("patterns stats: %.2f\n", float64(matches)/float64(queries))
-			matches, queries = 0, 0
-		}
 	}
 }
 
@@ -207,7 +203,7 @@ func (root *Node) step(t Tracker) {
 				color = Reverse(curr.Color)
 			}
 			start = time.Nanoseconds()
-			t.Playout(color, root.config)
+			t.Playout(color)
 			root.playout_time += time.Nanoseconds() - start
 			break
 		}
@@ -249,26 +245,18 @@ func (node *Node) expand(t Tracker) {
 			node.Last = child
 			cp := t.Copy()
 			cp.Play(child.Color, child.Vertex)
-			if cp.Winner() != EMPTY {
-				child.Visits = math.Inf(1)
-				child.Wins = 0
-				if cp.Winner() == child.Color {
-					child.Wins = math.Inf(1)
+			child.Wins = 5
+			child.Visits = 10
+			if node.config.Ancestor {
+				granduncle := child.granduncle()
+				if granduncle != nil {
+					child.ancestorVisits += granduncle.Visits + granduncle.amafVisits
+					child.ancestorWins += granduncle.Wins + granduncle.amafWins
 				}
-			} else {
-				child.Wins = 5
-				child.Visits = 10
-				if node.config.Ancestor {
-					granduncle := child.granduncle()
-					if granduncle != nil {
-						child.ancestorVisits += granduncle.Visits + granduncle.amafVisits
-						child.ancestorWins += granduncle.Wins + granduncle.amafWins
-					}
-				}
-				if node.config.Eval {
-					child.evalVisits += node.config.RAVE
-					child.evalWins += node.config.RAVE * node.config.evaluator.Eval(Reverse(child.Color), cp)
-				}
+			}
+			if node.config.Eval {
+				child.evalVisits += node.config.RAVE
+				child.evalWins += node.config.RAVE * node.config.evaluator.Eval(Reverse(child.Color), cp)
 			}
 			child.recalc()
 		}
@@ -279,10 +267,21 @@ func (node *Node) expand(t Tracker) {
 func (node *Node) Next(root *Node, t Tracker) *Node {
 	if node.Child == nil {
 		node.expand(t)
+		if node.Child == nil {
+			cp := t.Copy()
+			cp.Play(node.Color, -1)
+			cp.Play(Reverse(node.Color), -1)
+			if node.Color == cp.Winner() {
+				node.Wins = math.Inf(1)
+			} else {
+				node.Wins = 0
+			}
+			node.Visits = math.Inf(1)
+		}
 	}
 	var best *Node
 	for child := node.Child; child != nil; child = child.Sibling {
-		if best == nil || child.value > best.value {
+		if (best == nil || child.value > best.value) && !math.IsInf(child.Visits, 1) {
 			best = child
 		}
 	}
@@ -617,7 +616,7 @@ func SpeedTest(config *Config) {
 	for {
 		cp := t.Copy()
 		start1 := time.Nanoseconds()
-		cp.Playout(BLACK, config)
+		cp.Playout(BLACK)
 		i++
 		end1 := time.Nanoseconds()
 		playoutTime += end1 - start1

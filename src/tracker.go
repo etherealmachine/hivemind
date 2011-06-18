@@ -22,7 +22,7 @@ var SIDE_RIGHT int
 type Tracker interface {
 	Copy() Tracker
 	Play(color byte, vertex int)
-	Playout(color byte, config *Config)
+	Playout(color byte)
 	WasPlayed(color byte, vertex int) bool
 	Legal(color byte, vertex int) bool
 	Score(Komi float64) (float64, float64)
@@ -72,19 +72,19 @@ func find(i int, parent []int) int {
 
 // standard union op, uses union-by-rank
 // returns the new root of the tree
-func union(i int, j int, parent []int, rank []int) int {
+func union(i int, j int, parent []int, rank []int) (int, int) {
 	i = find(i, parent)
 	j = find(j, parent)
 	if rank[i] > rank[j] {
 		parent[j] = i
 		rank[i] += rank[j]
-		return i
+		return i, j
 	} else if i != j {
 		parent[i] = j
 		rank[j] += rank[i]
-		return j
+		return j, i
 	}
-	return i
+	return i, j
 }
 
 // union find that assumes i and j are the parents of their respective trees

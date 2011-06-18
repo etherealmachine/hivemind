@@ -28,6 +28,7 @@ final_status_list
 gogui-analyze_commands`
 var gogui_commands = `dboard/Visits/visits
 cboard/Territory/territory
+cboard/Weights/weights
 cboard/Book/book
 cboard/Legal/legal
 sboard/Stats/stats`
@@ -233,6 +234,8 @@ func GTP(config *Config) {
 			} else {
 				res = TerritoryBoard(t.Territory(color), 1, t)
 			}
+		case "weights":
+			res = TerritoryBoard(t.(*GoTracker).weights.Weights(Reverse(color)), 1, t)
 		case "book":
 			value := make([]float64, t.Sqsize())
 			max := 0.0
@@ -246,7 +249,7 @@ func GTP(config *Config) {
 			}
 			res = TerritoryBoard(value, 1, t)
 		case "legal":
-			res = LegalBoard(t)
+			res = LegalBoard(t, map[byte]string{BOTH:"green",BLACK:"black",WHITE:"white",EMPTY:"none"})
 		case "time_settings":
 			main_time, _ = strconv.Atoi(args[1])
 			byo_yomi_time, _ := strconv.Atoi(args[2])

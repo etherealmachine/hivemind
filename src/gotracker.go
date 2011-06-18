@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"container/vector"
 	"rand"
 	"strings"
 	"strconv"
+	"log"
 )
 
 // Tracks a game of Go
@@ -19,22 +19,21 @@ type GoTracker struct {
 	sqsize         int
 	parent         []int
 	rank           []int
-	captured       []bool
 	liberties      [][2]uint64
 	board          []byte
+	weights        *WeightTree
+	atari          map[byte]map[int]int
 	komi           float64
 	koVertex       int
 	koColor        byte
 	played         []byte
-	empty          *vector.IntVector
 	adj            [][]int
 	mask           [][4]uint64
 	passes         int
 	winner         byte
 	superko        bool
 	history        *vector.Vector
-	friendly_atari map[int]bool
-	opp_atari      map[int]bool
+	config         *Config
 }
 
 // parent must be initialized so each element is a pointer to itself
@@ -50,16 +49,26 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 
 	t.parent = make([]int, t.sqsize)
 	t.rank = make([]int, t.sqsize)
-	t.captured = make([]bool, t.sqsize)
 	t.liberties = make([][2]uint64, t.sqsize)
 	t.board = make([]byte, t.sqsize)
+	t.weights = NewWeightTree(t.sqsize)
+	t.atari = make(map[byte]map[int]int)
+	t.atari[BLACK] = make(map[int]int)
+	t.atari[WHITE] = make(map[int]int)
 	t.played = make([]byte, t.sqsize)
-	t.empty = new(vector.IntVector)
 	// initialize union-find data structure and move probabilities
 	for i := 0; i < t.sqsize; i++ {
 		t.parent[i] = i
 		t.rank[i] = 1
-		t.empty.Push(i)
+		t.weights.Set(BLACK, i, INIT_WEIGHT)
+		t.weights.Set(WHITE, i, INIT_WEIGHT)
+		for j := 0; j < 4; j++ {
+			adj := t.adj[i][j]
+			if adj != -1 {
+				t.liberties[i][0] |= t.mask[adj][0]
+				t.liberties[i][1] |= t.mask[adj][1]
+			}
+		}
 	}
 	t.komi = config.Komi
 	t.koVertex = -1
@@ -67,9 +76,7 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 	t.winner = EMPTY
 	t.superko = true
 	t.history = new(vector.Vector)
-
-	t.friendly_atari = make(map[int]bool)
-	t.opp_atari = make(map[int]bool)
+	t.config = config
 	return
 }
 
@@ -82,15 +89,22 @@ func (t *GoTracker) Copy() Tracker {
 	cp.sqsize = t.sqsize
 	cp.parent = make([]int, cp.sqsize)
 	cp.rank = make([]int, cp.sqsize)
-	cp.captured = make([]bool, cp.sqsize)
 	cp.liberties = make([][2]uint64, cp.sqsize)
 	cp.board = make([]byte, cp.sqsize)
+	cp.weights = t.weights.Copy()
+	cp.atari = make(map[byte]map[int]int)
+	cp.atari[BLACK] = make(map[int]int)
+	cp.atari[WHITE] = make(map[int]int)
 	copy(cp.parent, t.parent)
 	copy(cp.rank, t.rank)
 	copy(cp.liberties, t.liberties)
 	copy(cp.board, t.board)
-	cp.empty = new(vector.IntVector)
-	*cp.empty = t.empty.Copy()
+	for v, _ := range t.atari[BLACK] {
+		cp.atari[BLACK][v] = t.atari[BLACK][v]
+	}
+	for v, _ := range t.atari[WHITE] {
+		cp.atari[WHITE][v] = t.atari[WHITE][v]
+	}
 
 	cp.komi = t.komi
 	cp.koVertex = t.koVertex
@@ -102,9 +116,7 @@ func (t *GoTracker) Copy() Tracker {
 	cp.superko = true
 	cp.history = new(vector.Vector)
 	*cp.history = t.history.Copy()
-	
-	cp.friendly_atari = make(map[int]bool)
-	cp.opp_atari = make(map[int]bool)
+	cp.config = t.config
 
 	return cp
 }
@@ -113,55 +125,12 @@ func (t *GoTracker) Copy() Tracker {
 func (t *GoTracker) Play(color byte, vertex int) {
 	if vertex != -1 {
 		t.passes = 0
-		t.koVertex = -1
-		t.koColor = EMPTY
-
-		// mask out adjacent liberties
-		l0 := uint64(0)
-		l1 := uint64(0)
-		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			if n != -1 && t.board[n] == EMPTY {
-				l0 &= t.mask[n][0]
-				l1 &= t.mask[n][1]
-			}
+		
+		if t.koVertex != -1 {
+			t.weights.Set(t.koColor, t.koVertex, INIT_WEIGHT)
+			t.koVertex = -1
+			t.koColor = EMPTY
 		}
-		t.liberties[vertex][0] = l0
-		t.liberties[vertex][1] = l1
-
-		// remove liberty from adjacent hostiles
-		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			root := find(vertex, t.parent)
-			if n != -1 && t.board[n] == Reverse(color) {
-				t.remove(color, root, find(n, t.parent))
-			}
-		}
-
-		// merge with adjacent friendlies
-		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			if n != -1 && t.board[n] == color {
-				t.merge(color, vertex, n)
-			}
-		}
-
-		// or in liberties to new chain
-		root := find(vertex, t.parent)
-		l0 = t.liberties[root][0]
-		l1 = t.liberties[root][1]
-		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			if n != -1 && t.board[n] == EMPTY {
-				l0 |= t.mask[n][0]
-				l1 |= t.mask[n][1]
-			}
-		}
-		l0 &= t.mask[vertex][2]
-		l1 &= t.mask[vertex][3]
-
-		t.liberties[root][0] = l0
-		t.liberties[root][1] = l1
 
 		if t.superko {
 			if t.history.Len() == 0 {
@@ -172,121 +141,291 @@ func (t *GoTracker) Play(color byte, vertex int) {
 			cp.Play(color, vertex)
 			t.history.Push(*MakeHash(cp))
 		}
+		
 		// modify the board
 		t.board[vertex] = color
-		// remove vertex from empty
-		if t.empty.Len() > 0 && t.empty.Last() == vertex {
-			t.empty.Pop()
-		}
-		// mark vertex as played for AMAF
-		if t.played[vertex] == EMPTY {
-			t.played[vertex] = color
-		}
-		// check for atari
+		
+		// update parents and liberties of adjacent stones
+		
+		opp := Reverse(color)
+		root := vertex
 		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			if n != -1 && t.board[n] != EMPTY {
-				root = find(n, t.parent)
-				if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
-					atari := t.firstliberty(root)
-					if t.board[n] == color && bitcount(t.liberties[atari][0], t.liberties[atari][1]) != 0 {
-						t.friendly_atari[atari] = true
+			adj := t.adj[vertex][i]
+			if adj != -1 && t.board[adj] == color {
+				adj := find(adj, t.parent)
+				// take adjacent chain out of atari (may be added back later)
+				t.atari[color][adj] = 0, false
+				// or in liberties to friendly chains
+				new_root, old_root := union(root, adj, t.parent, t.rank)
+				t.liberties[new_root][0] |= t.liberties[old_root][0]
+				t.liberties[new_root][1] |= t.liberties[old_root][1]
+				// xor out liberty from self
+				t.liberties[new_root][0] &= ^t.mask[adj][0]
+				t.liberties[new_root][1] &= ^t.mask[adj][1]
+				root = new_root
+			} else if adj != -1 && t.board[adj] == EMPTY {
+				// xor out liberty from empty vertices
+				t.liberties[adj][0] &= ^t.mask[vertex][0]
+				t.liberties[adj][1] &= ^t.mask[vertex][1]
+			} else if adj != -1 {
+				// xor out liberties from enemy chains
+				enemy := find(adj, t.parent)
+				t.liberties[enemy][0] &= ^t.mask[vertex][0]
+				t.liberties[enemy][1] &= ^t.mask[vertex][1]
+			}
+		}
+		// xor out liberty from self
+		t.liberties[root][0] &= ^t.mask[vertex][0]
+		t.liberties[root][1] &= ^t.mask[vertex][1]
+		
+		// capture any adjacent enemies reduced to zero liberties
+		var captured *vector.IntVector
+		for i := 0; i < 4; i++ {
+			adj := t.adj[vertex][i]
+			if adj != -1  && t.board[adj] == opp {
+				enemy := find(adj, t.parent)
+				libs := t.libs(enemy)
+				if libs == 0 {
+					// take chain out of atari
+					t.atari[opp][enemy] = 0, false
+					if captured == nil {
+						captured = t.capture(enemy)
 					} else {
-						t.opp_atari[atari] = true
+						captured.AppendVector(t.capture(enemy))
 					}
 				}
 			}
 		}
+		
+		// apply patterns before suicide checks so we zero out any illegal patterns
+		t.applyPattern(vertex)
+		neighbors := go_neighbors[t.boardsize][2][vertex]
+		for i := range neighbors {
+			if neighbors[i] != -1  && t.board[neighbors[i]] == EMPTY {
+				t.applyPattern(neighbors[i])
+			}
+		}
+		for i := 0; captured != nil && i < captured.Len(); i++ {
+			t.applyPattern(captured.At(i))
+		}
+		
+		// check for suicide of affected empty points
+		for i := 0; i < 4; i++ {
+			adj := t.adj[vertex][i]
+			if adj != -1 && t.board[adj] == EMPTY && t.libs(adj) == 0 {
+				t.check_suicide(adj)
+			} else if adj != -1 && (t.board[adj] == BLACK || t.board[adj] == WHITE) {
+				adj = find(adj, t.parent)
+				if t.libs(adj) == 1 {
+					last_liberty := t.lastliberty(adj)
+					if t.libs(last_liberty) == 0 {
+						t.check_suicide(last_liberty)
+					}
+				}
+			}
+		}
+		
+		// ko check
+		if captured != nil && captured.Len() == 1 {
+			capture := captured.At(0)
+			t.check_suicide(capture)
+			if t.libs(root) == 1 {
+				t.koColor = opp
+				t.koVertex = capture
+			}
+		}
+		
+		// check if capture took adjacent chains out of atari
+		// if so, check suicide status of their previous last liberty
+		for i := 0; captured != nil && i < captured.Len(); i++ {
+			capture := captured.At(i)
+			for j := 0; j < 4; j++ {
+				adj := t.adj[capture][j]
+				if adj != -1 && t.board[adj] == color {
+					adj = find(adj, t.parent)
+					if last_liberty, exists := t.atari[color][adj]; exists {
+						t.check_suicide(last_liberty)
+						t.atari[color][adj] = 0, false
+					}
+				}
+			}
+		}
+		
+		// cannot play on occupied vertex
+		t.weights.Set(BLACK, vertex, 0)
+		t.weights.Set(WHITE, vertex, 0)
+		
+		// update atari status of adjacent chains
+		for i := 0; i < 4; i++ {
+			adj := t.adj[vertex][i]
+			if adj != -1  && (t.board[adj] == BLACK || t.board[adj] == WHITE) {
+				adj = find(adj, t.parent)
+				if t.libs(adj) == 1 {
+					t.atari[t.board[adj]][adj] = t.lastliberty(adj)
+				}
+			}
+		}
+		
+		// update atari status of current chain
+		if t.libs(root) == 1 {
+			t.atari[color][root] = t.lastliberty(root)
+		}
+
+		// mark vertex as played for AMAF
+		if t.played[vertex] == EMPTY {
+			t.played[vertex] = color
+		}
+		
 	} else {
 		t.passes++
 	}
 }
 
+// check if empty point is suicide
+// vertex is assumed to be empty and have 0 liberties
+func (t *GoTracker) check_suicide(vertex int) {
+	// vertex is suicide for both colors unless they can either:
+	//  connect to an adjacent friendly chain with > 1 liberty
+	//  kill an adjacent enemy chain with 1 liberty
+	suicide_black, suicide_white := true, true
+	for i := 0; i < 4; i++ {
+		adj := t.adj[vertex][i]
+		if adj != -1 {
+			adj = find(adj, t.parent)
+			if t.libs(adj) > 1 {
+				// can connect to adjacent friendly not in atari
+				if t.board[adj] == BLACK {
+					suicide_black = false
+				} else {
+					suicide_white = false
+				}
+			} else {
+				// can kill adjacent enemy in atari
+				if t.board[adj] == BLACK {
+					suicide_white = false
+				} else {
+					suicide_black = false
+				}
+			}
+		}
+	}
+	if suicide_black {
+		t.weights.Set(BLACK, vertex, 0)
+	} else if t.board[vertex] == EMPTY && t.weights.Get(BLACK, vertex) == 0 {
+		t.weights.Set(BLACK, vertex, INIT_WEIGHT)
+	}
+	if suicide_white {
+		t.weights.Set(WHITE, vertex, 0)
+	} else if t.board[vertex] == EMPTY && t.weights.Get(WHITE, vertex) == 0 {
+		t.weights.Set(WHITE, vertex, INIT_WEIGHT)
+	}
+}
+
+// capture any points connected to vertex, resetting their parent, rank and weight, and liberties
+// check if chains adjacent to captured are now out of atari
+func (t *GoTracker) capture(vertex int) *vector.IntVector {
+	// do a linear search for connected points
+	captured := new(vector.IntVector)
+	for i := 0; i < t.sqsize; i++ {
+		if find(i, t.parent) == vertex {
+			captured.Push(i)
+		}
+	}
+	// reset
+	for i := 0; i < captured.Len(); i++ {
+		capture := captured.At(i)
+		t.parent[capture] = capture
+		t.rank[capture] = 1
+		t.liberties[capture][0] = 0
+		t.liberties[capture][1] = 0
+		t.board[capture] = EMPTY
+		t.weights.Set(BLACK, capture, INIT_WEIGHT)
+		t.weights.Set(WHITE, capture, INIT_WEIGHT)
+	}
+	// update liberties
+	for i := 0; i < captured.Len(); i++ {
+		capture := captured.At(i)
+		for j := 0; j < 4; j++ {
+			adj := t.adj[capture][j]
+			if adj != -1 {
+				root := find(adj, t.parent)
+				t.liberties[root][0] |= t.mask[capture][0]
+				t.liberties[root][1] |= t.mask[capture][1]
+			}
+		}
+	}
+	return captured
+}
+
 // playout simulated game, call Winner() to retrive winner based on final territory
-func (t *GoTracker) Playout(color byte, config *Config) {
-	vertex := -1
-	last := -1
+func (t *GoTracker) Playout(color byte) {
 	move := 0
 	t.superko = false
-	shuffle(t.empty)
 	for {
-		vertex = t.playHeuristicMove(color)
-		if vertex != -1 && !t.Legal(color, vertex) {
-			fmt.Fprintln(os.Stderr, Ctoa(color) + t.Vtoa(vertex))
-			fmt.Fprintln(os.Stderr, bitcount(t.liberties[vertex][0], t.liberties[vertex][1]))
-			panic("illegal heuristic move")
-		}
-		if vertex == -1 && last != -1 {
-			vertex = t.playPatternMove(color, last, config.matcher)
-		}
+		vertex := t.playHeuristicMove(color)
 		if vertex == -1 {
-			vertex = t.randLegal(color)
+			vertex = t.weights.Rand(color)
+		}
+		if t.config.VeryVerbose {
+			log.Println(Ctoa(color)+t.Vtoa(vertex))
 		}
 		t.Play(color, vertex)
-		if config.Verify {
-			fmt.Fprintln(os.Stderr, Ctoa(color) + t.Vtoa(vertex))
-			fmt.Fprintln(os.Stderr, t.String())
+		if t.config.VeryVerbose {
+			log.Println(t.String())
+		}
+		if t.config.Verify {
 			t.Verify()
 		}
 		move++
-		if move > 2*t.sqsize {
-			break
-		}
-		if t.Winner() != EMPTY {
+		if move > 3*t.sqsize || t.Winner() != EMPTY {
 			break
 		}
 		color = Reverse(color)
-		last = vertex
-		vertex = -1
+	}
+	if t.config.VeryVerbose {
+		log.Println("FINAL")
+		log.Println(t.String())
+		log.Println("winner: ", Ctoa(t.Winner()))
 	}
 	t.superko = true
 }
 
+func (t *GoTracker) applyPattern(vertex int) {
+	if t.config.Pat {
+		if t.board[vertex] != EMPTY {
+			for i := 0; i < 4; i++ {
+				adj := t.adj[vertex][i]
+				if adj != -1 && t.board[adj] == EMPTY {
+					t.applyPattern(adj)
+				}
+			}
+		} else {
+			t.config.matcher.Apply(BLACK, vertex, t)
+			t.config.matcher.Apply(WHITE, vertex, t)
+		}
+	}
+}
+
 func (t *GoTracker) playHeuristicMove(color byte) int {
-	if len(t.friendly_atari) > 0 {
-		i := rand.Intn(len(t.friendly_atari))
-		v := -1
-		for j, _ := range t.friendly_atari {
-			t.friendly_atari[j] = false, false
-			if i == 0 {
-				v = j
+	if len(t.atari[color]) > 0 {
+		// play a random saving move
+		saves := new(vector.IntVector)
+		for _, last_liberty := range t.atari[color] {
+			if t.weights.Get(color, last_liberty) > 0 {
+				saves.Push(last_liberty)
 			}
-			i--
 		}
-		return v
+		if saves.Len() > 0 {
+			return saves.At(rand.Intn(saves.Len()))
+		}
 	}
-	if len(t.opp_atari) > 0 {
-		i := rand.Intn(len(t.opp_atari))
-		v := -1
-		for j, _ := range t.opp_atari {
-			t.opp_atari[j] = false, false
-			if i == 0 {
-				v = j
-			}
-			i--
+	if len(t.atari[Reverse(color)]) > 0 {
+		// play a random capture move
+		captures := new(vector.IntVector)
+		for _, last_liberty := range t.atari[Reverse(color)] {
+			captures.Push(last_liberty)
 		}
-		return v
-	}
-	return -1
-}
-
-func (t *GoTracker) playPatternMove(color byte, last int, m PatternMatcher) int {
-	if m != nil {
-		suggestion := m.Match(color, last, t)
-		if suggestion != -1 && !t.Legal(color, suggestion) {
-			panic("assert")
-		}
-		return suggestion
-	}
-	return -1
-}
-
-func (t *GoTracker) randLegal(color byte) int {
-	for i := t.empty.Len() - 1; i >= 0; i-- {
-		v := t.empty.At(i)
-		if t.Legal(color, v) {
-			return v
-		}
+		return captures.At(rand.Intn(captures.Len()))
 	}
 	return -1
 }
@@ -297,15 +436,7 @@ func (t *GoTracker) WasPlayed(color byte, vertex int) bool {
 
 // return true iff move is legal, without modifying any state
 func (t *GoTracker) Legal(color byte, vertex int) bool {
-
-	// make sure vertex is empty
-	if t.board[vertex] != EMPTY {
-		return false
-	}
-
-	if vertex == t.koVertex && color == t.koColor {
-		return false
-	} else if t.superko {
+	if t.superko {
 		cp := t.Copy()
 		cp.(*GoTracker).superko = false
 		cp.Play(color, vertex)
@@ -316,76 +447,7 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 			}
 		}
 	}
-
-	opp := Reverse(color)
-	off := 0
-	friendly := 0
-	suicide := true
-	for i := 0; i < 4; i++ {
-		n := t.adj[vertex][i]
-		if n == -1 {
-			off++
-			continue
-		}
-		// check if an adj vertex is empty
-		if t.board[n] == EMPTY {
-			return true
-		}
-		root := find(n, t.parent)
-		if t.board[root] == opp {
-			// a capture would definitely result in a legal position
-			if t.wouldCapture(vertex, root) {
-				return true
-			}
-		} else {
-			friendly++
-			// refute suicide by connecting to self without removing last liberty
-			if bitcount(t.liberties[root][0], t.liberties[root][1]) > 1 {
-				suicide = false
-			}
-		}
-	}
-	if friendly+off == 4 {
-		for i := 0; i < 4; i++ {
-			n := t.adj[vertex][i]
-			if n != -1 && t.board[n] == color {
-				root := find(n, t.parent)
-				if bitcount(t.liberties[root][0], t.liberties[root][1]) == 1 {
-					return !suicide
-				}
-			}
-		}
-		if off == 2 {
-			return false
-		} else {
-			corners := 0
-			u := t.adj[vertex][UP]
-			if u != -1 {
-				if ul := t.adj[u][LEFT]; ul != -1 && t.board[ul] == color {
-					corners++
-				}
-				if ur := t.adj[u][RIGHT]; ur != -1 && t.board[ur] == color {
-					corners++
-				}
-			}
-			d := t.adj[vertex][DOWN]
-			if d != -1 {
-				if dl := t.adj[d][LEFT]; dl != -1 && t.board[dl] == color {
-					corners++
-				}
-				if dr := t.adj[d][RIGHT]; dr != -1 && t.board[dr] == color {
-					corners++
-				}
-			}
-			if off >= 1 && corners >= 1 {
-				return false
-			}
-			if off == 0 && corners >= 2 {
-				return false
-			}
-		}
-	}
-	return !suicide
+	return t.weights.Get(color, vertex) != 0
 }
 
 func (t *GoTracker) Score(komi float64) (float64, float64) {
@@ -395,14 +457,6 @@ func (t *GoTracker) Score(komi float64) (float64, float64) {
 			bc++
 		} else if t.board[i] == WHITE {
 			wc++
-		} else if t.board[i] == EMPTY {
-			checked := make([]bool, t.sqsize)
-			reachesBlack, reachesWhite := t.reaches(i, checked)
-			if reachesBlack && !reachesWhite {
-				bc++
-			} else if reachesWhite && !reachesBlack {
-				wc++
-			}
 		}
 	}
 	wc += komi
@@ -449,22 +503,14 @@ func (t *GoTracker) Adj(vertex int) []int {
 	return go_adj[t.boardsize][vertex]
 }
 
-func (t *GoTracker) Neighbors(vertex int, Size int) []int {
-	return go_neighbors[t.boardsize][Size][vertex]
+func (t *GoTracker) Neighbors(vertex int, size int) []int {
+	return go_neighbors[t.boardsize][size][vertex]
 }
 
 func (t *GoTracker) Territory(color byte) []float64 {
 	territory := make([]float64, t.sqsize)
 	for i := range t.board {
-		if t.board[i] == EMPTY {
-			checked := make([]bool, t.sqsize)
-			reachesBlack, reachesWhite := t.reaches(i, checked)
-			if reachesBlack && !reachesWhite && color == BLACK {
-				territory[i] = 1
-			} else if reachesWhite && !reachesBlack && color == WHITE {
-				territory[i] = 1
-			}
-		} else if t.board[i] == color {
+		if t.board[i] == color {
 			territory[i] = 1
 		}
 	}
@@ -472,46 +518,42 @@ func (t *GoTracker) Territory(color byte) []float64 {
 }
 
 func (t *GoTracker) Verify() {
-	for i := 0; i < len(t.parent); i++ {
-		find(i, t.parent)
-	}
-	for i := 0; i < len(t.parent); i++ {
+	for i := 0; i < t.sqsize; i++ {
 		if t.board[i] == EMPTY {
-			continue
-		}
-		parent := find(i, t.parent)
-		connected := make(map[int]bool)
-		c := make(chan int)
-		go DFS(parent, t.board, t.adj, c)
-		for {
-			n := <-c
-			if n == -1 {
-				break
+			libs := t.libs(i)
+			if libs == 0 {
+				suicide := make(map[byte]bool)
+				suicide[BLACK], suicide[WHITE] = true, true
+				for j := 0; j < 4; j++ {
+					adj := t.adj[i][j]
+					if adj != -1 {
+						adj = find(adj, t.parent)
+						if t.libs(adj) > 1 {
+							// can connect to adjacent friendly not in atari
+							suicide[t.board[adj]] = false
+						} else {
+							// can kill adjacent enemy in atari
+							suicide[Reverse(t.board[adj])] = false
+						}
+					}
+				}
+				if (t.Legal(BLACK, i) && suicide[BLACK]) || (t.Legal(WHITE, i) && suicide[WHITE]) {
+					log.Println(t.Vtoa(i), "black: legal", t.Legal(BLACK, i), "suicide", suicide[BLACK])
+					log.Println(t.Vtoa(i), "white: legal", t.Legal(WHITE, i), "suicide", suicide[WHITE])
+					panic("suicide incorrect")
+				}
 			}
-			connected[n] = true
-		}
-		found := false
-		empty := 0
-		for k, _ := range connected {
-			if t.board[k] == EMPTY {
-				empty++
-			} else {
-				found = found || k == i
+		} else {
+			root := find(i, t.parent)
+			libs := t.libs(root)
+			if libs == 0 {
+				panic("zero liberties")
+			} else if libs == 1 {
+				if _, exists := t.atari[t.board[root]][root]; !exists {
+					log.Println(t.Vtoa(root), "should be in atari")
+					panic("not marked as atari")
+				}
 			}
-		}
-		if !found {
-			fmt.Fprintln(os.Stderr, t.Vtoa(i), t.Vtoa(parent))
-			fmt.Fprintln(os.Stderr, t.String())
-			fmt.Fprintln(os.Stderr, t.parentboard())
-			panic("could not verify connected points: " + t.Vtoa(i) + " " + t.Vtoa(parent))
-		}
-		liberties := bitcount(t.liberties[parent][0], t.liberties[parent][1])
-		if uint(empty) != liberties {
-			fmt.Fprintln(os.Stderr, t.Vtoa(parent))
-			fmt.Fprintln(os.Stderr, t.String())
-			fmt.Fprintln(os.Stderr, empty, liberties)
-			fmt.Fprintln(os.Stderr, t.bitboard(parent))
-			panic("liberties don't match up")
 		}
 	}
 }
@@ -597,7 +639,7 @@ func (t *GoTracker) dead() []int {
 	color := BLACK
 	move := 0
 	for {
-		vertex := cp.randLegal(color)
+		vertex := cp.weights.Rand(color)
 		cp.Play(color, vertex)
 		move++
 		if move > 3*t.sqsize || cp.Winner() != EMPTY {
@@ -617,127 +659,8 @@ func (t *GoTracker) dead() []int {
 	return stones
 }
 
-func (t *GoTracker) reaches(vertex int, checked []bool) (reachesBlack bool, reachesWhite bool) {
-	checked[vertex] = true
-	if t.board[vertex] == BLACK {
-		return true, false
-	} else if t.board[vertex] == WHITE {
-		return false, true
-	}
-	up := t.adj[vertex][UP]
-	down := t.adj[vertex][DOWN]
-	left := t.adj[vertex][LEFT]
-	right := t.adj[vertex][RIGHT]
-	if up != -1 && !checked[up] {
-		rb, rw := t.reaches(up, checked)
-		reachesBlack = reachesBlack || rb
-		reachesWhite = reachesWhite || rw
-	}
-	if down != -1 && !checked[down] {
-		rb, rw := t.reaches(down, checked)
-		reachesBlack = reachesBlack || rb
-		reachesWhite = reachesWhite || rw
-	}
-	if left != -1 && !checked[left] {
-		rb, rw := t.reaches(left, checked)
-		reachesBlack = reachesBlack || rb
-		reachesWhite = reachesWhite || rw
-	}
-	if right != -1 && !checked[right] {
-		rb, rw := t.reaches(right, checked)
-		reachesBlack = reachesBlack || rb
-		reachesWhite = reachesWhite || rw
-	}
-	return
-}
-
-// if go_adj chain is hostile, remove vertex from liberties
-// capture if liberties are reduced to zero
-func (t *GoTracker) remove(color byte, vertex int, n int) {
-	// remove this liberty from vertex
-	t.liberties[vertex][0] &= t.mask[n][2]
-	t.liberties[vertex][1] &= t.mask[n][3]
-	// remove this liberty from adj
-	t.liberties[n][0] &= t.mask[vertex][2]
-	t.liberties[n][1] &= t.mask[vertex][3]
-	// check if this reduces adj liberties to zero and capture if so
-	if t.liberties[n][0] == 0 && t.liberties[n][1] == 0 {
-		// capture vertices
-		captured := 0
-		for i := 0; i < t.sqsize; i++ {
-			if find(i, t.parent) == n {
-				t.captured[i] = true
-				captured++
-			}
-		}
-		for i := 0; i < t.sqsize; i++ {
-			if t.captured[i] {
-				t.capture(i)
-			}
-			t.captured[i] = false
-		}
-		if captured != 1 {
-			t.koVertex = -1
-			t.koColor = EMPTY
-		}
-	}
-}
-
-func (t *GoTracker) capture(v int) {
-	t.koVertex = v
-	t.koColor = t.board[v]
-	// update board
-	t.board[v] = EMPTY
-	// re-initialize GoTracker structures to empty
-	t.parent[v] = v
-	t.rank[v] = 1
-	t.liberties[v][0] = 0
-	t.liberties[v][1] = 0
-	// add new liberty to go_adj occupied vertices
-	for i := 0; i < 4; i++ {
-		n := t.adj[v][i]
-		if n == -1 {
-			continue
-		}
-		if t.board[n] != EMPTY {
-			root := find(n, t.parent)
-			// xor in the liberty bit for vertex at adj
-			t.liberties[root][0] |= t.mask[v][0]
-			t.liberties[root][1] |= t.mask[v][1]
-		}
-	}
-	// add captured vertex to empty list
-	t.empty.Insert(rand.Intn(t.empty.Len()), v)
-}
-
-func (t *GoTracker) merge(color byte, vertex int, n int) {
-	vertex = find(vertex, t.parent)
-	n = find(n, t.parent)
-	// xor in vertex liberties to adj chain
-	l0 := t.liberties[vertex][0] | t.liberties[n][0]
-	l1 := t.liberties[vertex][1] | t.liberties[n][1]
-	// remove vertex from adj chain's liberties
-	l0 &= t.mask[vertex][2]
-	l1 &= t.mask[vertex][3]
-	l0 &= t.mask[n][2]
-	l1 &= t.mask[n][3]
-	// merge vertices into the same chain
-	root := union(vertex, n, t.parent, t.rank)
-	// use new mask for root of chain
-	t.liberties[root][0] = l0
-	t.liberties[root][1] = l1
-}
-
-// check if move would capture go_adj hostile chain, without modifying state
-func (t *GoTracker) wouldCapture(vertex int, n int) bool {
-	// remove this liberty from adj
-	ar0 := t.liberties[n][0] & t.mask[vertex][2]
-	ar1 := t.liberties[n][1] & t.mask[vertex][3]
-	// check if this reduces adj liberties to zero and return true if so
-	if bitcount(ar0, ar1) == 0 {
-		return true
-	}
-	return false
+func (t *GoTracker) libs(vertex int) uint {
+	return bitcount(t.liberties[vertex][0], t.liberties[vertex][1])
 }
 
 func bitcount(u uint64, v uint64) (c uint) {
@@ -752,7 +675,7 @@ func bitcount(u uint64, v uint64) (c uint) {
 }
 
 // return the index of the first liberty
-func (t *GoTracker) firstliberty(root int) int {
+func (t *GoTracker) lastliberty(root int) int {
 	v0, v1 := t.liberties[root][0], t.liberties[root][1]
 	for row := 0; row < t.boardsize; row++ {
 		for col := 0; col < t.boardsize; col++ {
@@ -775,7 +698,7 @@ func (t *GoTracker) firstliberty(root int) int {
 	return -1
 }
 
-func (t *GoTracker) bitboard(root int) (s string) {
+func (t *GoTracker) libertyboard(root int) (s string) {
 	v0, v1 := t.liberties[root][0], t.liberties[root][1]
 	s += "  "
 	for col := 0; col < t.boardsize; col++ {
@@ -829,11 +752,104 @@ func (t *GoTracker) bitboard(root int) (s string) {
 	return
 }
 
+func (t *GoTracker) maskboard(root int) (s string) {
+	v0, v1 := t.mask[root][0], t.mask[root][1]
+	s += "  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha = alpha + 1
+		}
+		s += string(alpha)
+		if col != t.boardsize-1 {
+			s += " "
+		}
+	}
+	s += "\n"
+	for row := 0; row < t.boardsize; row++ {
+		s += fmt.Sprintf("%d ", t.boardsize-row)
+		for col := 0; col < t.boardsize; col++ {
+			vertex := row * t.boardsize + col
+			var v uint64
+			var bit uint64
+			if vertex < 64 {
+				bit = uint64(64 - vertex - 1)
+				v = v0
+			} else {
+				bit = uint64(64 - (vertex - 64) - 1)
+				v = v1
+			}
+			var mask uint64 = 1 << bit
+			if (mask & v) == 0 {
+				s += "0 "
+			} else {
+				s += "1 "
+			}
+		}
+		s += fmt.Sprintf(" %d", t.boardsize - row)
+		if row != t.boardsize - 1 {
+			s += "\n"
+		}
+	}
+	s += "\n  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha = alpha + 1
+		}
+		s += string(alpha)
+		if col != t.boardsize - 1 {
+			s += " "
+		}
+	}
+	s += "\n"
+	return
+}
+
+func (t *GoTracker) libertycountboard() (s string) {
+	s += "  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha = alpha + 1
+		}
+		s += string(alpha)
+		if col != t.boardsize-1 {
+			s += " "
+		}
+	}
+	s += "\n"
+	for row := 0; row < t.boardsize; row++ {
+		s += fmt.Sprintf("%d ", t.boardsize-row)
+		for col := 0; col < t.boardsize; col++ {
+			vertex := row * t.boardsize + col
+			s += fmt.Sprintf("%d ", t.libs(find(vertex, t.parent)))
+		}
+		s += fmt.Sprintf(" %d", t.boardsize - row)
+		if row != t.boardsize - 1 {
+			s += "\n"
+		}
+	}
+	s += "\n  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha = alpha + 1
+		}
+		s += string(alpha)
+		if col != t.boardsize - 1 {
+			s += " "
+		}
+	}
+	s += "\n"
+	return
+}
+
 func (t *GoTracker) parentboard() (s string) {
 	for row := 0; row < t.boardsize; row++ {
 		for col := 0; col < t.boardsize; col++ {
 			vertex := row*(t.boardsize) + col
-			if t.parent[vertex] == vertex {
+			if t.board[vertex] == EMPTY {
 				s += ". "
 			} else {
 				s += t.Vtoa(t.parent[vertex])
@@ -841,6 +857,47 @@ func (t *GoTracker) parentboard() (s string) {
 			s += " "
 		}
 		s += "\n"
+	}
+	return
+}
+
+func (t *GoTracker) weightboard(color byte) (s string) {
+	s += "  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha++
+		}
+		s += string(alpha)
+		if col != t.boardsize-1 {
+			s += " "
+		}
+	}
+	s += "\n"
+	for row := 0; row < t.boardsize; row++ {
+		s += fmt.Sprintf("%d ", t.boardsize-row)
+		for col := 0; col < t.boardsize; col++ {
+			v := row*t.boardsize + col
+			s += fmt.Sprintf("%.2f", t.weights.Prob(color, v))
+			if col != t.boardsize-1 {
+				s += " "
+			}
+		}
+		s += fmt.Sprintf(" %d", t.boardsize-row)
+		if row != t.boardsize-1 {
+			s += "\n"
+		}
+	}
+	s += "\n  "
+	for col := 0; col < t.boardsize; col++ {
+		alpha := col + 'A'
+		if alpha >= 'I' {
+			alpha++
+		}
+		s += string(alpha)
+		if col != t.boardsize-1 {
+			s += " "
+		}
 	}
 	return
 }
@@ -865,116 +922,116 @@ func init() {
 		setup_go(boardsize)
 	}
 }
-func setup_go(boardsize int) {
-	masks[boardsize] = make([][4]uint64, boardsize*boardsize)
-	for i := 0; i < len(masks[boardsize]); i++ {
+func setup_go(size int) {
+	masks[size] = make([][4]uint64, size*size)
+	for i := 0; i < len(masks[size]); i++ {
 		var m uint64 = 1
 		if i < 64 {
-			masks[boardsize][i][0] = m << uint64(64-i-1)
+			masks[size][i][0] = m << uint64(64-i-1)
 		} else {
-			masks[boardsize][i][1] = m << uint64(64-(i-64)-1)
+			masks[size][i][1] = m << uint64(64-(i-64)-1)
 		}
-		masks[boardsize][i][2] = masks[boardsize][i][0] ^ 0xFFFFFFFFFFFFFFFF
-		masks[boardsize][i][3] = masks[boardsize][i][1] ^ 0xFFFFFFFFFFFFFFFF
+		masks[size][i][2] = masks[size][i][0] ^ 0xFFFFFFFFFFFFFFFF
+		masks[size][i][3] = masks[size][i][1] ^ 0xFFFFFFFFFFFFFFFF
 	}
-	setup_go_adj(boardsize)
-	setup_go_neighbors(boardsize)
+	setup_go_adj(size)
+	setup_go_neighbors(size)
 }
 
-func setup_go_adj(boardsize int) {
-	go_adj[boardsize] = make([][]int, boardsize*boardsize)
-	for vertex, _ := range go_adj[boardsize] {
-		go_adj[boardsize][vertex] = make([]int, 4)
-		set_go_adj(vertex, boardsize)
+func setup_go_adj(size int) {
+	go_adj[size] = make([][]int, size*size)
+	for vertex, _ := range go_adj[size] {
+		go_adj[size][vertex] = make([]int, 4)
+		set_go_adj(vertex, size)
 	}
 }
 
-func set_go_adj(vertex int, boardsize int) {
-	row := vertex / boardsize
-	col := vertex % boardsize
+func set_go_adj(vertex int, size int) {
+	row := vertex / size
+	col := vertex % size
 	up_row := row - 1
 	down_row := row + 1
 	left_col := col - 1
 	right_col := col + 1
-	up := up_row*boardsize + col
-	down := down_row*boardsize + col
-	left := row*boardsize + left_col
-	right := row*boardsize + right_col
-	go_adj[boardsize][vertex][UP] = -1
-	go_adj[boardsize][vertex][DOWN] = -1
-	go_adj[boardsize][vertex][LEFT] = -1
-	go_adj[boardsize][vertex][RIGHT] = -1
-	if up_row >= 0 && up_row < boardsize {
-		go_adj[boardsize][vertex][UP] = up
+	up := up_row*size + col
+	down := down_row*size + col
+	left := row*size + left_col
+	right := row*size + right_col
+	go_adj[size][vertex][UP] = -1
+	go_adj[size][vertex][DOWN] = -1
+	go_adj[size][vertex][LEFT] = -1
+	go_adj[size][vertex][RIGHT] = -1
+	if up_row >= 0 && up_row < size {
+		go_adj[size][vertex][UP] = up
 	}
-	if down_row >= 0 && down_row < boardsize {
-		go_adj[boardsize][vertex][DOWN] = down
+	if down_row >= 0 && down_row < size {
+		go_adj[size][vertex][DOWN] = down
 	}
-	if left_col >= 0 && left_col < boardsize {
-		go_adj[boardsize][vertex][LEFT] = left
+	if left_col >= 0 && left_col < size {
+		go_adj[size][vertex][LEFT] = left
 	}
-	if right_col >= 0 && right_col < boardsize {
-		go_adj[boardsize][vertex][RIGHT] = right
+	if right_col >= 0 && right_col < size {
+		go_adj[size][vertex][RIGHT] = right
 	}
 }
 
-func setup_go_neighbors(Size int) {
-	go_neighbors[Size] = make([][][]int, 3)
-	go_neighbors[Size][0] = make([][]int, Size*Size)
-	go_neighbors[Size][1] = make([][]int, Size*Size)
-	go_neighbors[Size][2] = make([][]int, Size*Size)
-	for vertex := 0; vertex < Size*Size; vertex++ {
-		go_neighbors[Size][0][vertex] = []int{vertex}
+func setup_go_neighbors(size int) {
+	go_neighbors[size] = make([][][]int, 3)
+	go_neighbors[size][0] = make([][]int, size*size)
+	go_neighbors[size][1] = make([][]int, size*size)
+	go_neighbors[size][2] = make([][]int, size*size)
+	for vertex := 0; vertex < size*size; vertex++ {
+		go_neighbors[size][0][vertex] = []int{vertex}
 		v2 := vertex + 1
-		v3 := vertex + Size
-		v4 := vertex + Size + 1
-		if (vertex+1)%Size == 0 {
+		v3 := vertex + size
+		v4 := vertex + size + 1
+		if (vertex+1) % size == 0 {
 			v2 = -1
 			v4 = -1
 		}
-		if vertex >= (Size*Size)-Size {
+		if vertex >= (size*size)-size {
 			v3 = -1
 			v4 = -1
 		}
-		go_neighbors[Size][1][vertex] = []int{vertex, v2, v3, v4}
-		set_go_neighbors(Size, vertex)
+		go_neighbors[size][1][vertex] = []int{vertex, v2, v3, v4}
+		set_go_neighbors(size, vertex)
 	}
 }
 
-func set_go_neighbors(Size int, vertex int) {
-	Neighbors := go_neighbors[Size][2]
-	Neighbors[vertex] = make([]int, 9)
-	Neighbors[vertex][0] = vertex - Size - 1
-	Neighbors[vertex][1] = vertex - Size
-	Neighbors[vertex][2] = vertex - Size + 1
-	Neighbors[vertex][3] = vertex - 1
-	Neighbors[vertex][4] = vertex
-	Neighbors[vertex][5] = vertex + 1
-	Neighbors[vertex][6] = vertex + Size - 1
-	Neighbors[vertex][7] = vertex + Size
-	Neighbors[vertex][8] = vertex + Size + 1
-	if vertex%Size == 0 {
+func set_go_neighbors(size int, vertex int) {
+	neighbors := go_neighbors[size][2]
+	neighbors[vertex] = make([]int, 9)
+	neighbors[vertex][0] = vertex - size - 1
+	neighbors[vertex][1] = vertex - size
+	neighbors[vertex][2] = vertex - size + 1
+	neighbors[vertex][3] = vertex - 1
+	neighbors[vertex][4] = vertex
+	neighbors[vertex][5] = vertex + 1
+	neighbors[vertex][6] = vertex + size - 1
+	neighbors[vertex][7] = vertex + size
+	neighbors[vertex][8] = vertex + size + 1
+	if vertex % size == 0 {
 		// left
-		Neighbors[vertex][0] = -1
-		Neighbors[vertex][3] = -1
-		Neighbors[vertex][6] = -1
+		neighbors[vertex][0] = -1
+		neighbors[vertex][3] = -1
+		neighbors[vertex][6] = -1
 	}
-	if (vertex+1)%Size == 0 {
+	if (vertex+1) % size == 0 {
 		// right
-		Neighbors[vertex][2] = -1
-		Neighbors[vertex][5] = -1
-		Neighbors[vertex][8] = -1
+		neighbors[vertex][2] = -1
+		neighbors[vertex][5] = -1
+		neighbors[vertex][8] = -1
 	}
-	if vertex < Size {
+	if vertex < size {
 		// top
-		Neighbors[vertex][0] = -1
-		Neighbors[vertex][1] = -1
-		Neighbors[vertex][2] = -1
+		neighbors[vertex][0] = -1
+		neighbors[vertex][1] = -1
+		neighbors[vertex][2] = -1
 	}
-	if vertex >= (Size*Size)-Size {
+	if vertex >= (size * size) - size {
 		// bottom
-		Neighbors[vertex][6] = -1
-		Neighbors[vertex][7] = -1
-		Neighbors[vertex][8] = -1
+		neighbors[vertex][6] = -1
+		neighbors[vertex][7] = -1
+		neighbors[vertex][8] = -1
 	}
 }

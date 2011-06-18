@@ -21,6 +21,10 @@ const (
 // convert a string to a color
 func Atoc(s string) (c byte) {
 	switch strings.ToUpper(s) {
+	case ".":
+		c = EMPTY
+	case "X":
+		c = ILLEGAL
 	case "B":
 		c = BLACK
 	case "W":
@@ -43,13 +47,13 @@ func Ctoa(c byte) (s string) {
 	case EMPTY:
 		s = "."
 	case ILLEGAL:
-		s = "@"
+		s = "x"
 	case LEGAL_BLACK:
 		s = "+"
 	case LEGAL_WHITE:
 		s = "-"
 	case LEGAL_BOTH:
-		s = "."
+		s = "@"
 	}
 	return
 }
@@ -62,8 +66,10 @@ func Reverse(c byte) byte {
 		return BLACK
 	case EMPTY:
 		return EMPTY
+	case ILLEGAL:
+		return ILLEGAL
 	}
-	return EMPTY
+	panic("err")
 }
 
 func VisitsBoard(root *Node, t Tracker) (s string) {
@@ -96,12 +102,12 @@ func VisitsBoard(root *Node, t Tracker) (s string) {
 	return
 }
 
-func TerritoryBoard(territory []float64, Samples float64, t Tracker) (s string) {
+func TerritoryBoard(territory []float64, samples float64, t Tracker) (s string) {
 	boardsize := t.Boardsize()
 	for row := 0; row < boardsize; row++ {
 		for col := 0; col < boardsize; col++ {
 			v := row*boardsize + col
-			r := territory[v] / Samples
+			r := territory[v] / samples
 			red := uint32(0)
 			green := uint32(r * 255)
 			blue := uint32((1 - r) * 255)
@@ -150,19 +156,19 @@ func FormatScore(t Tracker) string {
 	return fmt.Sprintf("W+%.1f", -ex)
 }
 
-func LegalBoard(t Tracker) (s string) {
+func LegalBoard(t Tracker, label map[byte]string) (s string) {
 	boardsize := t.Boardsize()
 	for row := 0; row < boardsize; row++ {
 		for col := 0; col < boardsize; col++ {
 			v := row*boardsize + col
 			if t.Legal(BLACK, v) && t.Legal(WHITE, v) {
-				s += "green"
+				s += label[BOTH]
 			} else if t.Legal(BLACK, v) && !t.Legal(WHITE, v) {
-				s += "black"
+				s += label[BLACK]
 			} else if !t.Legal(BLACK, v) && t.Legal(WHITE, v) {
-				s += "white"
+				s += label[WHITE]
 			} else if !t.Legal(BLACK, v) && !t.Legal(WHITE, v) {
-				s += "none"
+				s += label[EMPTY]
 			}
 			if col != boardsize-1 {
 				s += " "

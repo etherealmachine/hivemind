@@ -8,60 +8,34 @@ import (
 var emptyBoard map[int][]Hash
 var blackBoard map[int][]Hash
 var whiteBoard map[int][]Hash
-//var symmetricBoard [4][]int
 
 func init() {
 	emptyBoard = make(map[int][]Hash)
 	blackBoard = make(map[int][]Hash)
 	whiteBoard = make(map[int][]Hash)
-	for Size := 3; Size <= 19; Size++ {
-		setupHash(Size)
+	for size := 2; size <= 19; size++ {
+		setupHash(size)
 	}
 }
 
-func setupHash(Size int) {
-	emptyBoard[Size] = make([]Hash, Size*Size)
-	blackBoard[Size] = make([]Hash, Size*Size)
-	whiteBoard[Size] = make([]Hash, Size*Size)
-	rand.Seed(int64(Size))
-	for i := 0; i < Size*Size; i++ {
-		emptyBoard[Size][i] = Hash(rand.Uint32())
-		blackBoard[Size][i] = Hash(rand.Uint32())
-		whiteBoard[Size][i] = Hash(rand.Uint32())
+func setupHash(size int) {
+	emptyBoard[size] = make([]Hash, size*size)
+	blackBoard[size] = make([]Hash, size*size)
+	whiteBoard[size] = make([]Hash, size*size)
+	rand.Seed(int64(size))
+	for i := 0; i < size*size; i++ {
+		emptyBoard[size][i] = Hash(rand.Uint32())
+		blackBoard[size][i] = Hash(rand.Uint32())
+		whiteBoard[size][i] = Hash(rand.Uint32())
 	}
-
-	/*
-		if *hex {
-			symmetricBoard[0] = make([]int, size * size)
-			symmetricBoard[1] = make([]int, size * size)
-			for i := 0; i < size * size; i++ {
-				symmetricBoard[0][i] = i
-				symmetricBoard[1][i] = ((size * size) - 1) - i
-			}
-		} else {
-			symmetricBoard[0] = make([]int, size * size)
-			symmetricBoard[1] = make([]int, size * size)
-			symmetricBoard[2] = make([]int, size * size)
-			symmetricBoard[3] = make([]int, size * size)
-			for y := 0; y < size; y++ {
-				for x := 0; x < size; x++ {
-					i := y * size + x
-					symmetricBoard[0][i] = i;
-					symmetricBoard[1][i] = (size - 1 - x) * size + y
-					symmetricBoard[2][i] = (size - 1 - y) * size + (size - 1 - x)
-					symmetricBoard[3][i] = x * size + (size - 1 - y)
-				}
-			}
-		}
-	*/
 }
 
 type Hash uint32
 
-func NewHash(Size int) (hash *Hash) {
+func NewHash(size int) (hash *Hash) {
 	hash = new(Hash)
-	for i := 0; i < len(emptyBoard[Size]); i++ {
-		*hash ^= emptyBoard[Size][i]
+	for i := 0; i < len(emptyBoard[size]); i++ {
+		*hash ^= emptyBoard[size][i]
 	}
 	return
 }
@@ -69,28 +43,28 @@ func NewHash(Size int) (hash *Hash) {
 func MakeHash(t Tracker) *Hash {
 	hash := NewHash(t.Boardsize())
 	board := t.Board()
-	for i := 0; i < len(board); i++ {
+	for i := 0; i < t.Sqsize(); i++ {
 		hash.Update(t.Boardsize(), EMPTY, board[i], i)
 	}
 	return hash
 }
 
-func (hash *Hash) Update(Size int, oldColor byte, newColor byte, vertex int) {
+func (hash *Hash) Update(size int, oldColor byte, newColor byte, vertex int) {
 	switch oldColor {
 	case BLACK:
-		*hash ^= blackBoard[Size][vertex]
+		*hash ^= blackBoard[size][vertex]
 	case WHITE:
-		*hash ^= whiteBoard[Size][vertex]
+		*hash ^= whiteBoard[size][vertex]
 	case EMPTY:
-		*hash ^= emptyBoard[Size][vertex]
+		*hash ^= emptyBoard[size][vertex]
 	}
 	switch newColor {
 	case BLACK:
-		*hash ^= blackBoard[Size][vertex]
+		*hash ^= blackBoard[size][vertex]
 	case WHITE:
-		*hash ^= whiteBoard[Size][vertex]
+		*hash ^= whiteBoard[size][vertex]
 	case EMPTY:
-		*hash ^= emptyBoard[Size][vertex]
+		*hash ^= emptyBoard[size][vertex]
 	}
 }
 

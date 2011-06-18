@@ -18,31 +18,27 @@ type Swarm struct {
 	Generation    uint
 	Particles     Particles
 	GBest         *Particle
+	games         *vector.Vector
+	results       *vector.Vector
 	config        *Config
 }
 
 func NewSwarm(config *Config) *Swarm {
-	var stride int
 	var min, max, vmax float64
 	if config.Pat {
-		stride = len(NewTracker(config).Neighbors(0, 2))
-		if config.Tenuki {
-			stride++
-		}
 		min = 0
-		max = 100
-		vmax = 20
+		max = 10
+		vmax = 5
 	} else if config.Eval {
-		stride = 1
 		min = 0
 		max = 1
 		vmax = 0.5
 	}
-	if config.Mu >= config.Lambda {
+	if config.ESswarm && config.Mu >= config.Lambda {
 		panic("illegal argument to NewSwarm - mu must be less than lambda")
 	}
 	if config.Parents > config.Mu {
-		panic("illegal argument to NewSwarm - p must be less than or equal to mu")
+		panic("illegal argument to NewSwarm - parents must be less than or equal to mu")
 	}
 	s := new(Swarm)
 	s.config = config
@@ -53,7 +49,7 @@ func NewSwarm(config *Config) *Swarm {
 	s.Generation = 0
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(s, min, max, vmax, stride)
+		s.Particles[i] = NewParticle(s, min, max, vmax)
 	}
 	s.GBest = s.Particles[0].Copy()
 	return s
@@ -61,27 +57,25 @@ func NewSwarm(config *Config) *Swarm {
 
 type Particle struct {
 	Strategy       float64
-	Position       map[uint32][]float64
-	Velocity       map[uint32][]float64
+	Position       map[uint32]float64
+	Velocity       map[uint32]float64
 	Min, Max, VMax float64
 	PBest          *Particle
 	Fitness        float64
-	Stride         int
 	swarm          *Swarm
 	log            map[uint32]bool
 }
 
-func NewParticle(swarm *Swarm, min, max, vMax float64, stride int) *Particle {
+func NewParticle(swarm *Swarm, min, max, vMax float64) *Particle {
 	p := new(Particle)
 	p.swarm = swarm
 	p.Strategy = rand.Float64() * 0.05
-	p.Position = make(map[uint32][]float64)
+	p.Position = make(map[uint32]float64)
 	p.Min = min
 	p.Max = max
-	p.Velocity = make(map[uint32][]float64)
+	p.Velocity = make(map[uint32]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
-	p.Stride = stride
 	p.log = make(map[uint32]bool)
 	return p
 }
@@ -89,23 +83,20 @@ func NewParticle(swarm *Swarm, min, max, vMax float64, stride int) *Particle {
 func (p *Particle) Copy() *Particle {
 	cp := new(Particle)
 	cp.Strategy = p.Strategy
-	cp.Position = make(map[uint32][]float64)
+	cp.Position = make(map[uint32]float64)
 	for i := range p.Position {
-		cp.Position[i] = make([]float64, p.Stride)
-		copy(cp.Position[i], p.Position[i])
+		cp.Position[i] = p.Position[i]
 	}
 	if p.swarm.config.Pswarm {
-		cp.Velocity = make(map[uint32][]float64)
+		cp.Velocity = make(map[uint32]float64)
 		for i := range p.Velocity {
-			cp.Velocity[i] = make([]float64, p.Stride)
-			copy(cp.Velocity[i], p.Velocity[i])
+			cp.Velocity[i] = p.Velocity[i]
 		}
 	}
 	cp.Fitness = p.Fitness
 	cp.Min = p.Min
 	cp.Max = p.Max
 	cp.VMax = p.VMax
-	cp.Stride = p.Stride
 	cp.swarm = p.swarm
 	return cp
 }
@@ -124,73 +115,28 @@ func (s Particles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func swap(i, j uint32, b *uint32) {
-	x := ((*b >> i) ^ (*b >> j)) & 1 // XOR temporary
-	*b ^= ((x << i) | (x << j))
-}
-
-// set the ith bit of b to j
-func set(i, j uint32, b *uint32) {
-	*b ^= j << i
-}
-
-// get the ith bit of b
-func get(i, b uint32) uint32 {
-	return b >> i & 0x00000001
-}
-
-func HashVertices(board []uint8, Neighbors []int, offset int) uint32 {
-	index := uint32(0)
-	for i := 0; i < len(Neighbors); i++ {
-		// set the 2*i, 2*i+1 bits of the index
-		m0 := uint32(0)
-		m1 := uint32(0)
-		if Neighbors[i] == -1 {
-			m0, m1 = 1, 1
-		} else if board[Neighbors[i]] == BLACK {
-			m0, m1 = 0, 1
-		} else if board[Neighbors[i]] == WHITE {
-			m0, m1 = 1, 0
-		}
-		set(uint32(2*i+offset), m0, &index)
-		set(uint32(2*i+1+offset), m1, &index)
-	}
-	return index
-}
-
-func (p *Particle) Get(i uint32) []float64 {
-	if p.Position[i] == nil {
+func (p *Particle) Get(i uint32) float64 {
+	if _, exists := p.Position[i]; !exists {
 		p.Init(i)
 	}
 	return p.Position[i]
 }
 
 func (p *Particle) Init(i uint32) {
-	p.Position[i] = make([]float64, p.Stride)
-	for j := 0; j < p.Stride; j++ {
-		p.Position[i][j] = p.Min + (p.Max-p.Min)*rand.Float64()
-	}
+	p.Position[i] = p.Min + (p.Max-p.Min)*rand.Float64()
 	if p.swarm.config.Pswarm {
-		p.Velocity[i] = make([]float64, p.Stride)
-		for j := 0; j < p.Stride; j++ {
-			p.Velocity[i][j] = -p.VMax + 2*p.VMax*rand.Float64()
-		}
+		p.Velocity[i] = -p.VMax + 2*p.VMax*rand.Float64()
 	}
 }
 
 func (s *Swarm) playOneGame() (moves *vector.IntVector, result byte) {
-	config := *s.config
-	config.Pat = false
 	moves = new(vector.IntVector)
 	t := NewTracker(s.config)
-	if s.config.Go {
-		t.(*GoTracker).SuperKo(true)
-	}
 	result = EMPTY
 	var br, wr *Node
 	var vertex int
 	for {
-		br = NewRoot(BLACK, t, &config)
+		br = NewRoot(BLACK, t, s.config)
 		genmove(br, t)
 		vertex = br.Best().Vertex
 		moves.Push(vertex)
@@ -201,7 +147,7 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, result byte) {
 			result = WHITE
 			break
 		}
-		wr = NewRoot(WHITE, t, &config)
+		wr = NewRoot(WHITE, t, s.config)
 		genmove(wr, t)
 		vertex = wr.Best().Vertex
 		moves.Push(vertex)
@@ -213,7 +159,6 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, result byte) {
 			break
 		}
 	}
-	log.Println(t.String())
 	return moves, result
 }
 
@@ -227,26 +172,24 @@ func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, result byte) {
 	p.log = make(map[uint32]bool)
 	gamma := 0.95
 	discount := gamma
+	s.config.matcher = &ComboMatcher{s.config.expert_patterns, p}
 	t := NewTracker(s.config)
 	color := BLACK
-	config := *s.config
-	config.matcher = p
+	fitness := 0.0
 	for i := 0; i < moves.Len(); i++ {
 		vertex := moves.At(i)
 		t.Play(color, vertex)
 		if vertex != -1 {
-			for j := uint(0); j < s.Samples; j++ {
-				cp := t.Copy()
-				cp.Playout(Reverse(color), &config)
-				if cp.Winner() == result {
-					p.Fitness += discount
-				}
+			cp := t.Copy()
+			cp.Playout(Reverse(color))
+			if cp.Winner() == result {
+				fitness += discount
 			}
 		}
 		color = Reverse(color)
 		discount *= gamma
 	}
-	p.Fitness /= float64(moves.Len()) * float64(s.Samples)
+	p.Fitness += fitness / float64(moves.Len())
 }
 
 /**
@@ -284,9 +227,12 @@ func (s *Swarm) ESStep() {
 
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
-		log.Printf("evaluating %d/%d\n", i, s.Lambda)
-		s.evaluate(children[i], moves, result)
-		log.Printf("fitness of %d: %.2f\n", i, children[i].Fitness)
+		for j := 0; j < s.games.Len(); j++ {
+			log.Printf("evaluating %d/%d\n", i, s.Lambda)
+			s.evaluate(children[i], s.games.At(j).(*vector.IntVector), s.results.At(j).(uint8))
+			log.Printf("fitness of %d: %.2f\n", i, children[i].Fitness)
+		}
+		children[i].Fitness /= float64(s.games.Len())
 	}
 
 	// select mu parents from either children (,) or children + parents (+)
@@ -302,7 +248,7 @@ Particle swarm update
 */
 func (s *Swarm) PSStep() {
 
-	s.GBest.Fitness *= 0.9
+	s.GBest.Fitness *= 0.95
 
 	for i := uint(0); i < s.Mu; i++ {
 		s.update_particle(i)
@@ -310,12 +256,14 @@ func (s *Swarm) PSStep() {
 }
 
 func (s *Swarm) update_particle(i uint) {
-	s.Particles[i].PBest.Fitness *= 0.9
+	s.Particles[i].PBest.Fitness *= 0.95
 	s.Particles[i].Fitness = 0
-	for j := uint(0); j < s.Samples; j++ {
-		//s.evaluate(s.Particles[i])
-		log.Printf("%d / %d\n", i*s.Samples+j, s.Mu*s.Samples)
+	for j := 0; j < s.games.Len(); j++ {
+		log.Printf("evaluating %d/%d\n", i, s.Lambda)
+		s.evaluate(s.Particles[i], s.games.At(j).(*vector.IntVector), s.results.At(j).(uint8))
+		log.Printf("fitness of %d: %.2f\n", i, s.Particles[i].Fitness)
 	}
+	s.Particles[i].Fitness /= float64(s.games.Len())
 	s.update_gbest(i)
 	s.update_pbest(i)
 }
@@ -355,7 +303,7 @@ func randParticle(p Particles, e Particles) (r *Particle) {
 	return a new particle that is the average of the given p particles
 */
 func (s *Swarm) recombine(parents Particles) (r *Particle) {
-	r = NewParticle(parents[0].swarm, parents[0].Min, parents[0].Max, parents[0].VMax, parents[0].Stride)
+	r = NewParticle(parents[0].swarm, parents[0].Min, parents[0].Max, parents[0].VMax)
 	superset := make(map[uint32]bool)
 	for i := range parents {
 		for j := range parents[i].Position {
@@ -366,19 +314,14 @@ func (s *Swarm) recombine(parents Particles) (r *Particle) {
 		}
 	}
 	for i := range superset {
-		r.Position[i] = make([]float64, r.Stride)
 		count := 0
 		for j := range parents {
-			if parents[j].Position[i] != nil {
-				for k := 0; k < r.Stride; k++ {
-					r.Position[i][k] += parents[j].Position[i][k]
-				}
+			if _, exists := parents[j].Position[i]; exists {
+				r.Position[i] += parents[j].Position[i]
 				count++
 			}
 		}
-		for k := 0; k < r.Stride; k++ {
-			r.Position[i][k] /= float64(count)
-		}
+		r.Position[i] /= float64(count)
 	}
 	return
 }
@@ -387,17 +330,15 @@ func (s *Swarm) recombine(parents Particles) (r *Particle) {
 	randomly permute particle's position and strategy using evolution strategies method
 */
 func (s *Swarm) mutate(p *Particle) {
-	dim := float64(len(p.Position) * p.Stride)
+	dim := float64(len(p.Position))
 	tau := (1 / math.Sqrt(2*dim)) * (1.0 - float64(s.Generation)/float64(s.config.Generations))
 	p.Strategy *= math.Exp(tau * rand.NormFloat64())
 	for i := range p.Position {
-		for j := range p.Position[i] {
-			p.Position[i][j] += p.Strategy * rand.NormFloat64()
-			if p.Position[i][j] > p.Max {
-				p.Position[i][j] = p.Max
-			} else if p.Position[i][j] < p.Min {
-				p.Position[i][j] = p.Min
-			}
+		p.Position[i] += p.Strategy * rand.NormFloat64()
+		if p.Position[i] > p.Max {
+			p.Position[i] = p.Max
+		} else if p.Position[i] < p.Min {
+			p.Position[i] = p.Min
 		}
 	}
 }
@@ -418,30 +359,28 @@ func (s *Swarm) ps_update(p *Particle) {
 		superset[i] = true
 	}
 	for i := range superset {
-		if p.Velocity[i] == nil {
+		if _, exists := p.Velocity[i]; !exists {
 			p.Init(i)
 		}
-		for j := range p.Velocity[i] {
-			delta_pbest := 0.0
-			if p.PBest.Position[i] != nil {
-				delta_pbest = 2 * rand.Float64() * (p.PBest.Position[i][j] - p.Position[i][j])
-			}
-			delta_gbest := 0.0
-			if s.GBest.Position[i] != nil {
-				delta_gbest = 2 * rand.Float64() * (s.GBest.Position[i][j] - p.Position[i][j])
-			}
-			p.Velocity[i][j] = w * (p.Velocity[i][j] + delta_pbest + delta_gbest)
-			if p.Velocity[i][j] < -p.VMax {
-				p.Velocity[i][j] = -p.VMax
-			} else if p.Velocity[i][j] > p.VMax {
-				p.Velocity[i][j] = p.VMax
-			}
-			p.Position[i][j] += p.Velocity[i][j]
-			if p.Position[i][j] < p.Min {
-				p.Position[i][j] = p.Min
-			} else if p.Position[i][j] > p.Max {
-				p.Position[i][j] = p.Max
-			}
+		delta_pbest := 0.0
+		if _, exists := p.PBest.Position[i]; exists {
+			delta_pbest = 2 * rand.Float64() * (p.PBest.Position[i] - p.Position[i])
+		}
+		delta_gbest := 0.0
+		if _, exists := s.GBest.Position[i]; exists {
+			delta_gbest = 2 * rand.Float64() * (s.GBest.Position[i] - p.Position[i])
+		}
+		p.Velocity[i] = w * (p.Velocity[i] + delta_pbest + delta_gbest)
+		if p.Velocity[i] < -p.VMax {
+			p.Velocity[i] = -p.VMax
+		} else if p.Velocity[i] > p.VMax {
+			p.Velocity[i] = p.VMax
+		}
+		p.Position[i] += p.Velocity[i]
+		if p.Position[i] < p.Min {
+			p.Position[i] = p.Min
+		} else if p.Position[i] > p.Max {
+			p.Position[i] = p.Max
 		}
 	}
 }
@@ -500,16 +439,19 @@ func LoadBest(filename string, config *Config) *Particle {
 	return s.Best()
 }
 
-var moves *vector.IntVector
-var result byte
-
 func Train(config *Config) {
 	var s *Swarm
 	s = NewSwarm(config)
 	if config.Sfile != "" {
 		s.LoadSwarm(config.Sfile, config)
 	}
-	moves, result = s.playOneGame()
+	s.games = new(vector.Vector)
+	s.results = new(vector.Vector)
+	for i := uint(0); i < s.Samples; i++ {
+		game, result := s.playOneGame()
+		s.games.Push(game)
+		s.results.Push(result)
+	}
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
 		if config.ESswarm {
