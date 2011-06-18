@@ -121,7 +121,7 @@ func update_hash(hash *uint32, i int, offset int, color byte) {
 	set(uint32(2*i+1+offset), m1, hash)
 }
 
-func get_min_hash(min *uint32, color byte, offset int, board []uint8, neighbors []int, order []int, reverse bool) {
+func get_hash(color byte, offset int, board []uint8, neighbors []int, order []int, reverse bool) uint32 {
 	hash := uint32(0)
 	if color == WHITE {
 		set(0, 1, &hash)
@@ -138,23 +138,74 @@ func get_min_hash(min *uint32, color byte, offset int, board []uint8, neighbors 
 		}
 		update_hash(&hash, i, offset, color)
 	}
-	if hash < *min {
-		*min = hash
-	}
+	return hash
 }
 
 func NeighborhoodHash(color byte, board []uint8, neighbors []int, offset int) uint32 {
 	reverse := color == WHITE
-	min := uint32(1<<31)
-	get_min_hash(&min, color, offset, board, neighbors, []int{0, 1, 2, 3, 4, 5, 6, 7, 8}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{0, 3, 6, 1, 4, 5, 2, 5, 8}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{2, 1, 0, 5, 4, 3, 8, 7, 6}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{6, 3, 0, 7, 4, 1, 8, 5, 2}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{8, 7, 6, 5, 4, 3, 2, 1, 0}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{8, 5, 2, 7, 4, 1, 6, 3, 0}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{6, 7, 8, 3, 4, 5, 0, 1, 2}, reverse)
-	get_min_hash(&min, color, offset, board, neighbors, []int{2, 5, 8, 1, 4, 7, 0, 3, 6}, reverse)
-	return min
+	h1 := get_hash(color, offset, board, neighbors, []int{0, 1, 2, 3, 4, 5, 6, 7, 8}, reverse)
+	if hash, exists := hash_cache[h1]; exists {
+		return hash
+	}
+	h2 := get_hash(color, offset, board, neighbors, []int{0, 3, 6, 1, 4, 5, 2, 5, 8}, reverse)
+	if hash, exists := hash_cache[h2]; exists {
+		return hash
+	}
+	h3 := get_hash(color, offset, board, neighbors, []int{2, 1, 0, 5, 4, 3, 8, 7, 6}, reverse)
+	if hash, exists := hash_cache[h3]; exists {
+		return hash
+	}
+	h4 := get_hash(color, offset, board, neighbors, []int{6, 3, 0, 7, 4, 1, 8, 5, 2}, reverse)
+	if hash, exists := hash_cache[h4]; exists {
+		return hash
+	}
+	h5 := get_hash(color, offset, board, neighbors, []int{8, 7, 6, 5, 4, 3, 2, 1, 0}, reverse)
+	if hash, exists := hash_cache[h5]; exists {
+		return hash
+	}
+	h6 := get_hash(color, offset, board, neighbors, []int{8, 5, 2, 7, 4, 1, 6, 3, 0}, reverse)
+	if hash, exists := hash_cache[h6]; exists {
+		return hash
+	}
+	h7 := get_hash(color, offset, board, neighbors, []int{6, 7, 8, 3, 4, 5, 0, 1, 2}, reverse)
+	if hash, exists := hash_cache[h7]; exists {
+		return hash
+	}
+	h8 := get_hash(color, offset, board, neighbors, []int{2, 5, 8, 1, 4, 7, 0, 3, 6}, reverse)
+		if hash, exists := hash_cache[h8]; exists {
+		return hash
+	}
+	hash := h1
+	if h2 < hash {
+		hash = h2
+	}
+	if h3 < hash {
+		hash = h3
+	}
+	if h4 < hash {
+		hash = h4
+	}
+	if h5 < hash {
+		hash = h5
+	}
+	if h6 < hash {
+		hash = h6
+	}
+	if h7 < hash {
+		hash = h7
+	}
+	if h8 < hash {
+		hash = h8
+	}
+	hash_cache[h1] = hash
+	hash_cache[h2] = hash
+	hash_cache[h3] = hash
+	hash_cache[h4] = hash
+	hash_cache[h5] = hash
+	hash_cache[h6] = hash
+	hash_cache[h7] = hash
+	hash_cache[h8] = hash
+	return hash
 }
 
 func ptoa(board []byte, neighbors []int) string {
@@ -170,4 +221,10 @@ func ptoa(board []byte, neighbors []int) string {
 	s += Ctoa(cp[3]) + " " + Ctoa(cp[4]) + " " + Ctoa(cp[5]) + "\n"
 	s += Ctoa(cp[6]) + " " + Ctoa(cp[7]) + " " + Ctoa(cp[8])
 	return s
+}
+
+var hash_cache map[uint32]uint32
+
+func init() {
+	hash_cache = make(map[uint32]uint32)
 }
