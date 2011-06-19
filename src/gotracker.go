@@ -198,15 +198,15 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		}
 		
 		// apply patterns before suicide checks so we zero out any illegal patterns
-		t.applyPattern(vertex)
+		t.applyPattern(vertex, true)
 		neighbors := go_neighbors[t.boardsize][2][vertex]
 		for i := range neighbors {
 			if neighbors[i] != -1  && t.board[neighbors[i]] == EMPTY {
-				t.applyPattern(neighbors[i])
+				t.applyPattern(neighbors[i], true)
 			}
 		}
 		for i := 0; captured != nil && i < captured.Len(); i++ {
-			t.applyPattern(captured.At(i))
+			t.applyPattern(captured.At(i), true)
 		}
 		
 		// check for suicide of affected empty points
@@ -312,12 +312,12 @@ func (t *GoTracker) check_suicide(vertex int) {
 	if suicide_black {
 		t.weights.Set(BLACK, vertex, 0)
 	} else if t.board[vertex] == EMPTY && t.weights.Get(BLACK, vertex) == 0 {
-		t.weights.Set(BLACK, vertex, INIT_WEIGHT)
+		t.applyPattern(vertex, false)
 	}
 	if suicide_white {
 		t.weights.Set(WHITE, vertex, 0)
 	} else if t.board[vertex] == EMPTY && t.weights.Get(WHITE, vertex) == 0 {
-		t.weights.Set(WHITE, vertex, INIT_WEIGHT)
+		t.applyPattern(vertex, false)
 	}
 }
 
@@ -390,18 +390,20 @@ func (t *GoTracker) Playout(color byte) {
 	t.superko = true
 }
 
-func (t *GoTracker) applyPattern(vertex int) {
+func (t *GoTracker) applyPattern(vertex int, do_suicide_check bool) {
 	if t.config.Pat {
 		if t.board[vertex] != EMPTY {
 			for i := 0; i < 4; i++ {
 				adj := t.adj[vertex][i]
 				if adj != -1 && t.board[adj] == EMPTY {
-					t.applyPattern(adj)
+					t.applyPattern(adj, do_suicide_check)
 				}
 			}
 		} else {
-			t.config.matcher.Apply(BLACK, vertex, t)
-			t.config.matcher.Apply(WHITE, vertex, t)
+			changed := t.config.matcher.Apply(BLACK, vertex, t) || t.config.matcher.Apply(WHITE, vertex, t)
+			if changed && do_suicide_check {
+				t.check_suicide(vertex)
+			}
 		}
 	}
 }
@@ -537,9 +539,14 @@ func (t *GoTracker) Verify() {
 						}
 					}
 				}
-				if (t.Legal(BLACK, i) && suicide[BLACK]) || (t.Legal(WHITE, i) && suicide[WHITE]) {
+				if t.Legal(BLACK, i) && suicide[BLACK] {
 					log.Println(t.Vtoa(i), "black: legal", t.Legal(BLACK, i), "suicide", suicide[BLACK])
+				}
+				if  t.Legal(WHITE, i) && suicide[WHITE] {
 					log.Println(t.Vtoa(i), "white: legal", t.Legal(WHITE, i), "suicide", suicide[WHITE])
+				}
+				if (t.Legal(BLACK, i) && suicide[BLACK]) || (t.Legal(WHITE, i) && suicide[WHITE]) {
+					log.Println(t.String())
 					panic("suicide incorrect")
 				}
 			}

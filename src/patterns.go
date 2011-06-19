@@ -12,7 +12,7 @@ const (
 )
 
 type PatternMatcher interface {
-	Apply(color byte, vertex int, t Tracker)
+	Apply(color byte, vertex int, t Tracker) bool
 }
 
 type ComboMatcher struct {
@@ -20,7 +20,7 @@ type ComboMatcher struct {
 	learned *Particle
 }
 
-func (m *ComboMatcher) Apply(color byte, vertex int, t Tracker) {
+func (m *ComboMatcher) Apply(color byte, vertex int, t Tracker) bool {
 	board := t.Board()
 	neighbors := t.Neighbors(vertex, 2)
 	hash := NeighborhoodHash(color, board, neighbors, 11)
@@ -28,9 +28,10 @@ func (m *ComboMatcher) Apply(color byte, vertex int, t Tracker) {
 	if !exists && m.learned != nil {
 		weight = m.learned.Get(hash)
 	} else if !exists {
-		return
+		return false
 	}
 	t.(*GoTracker).weights.Set(color, vertex, int(weight))
+	return true
 }
 
 func LoadPatternMatcher(config *Config) {
