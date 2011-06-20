@@ -7,6 +7,7 @@ import (
 	"strings"
 	"strconv"
 	"log"
+	"math"
 )
 
 // Tracks a game of Go
@@ -197,18 +198,6 @@ func (t *GoTracker) Play(color byte, vertex int) {
 			}
 		}
 		
-		// apply patterns before suicide checks so we zero out any illegal patterns
-		t.applyPattern(vertex, true)
-		neighbors := go_neighbors[t.boardsize][2][vertex]
-		for i := range neighbors {
-			if neighbors[i] != -1  && t.board[neighbors[i]] == EMPTY {
-				t.applyPattern(neighbors[i], true)
-			}
-		}
-		for i := 0; captured != nil && i < captured.Len(); i++ {
-			t.applyPattern(captured.At(i), true)
-		}
-		
 		// check for suicide of affected empty points
 		for i := 0; i < 4; i++ {
 			adj := t.adj[vertex][i]
@@ -270,6 +259,18 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		if t.libs(root) == 1 {
 			t.atari[color][root] = t.lastliberty(root)
 		}
+		
+		// apply patterns
+		t.applyPattern(vertex)
+		neighbors := go_neighbors[t.boardsize][2][vertex]
+		for i := range neighbors {
+			if neighbors[i] != -1  && t.board[neighbors[i]] == EMPTY {
+				t.applyPattern(neighbors[i])
+			}
+		}
+		for i := 0; captured != nil && i < captured.Len(); i++ {
+			t.applyPattern(captured.At(i))
+		}
 
 		// mark vertex as played for AMAF
 		if t.played[vertex] == EMPTY {
@@ -311,13 +312,15 @@ func (t *GoTracker) check_suicide(vertex int) {
 	}
 	if suicide_black {
 		t.weights.Set(BLACK, vertex, 0)
-	} else if t.board[vertex] == EMPTY && t.weights.Get(BLACK, vertex) == 0 {
-		t.applyPattern(vertex, false)
+	} else if t.weights.Get(BLACK, vertex) == 0 {
+		t.weights.Set(BLACK, vertex, INIT_WEIGHT)
+		t.applyPattern(vertex)
 	}
 	if suicide_white {
 		t.weights.Set(WHITE, vertex, 0)
-	} else if t.board[vertex] == EMPTY && t.weights.Get(WHITE, vertex) == 0 {
-		t.applyPattern(vertex, false)
+	} else if t.weights.Get(WHITE, vertex) == 0 {
+		t.weights.Set(WHITE, vertex, INIT_WEIGHT)
+		t.applyPattern(vertex)
 	}
 }
 
@@ -372,6 +375,8 @@ func (t *GoTracker) Playout(color byte) {
 		t.Play(color, vertex)
 		if t.config.VeryVerbose {
 			log.Println(t.String())
+			log.Println(t.weightboard(BLACK))
+			log.Println(t.weightboard(WHITE))
 		}
 		if t.config.Verify {
 			t.Verify()
@@ -387,23 +392,40 @@ func (t *GoTracker) Playout(color byte) {
 		log.Println(t.String())
 		log.Println("winner: ", Ctoa(t.Winner()))
 	}
+	t.CheckNoMoreLegal()
 	t.superko = true
 }
 
-func (t *GoTracker) applyPattern(vertex int, do_suicide_check bool) {
+func (t *GoTracker) applyPattern(vertex int) {
 	if t.config.Pat {
 		if t.board[vertex] != EMPTY {
 			for i := 0; i < 4; i++ {
 				adj := t.adj[vertex][i]
 				if adj != -1 && t.board[adj] == EMPTY {
-					t.applyPattern(adj, do_suicide_check)
+					t.applyPattern(adj)
 				}
 			}
 		} else {
-			changed := t.config.matcher.Apply(BLACK, vertex, t) || t.config.matcher.Apply(WHITE, vertex, t)
-			if changed && do_suicide_check {
-				t.check_suicide(vertex)
+			black_weight := t.weights.Get(BLACK, vertex)
+			if black_weight != 0 {
+				weight := t.config.matcher.Apply(BLACK, vertex, t)
+				if math.IsNaN(weight) {
+					black_weight = 0
+				} else if black_weight + int(weight) > 0 {
+					black_weight += int(weight)
+				}
 			}
+			t.weights.Set(BLACK, vertex, black_weight)
+			white_weight := t.weights.Get(WHITE, vertex)
+			if white_weight != 0 {
+				weight := t.config.matcher.Apply(WHITE, vertex, t)
+				if math.IsNaN(weight) {
+					white_weight = 0
+				} else if white_weight + int(weight) > 0 {
+					white_weight += int(weight)
+				}
+			}
+			t.weights.Set(WHITE, vertex, white_weight)
 		}
 	}
 }
@@ -560,6 +582,32 @@ func (t *GoTracker) Verify() {
 					log.Println(t.Vtoa(root), "should be in atari")
 					panic("not marked as atari")
 				}
+			}
+		}
+	}
+}
+
+func (t *GoTracker) CheckNoMoreLegal() {
+	if t.winner == EMPTY {
+		return
+	}
+	for i := 0; i < t.sqsize; i++ {
+		if t.board[i] == EMPTY {
+			legal_black := t.weights.Get(BLACK, i) != 0
+			legal_white := t.weights.Get(WHITE, i) != 0
+			if legal_black || legal_white {
+				panic(t.Vtoa(i))
+			}
+			for j := 0; j < 4; j++ {
+				if t.adj[i][j] != -1 {
+					adj := find(t.adj[i][j], t.parent)
+					if t.libs(adj) == 1 {
+						panic(t.Vtoa(i))
+					}
+				}
+			}
+			if (!legal_black && t.weights.Get(BLACK, i) != 0) || (!legal_white && t.weights.Get(WHITE, i) != 0) {
+				panic(t.Vtoa(i))
 			}
 		}
 	}
@@ -885,7 +933,7 @@ func (t *GoTracker) weightboard(color byte) (s string) {
 		s += fmt.Sprintf("%d ", t.boardsize-row)
 		for col := 0; col < t.boardsize; col++ {
 			v := row*t.boardsize + col
-			s += fmt.Sprintf("%.2f", t.weights.Prob(color, v))
+			s += fmt.Sprintf("%d", t.weights.Get(color, v))
 			if col != t.boardsize-1 {
 				s += " "
 			}

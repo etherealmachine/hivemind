@@ -47,7 +47,7 @@ func Ctoa(c byte) (s string) {
 	case EMPTY:
 		s = "."
 	case ILLEGAL:
-		s = "x"
+		s = "X"
 	case LEGAL_BLACK:
 		s = "+"
 	case LEGAL_WHITE:

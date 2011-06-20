@@ -5,6 +5,6 @@ if [[ !(-z $1) ]]; then
 fi
 WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 6"
 gogui-twogtp \
-	-black "gogui-display \"$BLACK\"" \
-	-white "$WHITE" \
+	-white "gogui-display \"$BLACK\"" \
+	-black "$WHITE" \
 	-games 1 -size 9 -sgffile gnugo_gfx -auto -komi 6.5

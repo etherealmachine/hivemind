@@ -42,11 +42,11 @@ func (t *WeightTree) Get(color byte, vertex int) int {
 	return t.weights[t.nodes + t.interior + vertex]
 }
 
-func (t *WeightTree) Prob(color byte, vertex int) int {
+func (t *WeightTree) Prob(color byte, vertex int) float64 {
 	if color == BLACK {
-		return t.Get(color, vertex) / t.weights[0]
+		return float64(t.Get(color, vertex)) / float64(t.weights[0])
 	}
-	return t.Get(color, vertex) / t.weights[t.nodes]
+	return float64(t.Get(color, vertex)) / float64(t.weights[t.nodes])
 }
 
 func (t *WeightTree) Rand(color byte) int {

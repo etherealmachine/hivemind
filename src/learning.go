@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"container/vector"
+	"json"
 )
 
 type Swarm struct {
@@ -26,9 +27,9 @@ type Swarm struct {
 func NewSwarm(config *Config) *Swarm {
 	var min, max, vmax float64
 	if config.Pat {
-		min = 0
+		min = -10
 		max = 10
-		vmax = 5
+		vmax = 10
 	} else if config.Eval {
 		min = 0
 		max = 1
@@ -159,6 +160,9 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, result byte) {
 			break
 		}
 	}
+	if result != EMPTY {
+		t.(*GoTracker).CheckNoMoreLegal()
+	}
 	return moves, result
 }
 
@@ -180,16 +184,21 @@ func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, result byte) {
 		vertex := moves.At(i)
 		t.Play(color, vertex)
 		if vertex != -1 {
-			cp := t.Copy()
-			cp.Playout(Reverse(color))
-			if cp.Winner() == result {
-				fitness += discount
+			for j := 0; j < 100; j++ {
+				cp := t.Copy()
+				cp.Playout(Reverse(color))
+				if cp.Winner() == result {
+					fitness += discount
+				}
+				if s.config.Verify && cp.Winner() != EMPTY {
+					cp.(*GoTracker).CheckNoMoreLegal()
+				}
 			}
 		}
 		color = Reverse(color)
 		discount *= gamma
 	}
-	p.Fitness += fitness / float64(moves.Len())
+	p.Fitness += fitness / float64(moves.Len() * 100)
 }
 
 /**
@@ -447,10 +456,32 @@ func Train(config *Config) {
 	}
 	s.games = new(vector.Vector)
 	s.results = new(vector.Vector)
-	for i := uint(0); i < s.Samples; i++ {
+	f, err := os.OpenFile("games.json", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { f.Close() }()
+	decoder := json.NewDecoder(f)
+	for {
+		var game map[string]interface{}
+		err := decoder.Decode(&game)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		moves := new(vector.IntVector)
+		for i := range game["moves"].([]interface{}) {
+			moves.Push(int(game["moves"].([]interface{})[i].(float64)))
+		}
+		s.games.Push(moves)
+		s.results.Push(byte(game["result"].(float64)))
+	}
+	encoder := json.NewEncoder(f)
+	for uint(s.games.Len()) < s.Samples {
 		game, result := s.playOneGame()
 		s.games.Push(game)
 		s.results.Push(result)
+		encoder.Encode(map[string]interface{} {"moves": game, "result": result})
 	}
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()

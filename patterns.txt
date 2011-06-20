@@ -1,49 +1,49 @@
 . b b
-b 0 b
+b NaN b
 b b b
 B
 
 b b b
-b 0 b
+b NaN b
 b b b
 B
 
 w b b
-b 0 b
+b NaN b
 b b b
 B
 
 . w w
-w 0 w
+w NaN w
 w w w
 W
 
 b w w
-w 0 w
+w NaN w
 w w w
 W
 
 w w w
-w 0 w
+w NaN w
 w w w
 W
 
 x b b
-x 0 b
+x NaN b
 x b b
 B
 
 x w w
-x 0 w
+x NaN w
 x w w
 W
 
 x x x
-x 0 b
+x NaN b
 x b b
 B
 
 x x x
-x 0 w
+x NaN w
 x w w
 W

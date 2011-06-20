@@ -12,7 +12,7 @@ const (
 )
 
 type PatternMatcher interface {
-	Apply(color byte, vertex int, t Tracker) bool
+	Apply(color byte, vertex int, t Tracker) float64
 }
 
 type ComboMatcher struct {
@@ -20,25 +20,22 @@ type ComboMatcher struct {
 	learned *Particle
 }
 
-func (m *ComboMatcher) Apply(color byte, vertex int, t Tracker) bool {
+func (m *ComboMatcher) Apply(color byte, vertex int, t Tracker) float64 {
 	board := t.Board()
 	neighbors := t.Neighbors(vertex, 2)
 	hash := NeighborhoodHash(color, board, neighbors, 11)
 	weight, exists := m.expert[hash]
 	if !exists && m.learned != nil {
-		weight = m.learned.Get(hash)
-	} else if !exists {
-		return false
+		return m.learned.Get(hash)
 	}
-	t.(*GoTracker).weights.Set(color, vertex, int(weight))
-	return true
+	return weight
 }
 
 func LoadPatternMatcher(config *Config) {
 	if config.Pat && config.Xfile != "" {
-	
+
 		patterns := make(map[uint32]float64)
-	
+
 		f, err := os.Open(config.Xfile)
 		if err != nil {
 			panic(err)
@@ -54,7 +51,7 @@ func LoadPatternMatcher(config *Config) {
 			line4, err := r.ReadString('\n')
 			r.ReadString('\n')
 			pat, weight := loadTextPattern(line1, line2, line3, line4)
-			patterns[pat] = float64(weight)
+			patterns[pat] = weight
 		}
 		config.expert_patterns = patterns
 		var p *Particle
@@ -65,7 +62,7 @@ func LoadPatternMatcher(config *Config) {
 	}
 }
 
-func loadTextPattern(line1, line2, line3, line4 string) (uint32, int) {
+func loadTextPattern(line1, line2, line3, line4 string) (uint32, float64) {
 	row1 := strings.Split(strings.Trim(line1, "\n"), " ", -1)
 	row2 := strings.Split(strings.Trim(line2, "\n"), " ", -1)
 	row3 := strings.Split(strings.Trim(line3, "\n"), " ", -1)
@@ -88,7 +85,7 @@ func loadTextPattern(line1, line2, line3, line4 string) (uint32, int) {
 			neighbors[i] = i
 		}
 	}
-	weight, _ := strconv.Atoi(strings.Trim(row2[1], "\n"))
+	weight, _ := strconv.Atof64(strings.Trim(row2[1], "\n"))
 	return NeighborhoodHash(color, board, neighbors, 11), weight
 }
 
@@ -148,7 +145,7 @@ func NeighborhoodHash(color byte, board []uint8, neighbors []int, offset int) ui
 	if hash, exists := hash_cache[h1]; exists {
 		return hash
 	}
-	h2 := get_hash(color, offset, board, neighbors, []int{0, 3, 6, 1, 4, 5, 2, 5, 8}, reverse)
+	h2 := get_hash(color, offset, board, neighbors, []int{0, 3, 6, 1, 4, 7, 2, 5, 8}, reverse)
 	if hash, exists := hash_cache[h2]; exists {
 		return hash
 	}
