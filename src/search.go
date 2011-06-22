@@ -234,7 +234,7 @@ func (root *Node) step(t Tracker) {
 // add all legal children to node
 func (node *Node) expand(t Tracker) {
 	color := Reverse(node.Color)
-	for i := 0; i < t.Sqsize(); i++ {
+	for i := -1; i < t.Sqsize(); i++ {
 		if t.Legal(color, i) {
 			child := NewNode(node, color, i)
 			if node.Child == nil {

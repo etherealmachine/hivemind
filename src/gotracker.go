@@ -382,7 +382,7 @@ func (t *GoTracker) Playout(color byte) {
 			t.Verify()
 		}
 		move++
-		if move > 3*t.sqsize || t.Winner() != EMPTY {
+		if move > 2*t.sqsize || t.Winner() != EMPTY {
 			break
 		}
 		color = Reverse(color)
@@ -455,6 +455,9 @@ func (t *GoTracker) playHeuristicMove(color byte) int {
 }
 
 func (t *GoTracker) WasPlayed(color byte, vertex int) bool {
+	if vertex == -1 {
+		return false
+	}
 	return t.played[vertex] == color
 }
 
@@ -471,7 +474,7 @@ func (t *GoTracker) Legal(color byte, vertex int) bool {
 			}
 		}
 	}
-	return t.weights.Get(color, vertex) != 0
+	return vertex == -1 || t.weights.Get(color, vertex) != 0
 }
 
 func (t *GoTracker) Score(komi float64) (float64, float64) {

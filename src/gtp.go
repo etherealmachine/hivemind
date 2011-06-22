@@ -194,7 +194,7 @@ func GTP(config *Config) {
 				if book != nil {
 					book = book.Play(color, vertex, t)
 				}
-				if vertex == -1 && config.Hex && t.Winner() == Reverse(color) {
+				if game_over && t.Winner() == Reverse(color) {
 					res = "resign"
 				} else {
 					res = t.Vtoa(vertex)

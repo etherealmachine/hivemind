@@ -150,7 +150,7 @@ func (t *HexTracker) WasPlayed(color byte, vertex int) bool {
 }
 
 func (t *HexTracker) Legal(color byte, vertex int) bool {
-	return t.board[vertex] == EMPTY
+	return vertex != -1 && t.board[vertex] == EMPTY
 }
 
 func (t *HexTracker) Score(Komi float64) (float64, float64) {

@@ -7,8 +7,13 @@ import (
 	"strings"
 )
 
+/*
+	ToDo: create masks for each point/occupation in neighborhood, OR in masks to
+	create full hash.
+*/
+
 const (
-	INIT_WEIGHT = int(5)
+	INIT_WEIGHT = int(50)
 )
 
 type PatternMatcher interface {
