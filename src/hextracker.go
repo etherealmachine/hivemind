@@ -115,7 +115,9 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		// cannot play on occupied vertex
 		t.weights.Set(BLACK, vertex, 0)
 		t.weights.Set(WHITE, vertex, 0)
-		t.updateWeights(vertex)
+		if t.config.policy_weights != nil {
+			t.updateWeights(vertex)
+		}
 		
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
@@ -155,10 +157,7 @@ func (t *HexTracker) updateWeights(vertex int) {
 
 func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
 	hash := hex_min_hash[hex_hash(color, t.board, t.neighbors[1][vertex])]
-	if t.config.policy_weights != nil {
-		return t.config.policy_weights.Get(hash)
-	}
-	return 0
+	return t.config.policy_weights.Get(hash)
 }
 
 func (t *HexTracker) Playout(color byte) {
