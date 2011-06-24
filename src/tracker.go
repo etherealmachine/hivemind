@@ -12,6 +12,7 @@ const (
 	UP_RIGHT   = 1
 	DOWN_LEFT  = 4
 	DOWN_RIGHT = 5
+	INIT_WEIGHT = 50
 )
 
 var SIDE_UP int
@@ -34,11 +35,11 @@ type Tracker interface {
 	Board() []byte
 	Territory(color byte) []float64
 	Verify()
-	Neighbors(vertex int, Size int) []int
 	Adj(vertex int) []int
 	String() string
 	Vtoa(vertex int) string
 	Atov(s string) int
+	WeightString() string
 }
 
 func NewTracker(config *Config) Tracker {

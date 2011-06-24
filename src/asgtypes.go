@@ -11,8 +11,8 @@ const (
 	EMPTY       = byte(0)
 	BLACK       = byte(1)
 	WHITE       = byte(2)
-	BOTH        = byte(3)
-	ILLEGAL     = byte(4)
+	ILLEGAL     = byte(3)
+	BOTH        = byte(4)
 	LEGAL_BLACK = byte(5)
 	LEGAL_WHITE = byte(6)
 	LEGAL_BOTH  = byte(7)
@@ -249,9 +249,6 @@ func Version(config *Config) string {
 	}
 	if config.Seed {
 		version += "_seed"
-	}
-	if config.Pat {
-		version += "_pat"
 	}
 	if config.Eval {
 		version += "_eval"

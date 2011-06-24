@@ -5,6 +5,7 @@ type BoardEvaluator interface {
 }
 
 func (p *Particle) Eval(color byte, t Tracker) float64 {
+	/*
 	b := t.Board()
 	sum := 0.0
 	for v := range b {
@@ -13,6 +14,9 @@ func (p *Particle) Eval(color byte, t Tracker) float64 {
 		sum += p.Get(NeighborhoodHash(color, b, t.Neighbors(v, 2), 11))
 	}
 	return sum / (3 * float64(t.Sqsize()))
+	*/
+	panic("unsupported")
+	return -1
 }
 
 func LoadBoardEvaluator(config *Config) {

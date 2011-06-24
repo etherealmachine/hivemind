@@ -46,7 +46,6 @@ type Config struct {
 
 	// Module options
 	Eval   bool
-	Pat    bool
 	
 	// Load/save different modules
 	Prefix string
@@ -71,6 +70,7 @@ type Config struct {
 	VeryVerbose bool
 	Verify  bool
 	Profile  bool
+	PrintWeights  bool
 	Lfile   string
 
 	// private flag, used to load config from json file
@@ -78,9 +78,8 @@ type Config struct {
 	
 	// private fields, set by Bfile, Pfile and Efile
 	book      *Node
-	matcher   PatternMatcher
+	policy_weights   *Particle
 	evaluator BoardEvaluator
-	expert_patterns map[uint32]float64
 }
 
 func NewConfig() *Config {
@@ -117,13 +116,11 @@ func NewConfig() *Config {
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
 	
 	flag.BoolVar(&config.Eval, "eval", false, "Use evaluator")
-	flag.BoolVar(&config.Pat, "pat", false, "Use patterns")
 	
 	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
 	flag.StringVar(&config.Efile, "efile", "", "Load evaluator from file")
-	flag.StringVar(&config.Pfile, "pfile", "", "Load pattern matcher from file")
-	flag.StringVar(&config.Xfile, "xfile", "", "Load expert patterns from file")
+	flag.StringVar(&config.Pfile, "pfile", "", "Load policy weights from file")
 	flag.StringVar(&config.Bfile, "bfile", "", "Load book from file")
 	flag.StringVar(&config.cfile, "cfile", "", "Load config from file")
 
@@ -139,6 +136,7 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose logging")
 	flag.BoolVar(&config.VeryVerbose, "vvv", false, "Very verbose logging")
 	flag.BoolVar(&config.Verify, "vv", false, "Verify correctness of playout")
+	flag.BoolVar(&config.PrintWeights, "printweights", false, "Print weights to file")
 	flag.BoolVar(&config.Profile, "profile", false, "Profile CPU")
 	flag.StringVar(&config.Lfile, "log", "", "Log to filename")
 
@@ -149,7 +147,9 @@ func NewConfig() *Config {
 	}
 	
 	LoadBook(config)
-	LoadPatternMatcher(config)
+	if config.Pfile != "" {
+		config.policy_weights = LoadBest(config.Pfile, config)
+	}
 	LoadBoardEvaluator(config)
 
 	if !(config.Go || config.Hex) {

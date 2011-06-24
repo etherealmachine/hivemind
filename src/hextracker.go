@@ -1,10 +1,10 @@
 package main
 
 import (
-	"container/vector"
 	"strings"
 	"strconv"
 	"fmt"
+	"log"
 )
 
 type HexTracker struct {
@@ -13,10 +13,11 @@ type HexTracker struct {
 	parent                                    []int
 	rank                                      []int
 	board                                     []byte
-	empty                                     *vector.IntVector
+	weights                                   *WeightTree
 	winner                                    byte
 	played                                    []byte
 	adj                                       []int
+	neighbors                                 [][][]int
 	config                                    *Config
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
@@ -27,6 +28,7 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.boardsize = config.Size
 	t.sqsize = t.boardsize * t.boardsize
 	t.adj = hex_adj[t.boardsize]
+	t.neighbors = hex_neighbors[t.boardsize]
 	t.SIDE_UP = t.sqsize
 	t.SIDE_DOWN = t.sqsize + 1
 	t.SIDE_LEFT = t.sqsize + 2
@@ -34,15 +36,18 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.board = make([]byte, t.sqsize)
 	t.parent = make([]int, t.sqsize+4)
 	t.rank = make([]int, t.sqsize+4)
-	t.empty = new(vector.IntVector)
+	t.weights = NewWeightTree(t.sqsize)
 	// initialize union-find data structure
-	for i := 0; i < t.sqsize+4; i++ {
+	for i := 0; i < t.sqsize + 4; i++ {
 		t.parent[i] = i
 		if i < t.sqsize {
 			t.rank[i] = 1
-			t.empty.Push(i)
 		} else {
 			t.rank[i] = t.sqsize
+		}
+		if i < t.sqsize {
+			t.weights.Set(BLACK, i, INIT_WEIGHT)
+			t.weights.Set(WHITE, i, INIT_WEIGHT)
 		}
 	}
 
@@ -60,6 +65,7 @@ func (t *HexTracker) Copy() Tracker {
 
 	cp.boardsize = t.boardsize
 	cp.adj = t.adj
+	cp.neighbors = t.neighbors
 	cp.SIDE_UP = t.SIDE_UP
 	cp.SIDE_DOWN = t.SIDE_DOWN
 	cp.SIDE_LEFT = t.SIDE_LEFT
@@ -71,8 +77,7 @@ func (t *HexTracker) Copy() Tracker {
 	copy(cp.parent, t.parent)
 	copy(cp.rank, t.rank)
 	copy(cp.board, t.board)
-	cp.empty = new(vector.IntVector)
-	*cp.empty = t.empty.Copy()
+	cp.weights = t.weights.Copy()
 
 	cp.winner = t.winner
 
@@ -107,42 +112,74 @@ func (t *HexTracker) Play(color byte, vertex int) {
 			}
 		}
 		t.board[vertex] = color
-		// remove vertex from empty
-		if t.empty.Len() > 0 && t.empty.Last() == vertex {
-			t.empty.Pop()
-		}
-
+		// cannot play on occupied vertex
+		t.weights.Set(BLACK, vertex, 0)
+		t.weights.Set(WHITE, vertex, 0)
+		t.updateWeights(vertex)
+		
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
 		}
 	}
 }
 
+func (t *HexTracker) updateWeights(vertex int) {
+	if t.board[vertex] != EMPTY {
+		for i := range t.neighbors[1][vertex] {
+			neighbor := t.neighbors[1][vertex][i]
+			if neighbor != -1 && t.board[neighbor] == EMPTY {
+				t.updateWeights(neighbor)
+			}
+		}
+	} else {
+		black_weight := t.weights.Get(BLACK, vertex)
+		if black_weight != 0 {
+			weight := t.get_pattern_weight(BLACK, vertex)
+			black_weight = int(float64(black_weight) * weight)
+			if black_weight == 0 {
+				black_weight = 1
+			}
+		}
+		t.weights.Set(BLACK, vertex, black_weight)
+		white_weight := t.weights.Get(WHITE, vertex)
+		if white_weight != 0 {
+			weight := t.get_pattern_weight(WHITE, vertex)
+			white_weight = int(float64(white_weight) * weight)
+			if white_weight == 0 {
+				white_weight = 1
+			}
+		}
+		t.weights.Set(WHITE, vertex, white_weight)
+	}
+}
+
+func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
+	hash := hex_min_hash[hex_hash(color, t.board, t.neighbors[1][vertex])]
+	if t.config.policy_weights != nil {
+		return t.config.policy_weights.Get(hash)
+	}
+	return 0
+}
+
 func (t *HexTracker) Playout(color byte) {
-	shuffle(t.empty)
 	for {
-		vertex := -1
-		if vertex == -1 {
-			vertex = t.randLegal(color)
+		vertex := t.weights.Rand(color)
+		if t.config.VeryVerbose {
+			log.Println(Ctoa(color) + t.Vtoa(vertex))
 		}
 		t.Play(color, vertex)
+		if t.config.VeryVerbose {
+			log.Println(t.String())
+		}
 		if t.winner != EMPTY {
+			if t.config.VeryVerbose {
+				log.Println("FINAL: " + Ctoa(t.winner))
+			}
 			return
 		}
 		color = Reverse(color)
 	}
 	panic("should never happen")
-}
-
-func (t *HexTracker) randLegal(color byte) int {
-	for i := t.empty.Len() - 1; i >= 0; i-- {
-		v := t.empty.At(i)
-		if t.Legal(color, v) {
-			return v
-		}
-		t.empty.Delete(i)
-	}
-	return -1
 }
 
 func (t *HexTracker) WasPlayed(color byte, vertex int) bool {
@@ -203,10 +240,6 @@ func (t *HexTracker) Adj(vertex int) []int {
 	return t.adj[vertex*6 : (vertex+1)*6]
 }
 
-func (t *HexTracker) Neighbors(vertex int, Size int) []int {
-	return hex_neighbors[t.boardsize][Size][vertex]
-}
-
 func (t *HexTracker) Vtoa(v int) string {
 	if v == -1 {
 		return "PASS"
@@ -238,10 +271,7 @@ func (t *HexTracker) Atov(s string) int {
 }
 
 func (t *HexTracker) String() (s string) {
-	s += " "
-	if t.boardsize > 9 {
-		s += " "
-	}
+	s += "   "
 	for col := 0; col < t.boardsize; col++ {
 		alpha := col + 'A'
 		if alpha >= 'I' {
@@ -271,9 +301,7 @@ func (t *HexTracker) String() (s string) {
 		}
 	}
 	s += "\n  "
-	if t.boardsize > 9 {
-		s += " "
-	}
+
 	for i := 0; i < t.boardsize; i++ {
 		s += " "
 	}
@@ -290,8 +318,36 @@ func (t *HexTracker) String() (s string) {
 	return
 }
 
+func (t *HexTracker) WeightString() string {
+	s := ""
+	for hash, weight := range t.config.policy_weights.Position {
+		color := BLACK
+		if hash & 0x80000000 != 0 {
+			color = WHITE
+		}
+		board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
+		for i := 0; i < 7; i++ {
+			mask := hash & (1<<uint32(2*i) | 1<<uint32((2*i)+1))
+			if mask == hex_hash_mask[i][BLACK] {
+				board[i] = BLACK
+			} else if mask == hex_hash_mask[i][WHITE] {
+				board[i] = WHITE
+			} else if mask == hex_hash_mask[i][ILLEGAL] {
+				board[i] = ILLEGAL
+			}
+		}
+		s += fmt.Sprintf("%.3f\n", weight)
+		s += fmt.Sprintf(" %s %s\n", Ctoa(board[0]), Ctoa(board[1]))
+		s += fmt.Sprintf("%s %s %s\n", Ctoa(board[5]), Ctoa(color), Ctoa(board[2]))
+		s += fmt.Sprintf(" %s %s\n", Ctoa(board[4]), Ctoa(board[3]))
+	}
+	return s
+}
+
 var hex_adj map[int][]int
 var hex_neighbors map[int][][][]int
+var hex_min_hash map[uint32]uint32
+var hex_hash_mask [7][4]uint32
 
 func init() {
 	hex_adj = make(map[int][]int)
@@ -300,6 +356,51 @@ func init() {
 		setup_hex_adj(boardsize)
 		setup_hex_neighbors(boardsize)
 	}
+	hex_hash_mask = [7][4]uint32{
+		[4]uint32{
+			0x00000000,
+			0x00000001,
+			0x00000002,
+			0x00000003,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000004,
+			0x00000008,
+			0x0000000C,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000010,
+			0x00000020,
+			0x00000030,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000040,
+			0x00000080,
+			0x000000C0,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000100,
+			0x00000200,
+			0x00000300,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000400,
+			0x00000800,
+			0x00000C00,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00001000,
+			0x00002000,
+			0x00003000,
+		},
+	}
+	setup_hex_min_hash()
 }
 
 func setup_hex_adj(boardsize int) {
@@ -346,56 +447,127 @@ func setup_hex_adj(boardsize int) {
 	}
 }
 
-func setup_hex_neighbors(Size int) {
-	hex_neighbors[Size] = make([][][]int, 3)
-	hex_neighbors[Size][0] = make([][]int, Size*Size)
-	hex_neighbors[Size][1] = make([][]int, Size*Size)
-	hex_neighbors[Size][2] = make([][]int, Size*Size)
+func setup_hex_neighbors(size int) {
+	hex_neighbors[size] = make([][][]int, 2)
+	hex_neighbors[size][0] = make([][]int, size*size)
+	hex_neighbors[size][1] = make([][]int, size*size)
 
-	Neighbors := make([][]int, Size*Size)
-	for vertex := 0; vertex < Size*Size; vertex++ {
-		hex_neighbors[Size][0][vertex] = []int{vertex}
+	neighbors := make([][]int, size*size)
+	for vertex := 0; vertex < size*size; vertex++ {
 		v2 := vertex + 1
-		v3 := vertex + Size
-		v4 := vertex + Size + 1
-		if (vertex+1)%Size == 0 {
+		v3 := vertex + size
+		v4 := vertex + size + 1
+		if (vertex+1) % size == 0 {
 			v2 = -1
 			v4 = -1
 		}
-		if vertex >= (Size*Size)-Size {
+		if vertex >= (size * size) - size {
 			v3 = -1
 			v4 = -1
 		}
-		hex_neighbors[Size][1][vertex] = []int{vertex, v2, v3, v4}
+		hex_neighbors[size][0][vertex] = []int{vertex, v2, v3, v4}
 
-		Neighbors[vertex] = make([]int, 7)
-		Neighbors[vertex][0] = vertex - Size
-		Neighbors[vertex][1] = vertex - Size + 1
-		Neighbors[vertex][2] = vertex + 1
-		Neighbors[vertex][3] = vertex + Size
-		Neighbors[vertex][4] = vertex + Size - 1
-		Neighbors[vertex][5] = vertex - 1
-		Neighbors[vertex][6] = vertex
-		if vertex%Size == 0 {
+		neighbors[vertex] = make([]int, 7)
+		neighbors[vertex][0] = vertex - size
+		neighbors[vertex][1] = vertex - size + 1
+		neighbors[vertex][2] = vertex + 1
+		neighbors[vertex][3] = vertex + size
+		neighbors[vertex][4] = vertex + size - 1
+		neighbors[vertex][5] = vertex - 1
+		neighbors[vertex][6] = vertex
+		if vertex % size == 0 {
 			// left
-			Neighbors[vertex][4] = -1
-			Neighbors[vertex][5] = -1
+			neighbors[vertex][4] = -1
+			neighbors[vertex][5] = -1
 		}
-		if (vertex+1)%Size == 0 {
+		if (vertex+1) % size == 0 {
 			// right
-			Neighbors[vertex][1] = -1
-			Neighbors[vertex][2] = -1
+			neighbors[vertex][1] = -1
+			neighbors[vertex][2] = -1
 		}
-		if vertex < Size {
+		if vertex < size {
 			// top
-			Neighbors[vertex][0] = -1
-			Neighbors[vertex][1] = -1
+			neighbors[vertex][0] = -1
+			neighbors[vertex][1] = -1
 		}
-		if vertex >= (Size*Size)-Size {
+		if vertex >= (size * size) - size {
 			// bottom
-			Neighbors[vertex][3] = -1
-			Neighbors[vertex][4] = -1
+			neighbors[vertex][3] = -1
+			neighbors[vertex][4] = -1
 		}
 	}
-	hex_neighbors[Size][2] = Neighbors
+	hex_neighbors[size][1] = neighbors
+}
+
+func setup_hex_min_hash() {
+	hex_min_hash = make(map[uint32]uint32)
+	symmetries := [][]int{
+		[]int{0, 1, 2, 3, 4, 5, 6},
+		[]int{1, 2, 3, 4, 5, 0, 6},
+		[]int{2, 3, 4, 5, 0, 1, 6},
+		[]int{3, 4, 5, 0, 1, 2, 6},
+		[]int{4, 5, 0, 1, 2, 3, 6},
+		[]int{5, 0, 1, 2, 3, 4, 6},
+	}
+	board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
+	var a, b, c, d, e, f, g byte
+	for a = 0; a <= 3; a++ {
+		board[0] = a
+		for b = 0; b <= 3; b++ {
+			board[1] = b
+			for c = 0; c <= 3; c++ {
+				board[2] = c
+				for d = 0; d <= 3; d++ {
+					board[3] = d
+					for e = 0; e <= 3; e++ {
+						board[4] = e
+						for f = 0; f <= 3; f++ {
+							board[5] = f
+							for g = 0; g <= 3; g++ {
+								board[6] = g
+								black_min_hash := ^uint32(0)
+								white_min_hash := ^uint32(0)
+								for x := range symmetries {
+									black_hash := hex_hash(BLACK, board, symmetries[x])
+									if black_hash < black_min_hash {
+										black_min_hash = black_hash
+									}
+									white_hash := hex_hash(WHITE, board, symmetries[x])
+									if white_hash < white_min_hash {
+										white_min_hash = white_hash
+									}
+								}
+								for x := range symmetries {
+									black_hash := hex_hash(BLACK, board, symmetries[x])
+									white_hash := hex_hash(WHITE, board, symmetries[x])
+									hex_min_hash[black_hash] = black_min_hash
+									hex_min_hash[white_hash] = white_min_hash
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func hex_hash(color byte, board []byte, neighbors []int) uint32 {
+	var hash uint32
+	if color == WHITE {
+		hash = 1<<31
+	} else {
+		hash = 0
+	}
+	illegal := 0
+	for j := range neighbors {
+		neighbor := neighbors[j]
+		if neighbor == -1 {
+			hash |= hex_hash_mask[j][ILLEGAL]
+			illegal++
+		} else {
+			hash |= hex_hash_mask[j][board[neighbor]]
+		}
+	}
+	return hash
 }

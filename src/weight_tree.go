@@ -90,7 +90,12 @@ func (t *WeightTree) update(node int, root int, weight int, old_weight int) {
 	if node == 0 {
 		return
 	}
-	parent := int(math.Floor((float64(node) - 1) / 2))
+	var parent int
+	if node % 2 == 0 {
+		parent = (node - 2) / 2
+	} else {
+		parent = (node - 1) / 2
+	}
 	t.update(parent, root, weight, old_weight)
 }
 

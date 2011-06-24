@@ -1,7 +1,7 @@
 #!/bin/bash
 	BLACK="$HOME/code/gogo/gogo -gtp -go -stats -gfx -t 20 -c 0.44 -k 550 -cutoff 0.2 -log gogo.log -var -amaf"
 if [[ !(-z $1) ]]; then
-	BLACK="$BLACK -pat -xfile $1 -pfile $2"
+	BLACK="$BLACK -pfile $1"
 fi
 WHITE="$HOME/code/gnugo-3.8/interface/gnugo --mode gtp --capture-all-dead --chinese-rules --never-resign --level 6"
 gogui-twogtp \

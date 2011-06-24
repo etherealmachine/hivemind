@@ -23,13 +23,14 @@ type GoTracker struct {
 	liberties      [][2]uint64
 	board          []byte
 	weights        *WeightTree
-	atari          map[byte]map[int]int
+	atari          []map[int]int
 	komi           float64
 	koVertex       int
 	koColor        byte
 	played         []byte
 	adj            [][]int
 	mask           [][4]uint64
+	neighbors      [][][]int
 	passes         int
 	winner         byte
 	superko        bool
@@ -46,6 +47,7 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 	t.boardsize = config.Size
 	t.adj = go_adj[config.Size]
 	t.mask = masks[config.Size]
+	t.neighbors = go_neighbors[config.Size]
 	t.sqsize = config.Size * config.Size
 
 	t.parent = make([]int, t.sqsize)
@@ -53,7 +55,7 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 	t.liberties = make([][2]uint64, t.sqsize)
 	t.board = make([]byte, t.sqsize)
 	t.weights = NewWeightTree(t.sqsize)
-	t.atari = make(map[byte]map[int]int)
+	t.atari = make([]map[int]int, 3)
 	t.atari[BLACK] = make(map[int]int)
 	t.atari[WHITE] = make(map[int]int)
 	t.played = make([]byte, t.sqsize)
@@ -87,13 +89,14 @@ func (t *GoTracker) Copy() Tracker {
 	cp.boardsize = t.boardsize
 	cp.adj = t.adj
 	cp.mask = t.mask
+	cp.neighbors = t.neighbors
 	cp.sqsize = t.sqsize
 	cp.parent = make([]int, cp.sqsize)
 	cp.rank = make([]int, cp.sqsize)
 	cp.liberties = make([][2]uint64, cp.sqsize)
 	cp.board = make([]byte, cp.sqsize)
 	cp.weights = t.weights.Copy()
-	cp.atari = make(map[byte]map[int]int)
+	cp.atari = make([]map[int]int, 3)
 	cp.atari[BLACK] = make(map[int]int)
 	cp.atari[WHITE] = make(map[int]int)
 	copy(cp.parent, t.parent)
@@ -261,15 +264,14 @@ func (t *GoTracker) Play(color byte, vertex int) {
 		}
 		
 		// apply patterns
-		t.applyPattern(vertex)
-		neighbors := go_neighbors[t.boardsize][2][vertex]
+		neighbors := t.neighbors[1][vertex]
 		for i := range neighbors {
 			if neighbors[i] != -1  && t.board[neighbors[i]] == EMPTY {
-				t.applyPattern(neighbors[i])
+				t.updateWeights(neighbors[i])
 			}
 		}
 		for i := 0; captured != nil && i < captured.Len(); i++ {
-			t.applyPattern(captured.At(i))
+			t.updateWeights(captured.At(i))
 		}
 
 		// mark vertex as played for AMAF
@@ -314,13 +316,13 @@ func (t *GoTracker) check_suicide(vertex int) {
 		t.weights.Set(BLACK, vertex, 0)
 	} else if t.weights.Get(BLACK, vertex) == 0 {
 		t.weights.Set(BLACK, vertex, INIT_WEIGHT)
-		t.applyPattern(vertex)
+		t.updateWeights(vertex)
 	}
 	if suicide_white {
 		t.weights.Set(WHITE, vertex, 0)
 	} else if t.weights.Get(WHITE, vertex) == 0 {
 		t.weights.Set(WHITE, vertex, INIT_WEIGHT)
-		t.applyPattern(vertex)
+		t.updateWeights(vertex)
 	}
 }
 
@@ -392,41 +394,41 @@ func (t *GoTracker) Playout(color byte) {
 		log.Println(t.String())
 		log.Println("winner: ", Ctoa(t.Winner()))
 	}
-	t.CheckNoMoreLegal()
+	if t.config.Verify {
+		t.CheckNoMoreLegal()
+	}
 	t.superko = true
 }
 
-func (t *GoTracker) applyPattern(vertex int) {
-	if t.config.Pat {
-		if t.board[vertex] != EMPTY {
-			for i := 0; i < 4; i++ {
-				adj := t.adj[vertex][i]
-				if adj != -1 && t.board[adj] == EMPTY {
-					t.applyPattern(adj)
-				}
+func (t *GoTracker) updateWeights(vertex int) {
+	if t.board[vertex] != EMPTY {
+		for i := 0; i < 4; i++ {
+			adj := t.adj[vertex][i]
+			if adj != -1 && t.board[adj] == EMPTY {
+				t.updateWeights(adj)
 			}
-		} else {
-			black_weight := t.weights.Get(BLACK, vertex)
-			if black_weight != 0 {
-				weight := t.config.matcher.Apply(BLACK, vertex, t)
-				if math.IsNaN(weight) {
-					black_weight = 0
-				} else if black_weight + int(weight) > 0 {
-					black_weight += int(weight)
-				}
-			}
-			t.weights.Set(BLACK, vertex, black_weight)
-			white_weight := t.weights.Get(WHITE, vertex)
-			if white_weight != 0 {
-				weight := t.config.matcher.Apply(WHITE, vertex, t)
-				if math.IsNaN(weight) {
-					white_weight = 0
-				} else if white_weight + int(weight) > 0 {
-					white_weight += int(weight)
-				}
-			}
-			t.weights.Set(WHITE, vertex, white_weight)
 		}
+	} else {
+		black_weight := t.weights.Get(BLACK, vertex)
+		if black_weight != 0 {
+			weight := t.get_weight(BLACK, vertex)
+			if math.IsNaN(weight) {
+				black_weight = 0
+			} else if black_weight + int(weight) > 0 {
+				black_weight += int(weight)
+			}
+		}
+		t.weights.Set(BLACK, vertex, black_weight)
+		white_weight := t.weights.Get(WHITE, vertex)
+		if white_weight != 0 {
+			weight := t.get_weight(WHITE, vertex)
+			if math.IsNaN(weight) {
+				white_weight = 0
+			} else if white_weight + int(weight) > 0 {
+				white_weight += int(weight)
+			}
+		}
+		t.weights.Set(WHITE, vertex, white_weight)
 	}
 }
 
@@ -528,10 +530,6 @@ func (t *GoTracker) Board() []byte {
 
 func (t *GoTracker) Adj(vertex int) []int {
 	return go_adj[t.boardsize][vertex]
-}
-
-func (t *GoTracker) Neighbors(vertex int, size int) []int {
-	return go_neighbors[t.boardsize][size][vertex]
 }
 
 func (t *GoTracker) Territory(color byte) []float64 {
@@ -687,8 +685,8 @@ func (t *GoTracker) String() (s string) {
 	return
 }
 
-func (t *GoTracker) SuperKo(superko bool) {
-	t.superko = superko
+func (t *GoTracker) WeightString() string {
+	return ""
 }
 
 func (t *GoTracker) dead() []int {
@@ -715,6 +713,19 @@ func (t *GoTracker) dead() []int {
 		stones[i] = dead.At(i)
 	}
 	return stones
+}
+
+// assuming vertex is empty, return new weight for black to play at vertex
+// this weight will be added to the old weight (or subtracted, for negative weights),
+// and floored at 1
+// returning NaN will immediately set the probability of playing at vertex to zero
+func (t *GoTracker) get_weight(color byte, vertex int) float64 {
+	hash := go_min_hash[go_hash(color, t.board, t.neighbors[1][vertex])]
+	weight, exists := go_expert_policy_weights[hash]
+	if !exists && t.config.policy_weights != nil {
+		return t.config.policy_weights.Get(hash)
+	}
+	return weight
 }
 
 func (t *GoTracker) libs(vertex int) uint {
@@ -926,7 +937,7 @@ func (t *GoTracker) weightboard(color byte) (s string) {
 		if alpha >= 'I' {
 			alpha++
 		}
-		s += string(alpha)
+		s += " " + string(alpha) + " "
 		if col != t.boardsize-1 {
 			s += " "
 		}
@@ -936,7 +947,7 @@ func (t *GoTracker) weightboard(color byte) (s string) {
 		s += fmt.Sprintf("%d ", t.boardsize-row)
 		for col := 0; col < t.boardsize; col++ {
 			v := row*t.boardsize + col
-			s += fmt.Sprintf("%d", t.weights.Get(color, v))
+			s += fmt.Sprintf("%3.d", t.weights.Get(color, v))
 			if col != t.boardsize-1 {
 				s += " "
 			}
@@ -971,6 +982,9 @@ func (t *GoTracker) weightboard(color byte) (s string) {
 var masks map[int][][4]uint64
 var go_adj map[int][][]int
 var go_neighbors map[int][][][]int
+var go_expert_policy_weights map[uint32]float64
+var go_min_hash map[uint32]uint32
+var go_hash_mask [9][4]uint32
 
 func init() {
 	go_adj = make(map[int][][]int)
@@ -979,7 +993,66 @@ func init() {
 	for boardsize := 4; boardsize <= 19; boardsize++ {
 		setup_go(boardsize)
 	}
+	go_hash_mask = [9][4]uint32{
+		[4]uint32{
+			0x00000000,
+			0x00000001,
+			0x00000002,
+			0x00000003,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000004,
+			0x00000008,
+			0x0000000D,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000010,
+			0x00000020,
+			0x00000030,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000040,
+			0x00000080,
+			0x000000D0,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000100,
+			0x00000200,
+			0x00000300,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00000400,
+			0x00000800,
+			0x00000D00,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00001000,
+			0x00002000,
+			0x00003000,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00004000,
+			0x00008000,
+			0x0000D000,
+		},
+		[4]uint32{
+			0x00000000,
+			0x00010000,
+			0x00020000,
+			0x00030000,
+		},
+	}
+	setup_go_min_hash()
+	setup_go_expert_policy_weights()
 }
+
 func setup_go(size int) {
 	masks[size] = make([][4]uint64, size*size)
 	for i := 0; i < len(masks[size]); i++ {
@@ -1037,9 +1110,7 @@ func setup_go_neighbors(size int) {
 	go_neighbors[size] = make([][][]int, 3)
 	go_neighbors[size][0] = make([][]int, size*size)
 	go_neighbors[size][1] = make([][]int, size*size)
-	go_neighbors[size][2] = make([][]int, size*size)
 	for vertex := 0; vertex < size*size; vertex++ {
-		go_neighbors[size][0][vertex] = []int{vertex}
 		v2 := vertex + 1
 		v3 := vertex + size
 		v4 := vertex + size + 1
@@ -1051,13 +1122,13 @@ func setup_go_neighbors(size int) {
 			v3 = -1
 			v4 = -1
 		}
-		go_neighbors[size][1][vertex] = []int{vertex, v2, v3, v4}
+		go_neighbors[size][0][vertex] = []int{vertex, v2, v3, v4}
 		set_go_neighbors(size, vertex)
 	}
 }
 
 func set_go_neighbors(size int, vertex int) {
-	neighbors := go_neighbors[size][2]
+	neighbors := go_neighbors[size][1]
 	neighbors[vertex] = make([]int, 9)
 	neighbors[vertex][0] = vertex - size - 1
 	neighbors[vertex][1] = vertex - size
@@ -1092,4 +1163,148 @@ func set_go_neighbors(size int, vertex int) {
 		neighbors[vertex][7] = -1
 		neighbors[vertex][8] = -1
 	}
+}
+
+func setup_go_min_hash() {
+	go_min_hash = make(map[uint32]uint32)
+	symmetries := [][]int{
+		[]int{0, 1, 2, 3, 4, 5, 6, 7, 8},
+		[]int{0, 3, 6, 1, 4, 7, 2, 5, 8},
+		[]int{2, 1, 0, 5, 4, 3, 8, 7, 6},
+		[]int{6, 3, 0, 7, 4, 1, 8, 5, 2},
+		[]int{8, 7, 6, 5, 4, 3, 2, 1, 0},
+		[]int{8, 5, 2, 7, 4, 1, 6, 3, 0},
+		[]int{6, 7, 8, 3, 4, 5, 0, 1, 2},
+		[]int{2, 5, 8, 1, 4, 7, 0, 3, 6},
+	}
+	board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
+	var a, b, c, d, e, f, g, h, i byte
+	for a = 0; a <= 3; a++ {
+		board[0] = a
+		for b = 0; b <= 3; b++ {
+			board[1] = b
+			for c = 0; c <= 3; c++ {
+				board[2] = c
+				for d = 0; d <= 3; d++ {
+					board[3] = d
+					for e = 0; e <= 3; e++ {
+						board[4] = e
+						for f = 0; f <= 3; f++ {
+							board[5] = f
+							for g = 0; g <= 3; g++ {
+								board[6] = g
+								for h = 0; h <= 3; h++ {
+									board[7] = h
+									for i = 0; i <= 3; i++ {
+										board[8] = i
+										black_min_hash := ^uint32(0)
+										white_min_hash := ^uint32(0)
+										for x := range symmetries {
+											black_hash := go_hash(BLACK, board, symmetries[x])
+											if black_hash < black_min_hash {
+												black_min_hash = black_hash
+											}
+											white_hash := go_hash(WHITE, board, symmetries[x])
+											if white_hash < white_min_hash {
+												white_min_hash = white_hash
+											}
+										}
+										for x := range symmetries {
+											black_hash := go_hash(BLACK, board, symmetries[x])
+											white_hash := go_hash(WHITE, board, symmetries[x])
+											go_min_hash[black_hash] = black_min_hash
+											go_min_hash[white_hash] = white_min_hash
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func setup_go_expert_policy_weights() {
+	go_expert_policy_weights = make(map[uint32]float64)
+	neighbors := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	board := []byte{
+		EMPTY, BLACK, BLACK,
+		BLACK, EMPTY, BLACK,
+		BLACK, BLACK, BLACK,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(BLACK, board, neighbors)]] = math.NaN()
+	board = []byte{
+		WHITE, BLACK, BLACK,
+		BLACK, EMPTY, BLACK,
+		BLACK, BLACK, BLACK,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(BLACK, board, neighbors)]] = math.NaN()
+	board = []byte{
+		BLACK, BLACK, BLACK,
+		BLACK, EMPTY, BLACK,
+		BLACK, BLACK, BLACK,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(BLACK, board, neighbors)]] = math.NaN()
+	board = []byte{
+		ILLEGAL, BLACK, BLACK,
+		ILLEGAL, EMPTY, BLACK,
+		ILLEGAL, BLACK, BLACK,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(BLACK, board, neighbors)]] = math.NaN()
+	board = []byte{
+		ILLEGAL, ILLEGAL, ILLEGAL,
+		ILLEGAL, EMPTY, BLACK,
+		ILLEGAL, BLACK, BLACK,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(BLACK, board, neighbors)]] = math.NaN()
+	board = []byte{
+		EMPTY, WHITE, WHITE,
+		WHITE, EMPTY, WHITE,
+		WHITE, WHITE, WHITE,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(WHITE, board, neighbors)]] = math.NaN()
+	board = []byte{
+		BLACK, WHITE, WHITE,
+		WHITE, EMPTY, WHITE,
+		WHITE, WHITE, WHITE,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(WHITE, board, neighbors)]] = math.NaN()
+	board = []byte{
+		WHITE, WHITE, WHITE,
+		WHITE, EMPTY, WHITE,
+		WHITE, WHITE, WHITE,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(WHITE, board, neighbors)]] = math.NaN()
+	board = []byte{
+		ILLEGAL, WHITE, WHITE,
+		ILLEGAL, EMPTY, WHITE,
+		ILLEGAL, WHITE, WHITE,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(WHITE, board, neighbors)]] = math.NaN()
+	board = []byte{
+		ILLEGAL, ILLEGAL, ILLEGAL,
+		ILLEGAL, EMPTY, WHITE,
+		ILLEGAL, WHITE, WHITE,
+	}
+	go_expert_policy_weights[go_min_hash[go_hash(WHITE, board, neighbors)]] = math.NaN()
+}
+
+func go_hash(color byte, board []byte, neighbors []int) uint32 {
+	var hash uint32
+	if color == WHITE {
+		hash = 1<<31
+	} else {
+		hash = 0
+	}
+	for j := range neighbors {
+		neighbor := neighbors[j]
+		if neighbor == -1 {
+			hash |= go_hash_mask[j][ILLEGAL]
+		} else {
+			hash |= go_hash_mask[j][board[neighbor]]
+		}
+	}
+	return hash
 }

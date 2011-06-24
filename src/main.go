@@ -70,5 +70,8 @@ func main() {
 		if config.Verbose {
 			log.Println(config.book.String(0, 2, t))
 		}
+	} else if config.PrintWeights {
+		t := NewTracker(config)
+		log.Println(t.WeightString())
 	}
 }

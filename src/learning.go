@@ -26,10 +26,10 @@ type Swarm struct {
 
 func NewSwarm(config *Config) *Swarm {
 	var min, max, vmax float64
-	if config.Pat {
-		min = -10
-		max = 10
-		vmax = 10
+	if !config.Eval {
+		min = 0.001
+		max = 2.0
+		vmax = 1.0
 	} else if config.Eval {
 		min = 0
 		max = 1
@@ -76,6 +76,7 @@ func NewParticle(swarm *Swarm, min, max, vMax float64) *Particle {
 	p.Velocity = make(map[uint32]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
+	p.Fitness = math.MaxFloat64
 	return p
 }
 
@@ -160,7 +161,7 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
 }
 
 func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, evals *vector.Vector, games int) int {
-	s.config.matcher = &ComboMatcher{s.config.expert_patterns, p}
+	s.config.policy_weights = p
 	t := NewTracker(s.config)
 	color := BLACK
 	samples := 0
@@ -173,7 +174,7 @@ func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, evals *vector.Vec
 		t.Play(color, vertex)
 		if vertex != -1 {
 			wins := 0
-			for j := 0; j < 100; j++ {
+			for j := 0; j < 1000; j++ {
 				cp := t.Copy()
 				cp.Playout(Reverse(color))
 				if cp.Winner() == color {
@@ -250,15 +251,6 @@ func (s *Swarm) ESStep() {
 Particle swarm update
 */
 func (s *Swarm) PSStep() {
-	for j := 0; j < s.games.Len(); j++ {
-		s.evaluate(s.GBest, s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
-		s.GBest.Fitness /= 2
-		for i := uint(0); i < s.Mu; i++ {
-			s.evaluate(s.Particles[i].PBest, s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
-			s.Particles[i].PBest.Fitness /= 2
-		}
-	}
-
 	for i := uint(0); i < s.Mu; i++ {
 		s.update_particle(i)
 	}
@@ -276,14 +268,14 @@ func (s *Swarm) update_particle(i uint) {
 }
 
 func (s *Swarm) update_gbest(i uint) {
-	if s.Particles[i].Fitness > s.GBest.Fitness {
+	if s.Particles[i].Fitness < s.GBest.Fitness {
 		log.Printf("updated gbest, old: %.2f, new: %.2f\n", s.GBest.Fitness, s.Particles[i].Fitness)
 		s.GBest = s.Particles[i].Copy()
 	}
 }
 
 func (s *Swarm) update_pbest(i uint) {
-	if s.Particles[i].Fitness > s.Particles[i].PBest.Fitness {
+	if s.Particles[i].Fitness < s.Particles[i].PBest.Fitness {
 		log.Printf("updated pbest of particle %d, old: %.2f, new: %.2f\n", i, s.Particles[i].PBest.Fitness, s.Particles[i].Fitness)
 		s.Particles[i].PBest = s.Particles[i].Copy()
 	}
