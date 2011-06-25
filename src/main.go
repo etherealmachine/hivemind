@@ -7,7 +7,6 @@ import (
 	"log"
 	"rand"
 	"time"
-	"runtime/pprof"
 )
 
 func main() {
@@ -29,19 +28,6 @@ func main() {
 	log.SetPrefix("")
 	log.SetOutput(f)
 	
-	if config.Profile {
-		f, err := os.Create("cpu.pprof")
-		if err != nil {
-			panic(err)
-		}
-		defer func() { f.Close() }()
-		err = pprof.StartCPUProfile(f)
-		if err != nil {
-			panic(err)
-		}
-		defer func() { pprof.StopCPUProfile() }()
-	}
-	
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)
@@ -61,8 +47,6 @@ func main() {
 		t := NewTracker(config)
 		root := NewRoot(BLACK, t, config)
 		genmove(root, t)
-	} else if config.Speed {
-		SpeedTest(config)
 	} else if config.Book {
 		t := NewTracker(config)
 		genmove(config.book, t)

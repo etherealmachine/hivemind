@@ -181,7 +181,7 @@ func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, evals *vector.Vec
 					wins++
 				}
 			}
-			err := mean - (float64(wins) / 100.0)
+			err := mean - (float64(wins) / 1000.0)
 			err = err * err
 			p.Fitness += err
 			samples++

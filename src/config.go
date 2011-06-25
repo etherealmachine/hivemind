@@ -11,7 +11,6 @@ type Config struct {
 	Help  bool
 	Gtp   bool
 	Test  bool
-	Speed bool
 	Book  bool
 	SGF string
 
@@ -69,7 +68,6 @@ type Config struct {
 	Verbose bool
 	VeryVerbose bool
 	Verify  bool
-	Profile  bool
 	PrintWeights  bool
 	Lfile   string
 
@@ -88,7 +86,6 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Help, "h", false, "Print this usage message")
 	flag.BoolVar(&config.Gtp, "gtp", false, "Listen on stdin for GTP commands")
 	flag.BoolVar(&config.Test, "test", false, "Just generate a single move")
-	flag.BoolVar(&config.Speed, "pps", false, "Gather data on the playouts per second")
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 	flag.BoolVar(&config.Book, "book", false, "Make opening book")
 
@@ -137,7 +134,6 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.VeryVerbose, "vvv", false, "Very verbose logging")
 	flag.BoolVar(&config.Verify, "vv", false, "Verify correctness of playout")
 	flag.BoolVar(&config.PrintWeights, "printweights", false, "Print weights to file")
-	flag.BoolVar(&config.Profile, "profile", false, "Profile CPU")
 	flag.StringVar(&config.Lfile, "log", "", "Log to filename")
 
 	flag.Parse()

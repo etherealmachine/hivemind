@@ -606,29 +606,3 @@ func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 	}
 	return
 }
-
-func SpeedTest(config *Config) {
-	t := NewTracker(config)
-	playoutTime := int64(0)
-	start := time.Nanoseconds()
-	var elapsed int64
-	i := 0
-	for {
-		cp := t.Copy()
-		start1 := time.Nanoseconds()
-		cp.Playout(BLACK)
-		i++
-		end1 := time.Nanoseconds()
-		playoutTime += end1 - start1
-		elapsed = time.Nanoseconds() - start
-		if config.Timelimit == -1 && i >= int(config.MaxPlayouts) {
-			break
-		}
-		if config.Timelimit != -1 && float64(elapsed)/1e9 >= float64(config.Timelimit) {
-			break
-		}
-	}
-	pps := float64(i) / (float64(elapsed) / 1e9)
-	fmt.Printf("%d playouts in %.2f s, %.2f pps\n", i, float64(elapsed)/1e9, pps)
-	fmt.Printf("percent spent in playout: %.2f\n", float64(playoutTime)/float64(elapsed))
-}
