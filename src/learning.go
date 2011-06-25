@@ -174,14 +174,14 @@ func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, evals *vector.Vec
 		t.Play(color, vertex)
 		if vertex != -1 {
 			wins := 0
-			for j := 0; j < 1000; j++ {
+			for j := 0; j < 200; j++ {
 				cp := t.Copy()
 				cp.Playout(Reverse(color))
 				if cp.Winner() == color {
 					wins++
 				}
 			}
-			err := mean - (float64(wins) / 1000.0)
+			err := mean - (float64(wins) / 200.0)
 			err = err * err
 			p.Fitness += err
 			samples++
@@ -258,11 +258,13 @@ func (s *Swarm) PSStep() {
 
 func (s *Swarm) update_particle(i uint) {
 	s.Particles[i].Fitness = 0
+	log.Printf("evaluating %d\n", i)
+	samples := 0
 	for j := 0; j < s.games.Len(); j++ {
-		log.Printf("evaluating %d/%d\n", i, s.Lambda)
-		s.evaluate(s.Particles[i], s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
-		log.Printf("fitness of %d: %.2f\n", i, s.Particles[i].Fitness)
+		samples += s.evaluate(s.Particles[i], s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
 	}
+	s.Particles[i].Fitness /= float64(samples)
+	log.Printf("fitness of %d: %.2f\n", i, s.Particles[i].Fitness)
 	s.update_gbest(i)
 	s.update_pbest(i)
 }
