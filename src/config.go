@@ -10,7 +10,6 @@ type Config struct {
 	// Modes
 	Help  bool
 	Gtp   bool
-	Test  bool
 	Book  bool
 	SGF string
 
@@ -70,6 +69,9 @@ type Config struct {
 	Verify  bool
 	PrintWeights  bool
 	Lfile   string
+	
+	// Used by cluster to store game history
+	Moves []int
 
 	// private flag, used to load config from json file
 	cfile  string
@@ -85,7 +87,6 @@ func NewConfig() *Config {
 
 	flag.BoolVar(&config.Help, "h", false, "Print this usage message")
 	flag.BoolVar(&config.Gtp, "gtp", false, "Listen on stdin for GTP commands")
-	flag.BoolVar(&config.Test, "test", false, "Just generate a single move")
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 	flag.BoolVar(&config.Book, "book", false, "Make opening book")
 

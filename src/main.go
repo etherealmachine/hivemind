@@ -28,6 +28,8 @@ func main() {
 	log.SetPrefix("")
 	log.SetOutput(f)
 	
+	//GoCluster()
+	
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)
@@ -43,10 +45,6 @@ func main() {
 		fmt.Println(t.String())
 	} else if config.Train {
 		Train(config)
-	} else if config.Test {
-		t := NewTracker(config)
-		root := NewRoot(BLACK, t, config)
-		genmove(root, t)
 	} else if config.Book {
 		t := NewTracker(config)
 		genmove(config.book, t)
@@ -58,4 +56,5 @@ func main() {
 		t := NewTracker(config)
 		log.Println(t.WeightString())
 	}
+	<-shutdown
 }

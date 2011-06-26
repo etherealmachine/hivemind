@@ -15,6 +15,7 @@ gotracker.go\
 hextracker.go\
 sgf.go\
 weight_tree.go\
+cluster.go\
 main.go
 
 include $(GOROOT)/src/Make.cmd
