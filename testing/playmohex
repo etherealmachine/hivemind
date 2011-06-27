@@ -1,6 +1,6 @@
 #!/bin/bash
 MOHEX="$HOME/code/benzene-0.9.0/src/mohex/mohex"
-GOGO="$HOME/code/gogo/gogo -gtp -t=10 -var -amaf -k=550 -hex -pfile $1"
+GOGO="$HOME/code/gogo/src/gogo -gtp -p=100000 -var -amaf -k=550 -hex -pfile $1"
 function play {
 	BLACK=$GOGO
 	WHITE=$MOHEX

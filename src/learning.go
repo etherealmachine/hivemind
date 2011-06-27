@@ -19,7 +19,6 @@ type Swarm struct {
 	Generation    uint
 	Particles     Particles
 	GBest         *Particle
-	games         *vector.Vector
 	evals         *vector.Vector
 	config        *Config
 }
@@ -36,10 +35,10 @@ func NewSwarm(config *Config) *Swarm {
 		vmax = 0.5
 	}
 	if config.ESswarm && config.Mu >= config.Lambda {
-		panic("illegal argument to NewSwarm - mu must be less than lambda")
+		panic("ES swarm: mu must be less than lambda")
 	}
-	if config.Parents > config.Mu {
-		panic("illegal argument to NewSwarm - parents must be less than or equal to mu")
+	if config .ESswarm && config.Parents > config.Mu {
+		panic("ES swarm: parents must be less than or equal to mu")
 	}
 	s := new(Swarm)
 	s.config = config
@@ -160,35 +159,26 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
 	return moves, evals
 }
 
-func (s *Swarm) evaluate(p *Particle, moves *vector.IntVector, evals *vector.Vector, games int) int {
+func (s *Swarm) evaluate(p *Particle, eval Eval) {
 	s.config.policy_weights = p
 	t := NewTracker(s.config)
 	color := BLACK
-	samples := 0
-	for i := 0; i < moves.Len(); i++ {
-		vertex := moves.At(i)
-		mean := evals.At(i).(float64)
-		if mean == -1 {
-			break
-		}
-		t.Play(color, vertex)
-		if vertex != -1 {
-			wins := 0
-			for j := 0; j < 200; j++ {
-				cp := t.Copy()
-				cp.Playout(Reverse(color))
-				if cp.Winner() == color {
-					wins++
-				}
-			}
-			err := mean - (float64(wins) / 200.0)
-			err = err * err
-			p.Fitness += err
-			samples++
-		}
+	for i := range eval.Moves {
+		t.Play(color, eval.Moves[i])
 		color = Reverse(color)
 	}
-	return samples
+	t.Play(color, eval.Next)
+	wins := 0
+	for j := 0; j < 1000; j++ {
+		cp := t.Copy()
+		cp.Playout(Reverse(color))
+		if cp.Winner() == color {
+			wins++
+		}
+	}
+	err := eval.Mean - (float64(wins) / 1000.0)
+	err = err * err
+	p.Fitness += err
 }
 
 /**
@@ -228,12 +218,12 @@ func (s *Swarm) ESStep() {
 	for i := uint(0); i < s.Lambda; i++ {
 		samples := 0
 		log.Printf("evaluating %d/%d\n", i, s.Lambda)
-		for j := 0; j < s.games.Len(); j++ {
-			log.Printf("\tgame %d/%d\n", j, s.games.Len())
-			samples += s.evaluate(children[i], s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
+		for j := 0; j < s.evals.Len(); j++ {
+			log.Printf("\tgame %d/%d\n", j, s.evals.Len())
+			s.evaluate(children[i], s.evals.At(j).(Eval))
 		}
-		children[i].Fitness /= float64(samples)
-		log.Printf("fitness of %d: %f (%d samples)\n", i, children[i].Fitness, samples)
+		children[i].Fitness /= float64(s.evals.Len())
+		log.Printf("fitness of %d: %.4f (%d samples)\n", i, children[i].Fitness, samples)
 	}
 
 	// select mu parents from either children (,) or children + parents (+)
@@ -259,26 +249,25 @@ func (s *Swarm) PSStep() {
 func (s *Swarm) update_particle(i uint) {
 	s.Particles[i].Fitness = 0
 	log.Printf("evaluating %d\n", i)
-	samples := 0
-	for j := 0; j < s.games.Len(); j++ {
-		samples += s.evaluate(s.Particles[i], s.games.At(j).(*vector.IntVector), s.evals.At(j).(*vector.Vector), s.games.Len())
+	for j := 0; j < s.evals.Len(); j++ {
+		s.evaluate(s.Particles[i], s.evals.At(j).(Eval))
 	}
-	s.Particles[i].Fitness /= float64(samples)
-	log.Printf("fitness of %d: %.2f\n", i, s.Particles[i].Fitness)
+	s.Particles[i].Fitness /= float64(s.evals.Len())
+	log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	s.update_gbest(i)
 	s.update_pbest(i)
 }
 
 func (s *Swarm) update_gbest(i uint) {
 	if s.Particles[i].Fitness < s.GBest.Fitness {
-		log.Printf("updated gbest, old: %.2f, new: %.2f\n", s.GBest.Fitness, s.Particles[i].Fitness)
+		log.Printf("updated gbest, old: %.4f, new: %.4f\n", s.GBest.Fitness, s.Particles[i].Fitness)
 		s.GBest = s.Particles[i].Copy()
 	}
 }
 
 func (s *Swarm) update_pbest(i uint) {
 	if s.Particles[i].Fitness < s.Particles[i].PBest.Fitness {
-		log.Printf("updated pbest of particle %d, old: %.2f, new: %.2f\n", i, s.Particles[i].PBest.Fitness, s.Particles[i].Fitness)
+		log.Printf("updated pbest of particle %d, old: %.4f, new: %.4f\n", i, s.Particles[i].PBest.Fitness, s.Particles[i].Fitness)
 		s.Particles[i].PBest = s.Particles[i].Copy()
 	}
 }
@@ -438,36 +427,20 @@ func Train(config *Config) {
 	if config.Sfile != "" {
 		s.LoadSwarm(config.Sfile, config)
 	}
-	s.games = new(vector.Vector)
 	s.evals = new(vector.Vector)
-	f, err := os.OpenFile("games.json", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	f, err := os.OpenFile("evals.json", os.O_RDONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
 	defer func() { f.Close() }()
 	decoder := json.NewDecoder(f)
 	for {
-		var game map[string]interface{}
-		err := decoder.Decode(&game)
+		var eval Eval
+		err := decoder.Decode(&eval)
 		if err != nil {
-			log.Println(err)
 			break
 		}
-		moves := new(vector.IntVector)
-		evals := new(vector.Vector)
-		for i := range game["moves"].([]interface{}) {
-			moves.Push(int(game["moves"].([]interface{})[i].(float64)))
-			evals.Push(game["evals"].([]interface{})[i].(float64))
-		}
-		s.games.Push(moves)
-		s.evals.Push(evals)
-	}
-	encoder := json.NewEncoder(f)
-	for uint(s.games.Len()) < s.Samples {
-		moves, evals := s.playOneGame()
-		s.games.Push(moves)
-		s.evals.Push(evals)
-		encoder.Encode(map[string]interface{} {"moves": moves, "evals": evals})
+		s.evals.Push(eval)
 	}
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
@@ -478,7 +451,7 @@ func Train(config *Config) {
 		}
 		s.Generation++
 		s.SaveSwarm()
-		log.Printf("generation %d/%d, best: %.2f, took %d seconds",
+		log.Printf("generation %d/%d, best: %.4f, took %d seconds",
 			s.Generation, s.config.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)
 	}
