@@ -1,7 +1,7 @@
 #!/bin/sh
-gogui-twogtp -auto -size 11 \
+gogui-twogtp -auto -size 13 \
 	-black \
-	"$HOME/code/gogo/gogo -gtp -t 5 -k 1000 -hex -amaf -eval -efile $1 -e 10 -stats" \
+	"$HOME/code/gogo/src/gogo -gtp -t 5 -k 550 -hex -var -amaf -pfile $1" \
 	-white \
-	"$HOME/code/gogo/gogo -gtp -t 5 -k 1000 -hex -amaf -e 50" \
-	-verbose -games 10 -sgffile selfplay -openings openings11 -alternate
+	"$HOME/code/gogo/src/gogo -gtp -t 5 -k 550 -hex -var -amaf" \
+	-verbose -games 1 -sgffile selfplay -openings openings13 -alternate

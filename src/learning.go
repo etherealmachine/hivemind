@@ -11,6 +11,7 @@ import (
 	"log"
 	"container/vector"
 	"json"
+	"github.com/ajstarks/svgo"
 )
 
 type Swarm struct {
@@ -19,6 +20,7 @@ type Swarm struct {
 	Generation    uint
 	Particles     Particles
 	GBest         *Particle
+	GBestGen      uint
 	evals         *vector.Vector
 	config        *Config
 }
@@ -27,8 +29,8 @@ func NewSwarm(config *Config) *Swarm {
 	var min, max, vmax float64
 	if !config.Eval {
 		min = 0.001
-		max = 2.0
-		vmax = 1.0
+		max = 10.0
+		vmax = 5.0
 	} else if config.Eval {
 		min = 0
 		max = 1
@@ -61,6 +63,7 @@ type Particle struct {
 	Velocity       map[uint32]float64
 	Min, Max, VMax float64
 	PBest          *Particle
+	PBestGen       uint
 	Fitness        float64
 	swarm          *Swarm
 }
@@ -159,7 +162,15 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
 	return moves, evals
 }
 
-func (s *Swarm) evaluate(p *Particle, eval Eval) {
+func (s *Swarm) evaluate(p *Particle) {
+	p.Fitness = 0
+	for i := 0; i < s.evals.Len(); i++ {
+		s.eval(p, s.evals.At(i).(*Eval))
+	}
+	p.Fitness /= float64(s.evals.Len())
+}
+
+func (s *Swarm) eval(p *Particle, eval *Eval) {
 	s.config.policy_weights = p
 	t := NewTracker(s.config)
 	color := BLACK
@@ -169,14 +180,14 @@ func (s *Swarm) evaluate(p *Particle, eval Eval) {
 	}
 	t.Play(color, eval.Next)
 	wins := 0
-	for j := 0; j < 1000; j++ {
+	for j := 0; j < 10; j++ {
 		cp := t.Copy()
 		cp.Playout(Reverse(color))
 		if cp.Winner() == color {
 			wins++
 		}
 	}
-	err := eval.Mean - (float64(wins) / 1000.0)
+	err := eval.Mean - (float64(wins) / 10.0)
 	err = err * err
 	p.Fitness += err
 }
@@ -210,20 +221,12 @@ func (s *Swarm) ESStep() {
 	// propagate the 2 last best particles without change
 	children[0] = s.Particles[0].Copy()
 	children[1] = s.Particles[1].Copy()
-	for i := uint(0); i < s.Lambda; i++ {
-		children[i].Fitness = 0
-	}
 
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := uint(0); i < s.Lambda; i++ {
-		samples := 0
 		log.Printf("evaluating %d/%d\n", i, s.Lambda)
-		for j := 0; j < s.evals.Len(); j++ {
-			log.Printf("\tgame %d/%d\n", j, s.evals.Len())
-			s.evaluate(children[i], s.evals.At(j).(Eval))
-		}
-		children[i].Fitness /= float64(s.evals.Len())
-		log.Printf("fitness of %d: %.4f (%d samples)\n", i, children[i].Fitness, samples)
+		s.evaluate(children[i])
+		log.Printf("fitness of %d: %.4f\n", i, children[i].Fitness)
 	}
 
 	// select mu parents from either children (,) or children + parents (+)
@@ -232,7 +235,7 @@ func (s *Swarm) ESStep() {
 	for i := uint(0); i < s.Mu; i++ {
 		s.Particles[i] = children[i]
 	}
-	if s.Particles[0].Fitness > s.GBest.Fitness {
+	if s.Particles[0].Fitness < s.GBest.Fitness {
 		s.GBest = s.Particles[0].Copy()
 	}
 }
@@ -247,28 +250,42 @@ func (s *Swarm) PSStep() {
 }
 
 func (s *Swarm) update_particle(i uint) {
+	s.ps_update(s.Particles[i])
 	s.Particles[i].Fitness = 0
 	log.Printf("evaluating %d\n", i)
-	for j := 0; j < s.evals.Len(); j++ {
-		s.evaluate(s.Particles[i], s.evals.At(j).(Eval))
-	}
-	s.Particles[i].Fitness /= float64(s.evals.Len())
+	s.evaluate(s.Particles[i])
 	log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	s.update_gbest(i)
 	s.update_pbest(i)
 }
 
 func (s *Swarm) update_gbest(i uint) {
+	if s.Generation - s.GBestGen > 10 {
+		log.Println("re-evaluating gbest")
+		old_fitness := s.GBest.Fitness
+		s.evaluate(s.GBest)
+		s.GBest.Fitness += old_fitness
+		s.GBest.Fitness /= 2.0
+	}
 	if s.Particles[i].Fitness < s.GBest.Fitness {
 		log.Printf("updated gbest, old: %.4f, new: %.4f\n", s.GBest.Fitness, s.Particles[i].Fitness)
 		s.GBest = s.Particles[i].Copy()
+		s.GBestGen = s.Generation
 	}
 }
 
 func (s *Swarm) update_pbest(i uint) {
+	if s.Generation - s.Particles[i].PBestGen > 10 {
+		log.Printf("re-evaluating pbest %d\n", i)
+		old_fitness := s.Particles[i].PBest.Fitness
+		s.evaluate(s.Particles[i].PBest)
+		s.Particles[i].PBest.Fitness += old_fitness
+		s.Particles[i].PBest.Fitness /= 2.0
+	}
 	if s.Particles[i].Fitness < s.Particles[i].PBest.Fitness {
 		log.Printf("updated pbest of particle %d, old: %.4f, new: %.4f\n", i, s.Particles[i].PBest.Fitness, s.Particles[i].Fitness)
 		s.Particles[i].PBest = s.Particles[i].Copy()
+		s.Particles[i].PBestGen = s.Generation
 	}
 }
 
@@ -438,9 +455,12 @@ func Train(config *Config) {
 		var eval Eval
 		err := decoder.Decode(&eval)
 		if err != nil {
+			if s.evals.Len() == 0 {
+				panic(err)
+			}
 			break
 		}
-		s.evals.Push(eval)
+		s.evals.Push(&eval)
 	}
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
@@ -455,4 +475,85 @@ func Train(config *Config) {
 			s.Generation, s.config.Generations, s.Best().Fitness,
 			(time.Nanoseconds()-start)/1e9)
 	}
+}
+
+func drawHex(xoff, yoff, width float64, pos int, style1, style2 string, s *svg.SVG) {
+	if style1 == "" {
+		return
+	}
+	c := width
+	a := 0.5 * c
+	b := math.Sin(1.04719755) * c
+	switch pos {
+		case 0:
+		case 1:
+			xoff += 1.5 * c
+			yoff -= b
+		case 2:
+			xoff += 3 * c
+		case 3:
+			xoff += 3 * c
+			yoff += 2 * b
+		case 4:
+			xoff += 1.5 * c
+			yoff += 3 * b
+		case 5:
+			yoff += 2 * b
+		case 6:
+			xoff += 1.5 * c
+			yoff += b
+		}
+	x := []int{int(xoff), int(a + xoff), int(a + c + xoff), int(2 * c + xoff), int(a + c + xoff), int(a + xoff)}
+	y := []int{int(b + yoff), int(yoff), int(yoff), int(b + yoff), int(2 * b + yoff), int(2 * b + yoff)}
+	s.Polygon(x, y, style1)
+	if style2 != "" {
+		s.Circle(int(xoff+c), int(yoff+b), int(width/2), style2)
+	}
+}
+
+func PrintBestWeights(config *Config) {
+	f, err := os.Create(config.Sfile + ".svg")
+	if err != nil {
+		panic(err)
+	}
+	p := LoadBest(config.Sfile, config)
+	s := svg.New(f)
+	if config.Hex {
+		v := new(vector.Vector)
+		a := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
+		for odometer(a, len(a)-1) {
+			hash := hex_hash(BLACK, a, []int{0, 1, 2, 3, 4, 5, 6})
+			if min_hash, exists := hex_min_hash[hash]; a[6] == EMPTY && exists && hash == min_hash {
+				v.Push(mkcp(a))
+			}
+		}
+		w := 20
+		width := 3 * w
+		height := 2 * width
+		s.Start(5 * width, height * v.Len())
+		for i := 0; i < v.Len(); i++ {
+			a = v.At(i).([]byte)
+			x := float64(width) / 2.0
+			y := float64(20 + i * height)
+			for j := range a {
+				s1 := "fill:#d6d6d6;stroke:#464646;stroke-width:2"
+				s2 := ""
+				switch a[j] {
+					case EMPTY:
+					case BLACK:
+						s2 = "fill:black;stroke:black;stroke-width:2"
+					case WHITE:
+						s2 = "fill:white;stroke:black;stroke-width:2"
+					case ILLEGAL:
+						s1 = ""
+				}
+				drawHex(x, y, float64(w), j, s1, s2, s)
+			}
+			black_weight := p.Get(hex_min_hash[hex_hash(BLACK, a, []int{0, 1, 2, 3, 4, 5, 6})])
+			s.Text(int(x)+2*width, int(y)+2*w-10, fmt.Sprintf("B: %f", black_weight), "font-family:monospace")
+			white_weight := p.Get(hex_min_hash[hex_hash(WHITE, a, []int{0, 1, 2, 3, 4, 5, 6})])
+			s.Text(int(x)+2*width, int(y)+2*w+10, fmt.Sprintf("W: %f", white_weight), "font-family:monospace")
+		}
+	}
+	s.End()
 }

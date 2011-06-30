@@ -502,11 +502,11 @@ func setup_hex_min_hash() {
 	hex_min_hash = make(map[uint32]uint32)
 	symmetries := [][]int{
 		[]int{0, 1, 2, 3, 4, 5, 6},
-		[]int{1, 2, 3, 4, 5, 0, 6},
-		[]int{2, 3, 4, 5, 0, 1, 6},
-		[]int{3, 4, 5, 0, 1, 2, 6},
-		[]int{4, 5, 0, 1, 2, 3, 6},
-		[]int{5, 0, 1, 2, 3, 4, 6},
+		//[]int{1, 2, 3, 4, 5, 0, 6},
+		//[]int{2, 3, 4, 5, 0, 1, 6},
+		//[]int{3, 4, 5, 0, 1, 2, 6},
+		//[]int{4, 5, 0, 1, 2, 3, 6},
+		//[]int{5, 0, 1, 2, 3, 4, 6},
 	}
 	board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
 	var a, b, c, d, e, f, g byte

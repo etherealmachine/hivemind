@@ -110,3 +110,22 @@ func shuffle(v *vector.IntVector) {
 		v.Swap(i, rand.Intn(i+1))
 	}
 }
+
+func odometer(a []byte, last int) bool {
+	if last < 0 {
+		return false
+	}
+	if a[last] != WHITE {
+		a[last]++
+	} else {
+		a[last] = EMPTY
+		return odometer(a, last-1)
+	}
+	return true
+}
+
+func mkcp(a []byte) []byte {
+	cp := make([]byte, len(a))
+	copy(cp, a)
+	return cp
+}

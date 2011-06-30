@@ -28,8 +28,6 @@ func main() {
 	log.SetPrefix("")
 	log.SetOutput(f)
 	
-	//GoCluster()
-	
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)
@@ -53,8 +51,8 @@ func main() {
 			log.Println(config.book.String(0, 2, t))
 		}
 	} else if config.PrintWeights {
-		t := NewTracker(config)
-		log.Println(t.WeightString())
+		PrintBestWeights(config)
+		shutdown <- true
 	}
 	<-shutdown
 }
