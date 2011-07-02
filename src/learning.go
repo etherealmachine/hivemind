@@ -180,14 +180,14 @@ func (s *Swarm) eval(p *Particle, eval *Eval) {
 	}
 	t.Play(color, eval.Next)
 	wins := 0
-	for j := 0; j < 10; j++ {
+	for j := 0; j < 100; j++ {
 		cp := t.Copy()
 		cp.Playout(Reverse(color))
 		if cp.Winner() == color {
 			wins++
 		}
 	}
-	err := eval.Mean - (float64(wins) / 10.0)
+	err := eval.Mean - (float64(wins) / 100.0)
 	err = err * err
 	p.Fitness += err
 }

@@ -502,51 +502,28 @@ func setup_hex_min_hash() {
 	hex_min_hash = make(map[uint32]uint32)
 	symmetries := [][]int{
 		[]int{0, 1, 2, 3, 4, 5, 6},
-		//[]int{1, 2, 3, 4, 5, 0, 6},
-		//[]int{2, 3, 4, 5, 0, 1, 6},
-		//[]int{3, 4, 5, 0, 1, 2, 6},
-		//[]int{4, 5, 0, 1, 2, 3, 6},
-		//[]int{5, 0, 1, 2, 3, 4, 6},
+		[]int{1, 0, 5, 4, 3, 2, 6},
+		[]int{3, 4, 5, 0, 1, 2, 6},
+		[]int{4, 3, 2, 1, 0, 5, 6},
 	}
-	board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
-	var a, b, c, d, e, f, g byte
-	for a = 0; a <= 3; a++ {
-		board[0] = a
-		for b = 0; b <= 3; b++ {
-			board[1] = b
-			for c = 0; c <= 3; c++ {
-				board[2] = c
-				for d = 0; d <= 3; d++ {
-					board[3] = d
-					for e = 0; e <= 3; e++ {
-						board[4] = e
-						for f = 0; f <= 3; f++ {
-							board[5] = f
-							for g = 0; g <= 3; g++ {
-								board[6] = g
-								black_min_hash := ^uint32(0)
-								white_min_hash := ^uint32(0)
-								for x := range symmetries {
-									black_hash := hex_hash(BLACK, board, symmetries[x])
-									if black_hash < black_min_hash {
-										black_min_hash = black_hash
-									}
-									white_hash := hex_hash(WHITE, board, symmetries[x])
-									if white_hash < white_min_hash {
-										white_min_hash = white_hash
-									}
-								}
-								for x := range symmetries {
-									black_hash := hex_hash(BLACK, board, symmetries[x])
-									white_hash := hex_hash(WHITE, board, symmetries[x])
-									hex_min_hash[black_hash] = black_min_hash
-									hex_min_hash[white_hash] = white_min_hash
-								}
-							}
-						}
-					}
-				}
+	for board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}; odometer(board, len(board)-1); {
+		black_min_hash := ^uint32(0)
+		white_min_hash := ^uint32(0)
+		for x := range symmetries {
+			black_hash := hex_hash(BLACK, board, symmetries[x])
+			if black_hash < black_min_hash {
+				black_min_hash = black_hash
 			}
+			white_hash := hex_hash(WHITE, board, symmetries[x])
+			if white_hash < white_min_hash {
+				white_min_hash = white_hash
+			}
+		}
+		for x := range symmetries {
+			black_hash := hex_hash(BLACK, board, symmetries[x])
+			white_hash := hex_hash(WHITE, board, symmetries[x])
+			hex_min_hash[black_hash] = black_min_hash
+			hex_min_hash[white_hash] = white_min_hash
 		}
 	}
 }
