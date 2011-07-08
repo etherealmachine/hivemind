@@ -165,30 +165,52 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
 func (s *Swarm) evaluate(p *Particle) {
 	p.Fitness = 0
 	for i := uint(0); i < s.Samples; i++ {
+		var color byte
+		if rand.Float64() < 0.5 {
+			color = BLACK
+		} else {
+			color = WHITE
+		}
 		t := NewTracker(s.config)
 		var br, wr *Node
 		var vertex int
+		move := 0
 		for {
-			s.config.policy_weights = p
-			br = NewRoot(BLACK, t, s.config)
-			genmove(br, t)
-			vertex = br.Best().Vertex
+			if s.config.Hex && s.config.Swapsafe && move == 0 {
+				vertex = (3 * t.Boardsize()) + 1
+			} else {
+				if color == BLACK {
+					s.config.policy_weights = p
+				} else {
+					s.config.policy_weights = nil
+				}
+				br = NewRoot(BLACK, t, s.config)
+				genmove(br, t)
+				vertex = br.Best().Vertex
+			}
 			t.Play(BLACK, vertex)
+			move++
 			if t.Winner() != EMPTY {
 				break
 			}
-			s.config.policy_weights = nil
+			if color == WHITE {
+				s.config.policy_weights = p
+			} else {
+				s.config.policy_weights = nil
+			}
 			wr = NewRoot(WHITE, t, s.config)
 			genmove(wr, t)
 			vertex = wr.Best().Vertex
 			t.Play(WHITE, vertex)
+			move++
 			if t.Winner() != EMPTY {
 				break
 			}
 		}
-		if t.Winner() == BLACK {
+		if t.Winner() == color {
 			p.Fitness++
 		}
+		log.Println(t.String())
 	}
 	p.Fitness /= float64(s.Samples)
 	p.Fitness = 1 - p.Fitness
