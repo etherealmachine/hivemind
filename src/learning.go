@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"log"
 	"container/vector"
-	"json"
+	//"json"
 	"github.com/ajstarks/svgo"
 )
 
@@ -21,7 +21,7 @@ type Swarm struct {
 	Particles     Particles
 	GBest         *Particle
 	GBestGen      uint
-	evals         *vector.Vector
+	//evals         *vector.Vector
 	config        *Config
 }
 
@@ -164,10 +164,41 @@ func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
 
 func (s *Swarm) evaluate(p *Particle) {
 	p.Fitness = 0
+	for i := uint(0); i < s.Samples; i++ {
+		t := NewTracker(s.config)
+		var br, wr *Node
+		var vertex int
+		for {
+			s.config.policy_weights = p
+			br = NewRoot(BLACK, t, s.config)
+			genmove(br, t)
+			vertex = br.Best().Vertex
+			t.Play(BLACK, vertex)
+			if t.Winner() != EMPTY {
+				break
+			}
+			s.config.policy_weights = nil
+			wr = NewRoot(WHITE, t, s.config)
+			genmove(wr, t)
+			vertex = wr.Best().Vertex
+			t.Play(WHITE, vertex)
+			if t.Winner() != EMPTY {
+				break
+			}
+		}
+		if t.Winner() == BLACK {
+			p.Fitness++
+		}
+	}
+	p.Fitness /= float64(s.Samples)
+	p.Fitness = 1 - p.Fitness
+	
+	/*
 	for i := 0; i < s.evals.Len(); i++ {
 		s.eval(p, s.evals.At(i).(*Eval))
 	}
 	p.Fitness /= float64(s.evals.Len())
+	*/
 }
 
 func (s *Swarm) eval(p *Particle, eval *Eval) {
@@ -444,6 +475,7 @@ func Train(config *Config) {
 	if config.Sfile != "" {
 		s.LoadSwarm(config.Sfile, config)
 	}
+	/*
 	s.evals = new(vector.Vector)
 	f, err := os.OpenFile("evals.json", os.O_RDONLY, 0666)
 	if err != nil {
@@ -462,6 +494,7 @@ func Train(config *Config) {
 		}
 		s.evals.Push(&eval)
 	}
+	*/
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
 		if config.ESswarm {
