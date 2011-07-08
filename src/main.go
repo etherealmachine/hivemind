@@ -28,6 +28,13 @@ func main() {
 	log.SetPrefix("")
 	log.SetOutput(f)
 	
+	shutdown := make(chan bool, 1)
+	if config.Cluster {
+		InitCluster(shutdown)
+	} else {
+		shutdown <- true
+	}
+	
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)

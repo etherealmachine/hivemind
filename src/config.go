@@ -12,6 +12,7 @@ type Config struct {
 	Gtp   bool
 	Book  bool
 	SGF string
+	Cluster bool
 
 	// Time limits
 	MaxPlayouts uint
@@ -89,6 +90,7 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Gtp, "gtp", false, "Listen on stdin for GTP commands")
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 	flag.BoolVar(&config.Book, "book", false, "Make opening book")
+	flag.BoolVar(&config.Cluster, "cluster", false, "Start cluster")
 
 	flag.UintVar(&config.MaxPlayouts, "p", 10000, "Max number of playouts")
 	flag.IntVar(&config.Timelimit, "t", -1, "Max number of seconds")

@@ -6,11 +6,8 @@ import (
 	"json"
 )
 
-var shutdown chan bool
-
-func init() {
+func InitCluster(shutdown chan bool) {
 	log.Println("setting up cluster...")
-	shutdown = make(chan bool, 1)
 	subscriptions := make(chan string, 1)
 	subscriptions <- "commands"
 	commands := make(chan redis.Message)
@@ -27,11 +24,11 @@ func init() {
 		client.Subscribe(subscriptions, nil, nil, nil, commands)
 	}()
 	evals := make(chan Config)
-	go listen(commands, evals)
+	go listen(commands, evals, shutdown)
 	go process(evals)
 }
 
-func listen(commands chan redis.Message, evals chan Config) {
+func listen(commands chan redis.Message, evals chan Config, shutdown chan bool) {
 	log.Println("cluster up, listening for commands...")
 	for {
 		command := <-commands
