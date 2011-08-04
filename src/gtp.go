@@ -34,13 +34,13 @@ cboard/Legal/legal
 sboard/Stats/stats`
 
 func known_command(command_name string) string {
-	for _, s := range strings.Split(supported_commands, "\n", -1) {
+	for _, s := range strings.Split(supported_commands, "\n") {
 		if strings.TrimSpace(s) == command_name {
 			return "true"
 		}
 	}
-	for _, s := range strings.Split(gogui_commands, "\n", -1) {
-		if strings.Split(s, "/", -1)[2] == command_name {
+	for _, s := range strings.Split(gogui_commands, "\n") {
+		if strings.Split(s, "/")[2] == command_name {
 			return "true"
 		}
 	}
@@ -78,7 +78,7 @@ func GTP(config *Config) {
 		if err == os.EOF {
 			break
 		}
-		args := strings.Split(s[0:len(s)-1], " ", -1)
+		args := strings.Split(s[0:len(s)-1], " ")
 		var res string
 		var fail bool
 		switch args[0] {

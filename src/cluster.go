@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/hoisie/redis.go"
+	"github.com/etherealmachine/redis.go"
 	"log"
 	"json"
 )
