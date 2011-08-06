@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=gogo
+TARG=hive
 GOFILES=\
 asgtypes.go\
 config.go\

@@ -1,16 +1,19 @@
-competition_type = 'playoff'
+competition_type = "playoff"
 
 board_size = 13
 komi = 0
 
-home_dir="/home/jpettit/code"
-
-swarm_path = home_dir + "/gogo/swarm-1.gob"
+import os
+six = os.path.expanduser("~/code/six-0.5.3/six/gtp") + " beginner"
+hive = os.path.expanduser("~/code/hivemind/src/hive") + " -gtp -t 5 -var -amaf -k 550 -hex -swapsafe"
+pfile = os.path.expanduser("~/code/hivemind/src/swarm.16.gob")
+hive_swarm = os.path.expanduser("~/code/hivemind/src/hive") + " -gtp -t 5 -var -amaf -k 550 -hex -swapsafe -pfile " + pfile
 
 players = {
-		"six" : Player(home_dir + "/six-0.5.3/six/gtp beginner"),
-		"gogo_swarm" : Player(home_dir + "/gogo/gogo -gtp -p=50000 -c=0.5 -e=50 -uct -hex -stats -tablepat -file " + swarm_path),
+		"six" : Player(six),
+		"hive" : Player(hive),
+		"hive_swarm" : Player(hive_swarm),
 		}
 
 matchups = []
-matchups.append(Matchup("six", "gogo_swarm", alternating=True, number_of_games=500))
+matchups.append(Matchup("hive", "hive_swarm", alternating=True, number_of_games=500))

@@ -51,7 +51,6 @@ type Config struct {
 	Bfile  string
 	Efile  string
 	Pfile  string
-	Xfile  string
 	Sfile  string
 
 	// Tree exploration/expansion
@@ -73,6 +72,13 @@ type Config struct {
 	
 	// Used by cluster to store game history
 	Moves []int
+	
+	// Used by cluster to select message type
+	MsgType string
+	
+	// Used by cluster
+	Black_policy_weights   *Particle
+	White_policy_weights   *Particle
 
 	// private flag, used to load config from json file
 	cfile  string

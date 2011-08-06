@@ -23,12 +23,12 @@ func InitCluster(shutdown chan bool) {
 		}()
 		client.Subscribe(subscriptions, nil, nil, nil, commands)
 	}()
-	evals := make(chan Config)
-	go listen(commands, evals, shutdown)
-	go process(evals)
+	configs := make(chan Config)
+	go listen(commands, configs, shutdown)
+	go process(configs)
 }
 
-func listen(commands chan redis.Message, evals chan Config, shutdown chan bool) {
+func listen(commands chan redis.Message, configs chan Config, shutdown chan bool) {
 	log.Println("cluster up, listening for commands...")
 	for {
 		command := <-commands
@@ -40,15 +40,20 @@ func listen(commands chan redis.Message, evals chan Config, shutdown chan bool) 
 			if err := json.Unmarshal(command.Message, &config); err != nil {
 				log.Println(err)
 			}
-			evals <- config
+			configs <- config
 		}
 	}
 }
 
-func process(evals chan Config) {
+func process(configs chan Config) {
 	sem := make(chan int, 4)
-	for config := range evals {
-		go eval(config, sem)
+	for config := range configs {
+		switch config.MsgType {
+			case "eval":
+				go eval(config, sem)
+			case "play":
+				go play(config, sem)
+		}
 	}
 }
 
@@ -75,6 +80,38 @@ func eval(config Config, sem chan int) {
 		}
 	}
 	<-sem
+}
+
+func play(config Config, sem chan int) byte {
+	sem <- 1
+	t := NewTracker(&config)
+	var vertex int
+	for move := 0;; {
+		config.policy_weights = config.Black_policy_weights
+		br := NewRoot(BLACK, t, &config)
+		genmove(br, t)
+		vertex = br.Best().Vertex
+		t.Play(BLACK, vertex)
+		move++
+		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
+			break
+		}
+		config.policy_weights = config.White_policy_weights
+		wr := NewRoot(WHITE, t, &config)
+		genmove(wr, t)
+		vertex = wr.Best().Vertex
+		t.Play(WHITE, vertex)
+		move++
+		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
+			break
+		}
+	}
+	if config.VeryVerbose {
+		log.Println(Ctoa(t.Winner()))
+		log.Println(t.String())
+	}
+	<-sem
+	return t.Winner()
 }
 
 type Eval struct {

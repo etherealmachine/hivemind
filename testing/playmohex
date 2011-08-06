@@ -1,10 +1,8 @@
 #!/bin/bash
 MOHEX="$HOME/code/benzene-0.9.0/src/mohex/mohex"
-GOGO="$HOME/code/gogo/src/gogo -gtp -p=100000 -var -amaf -k=550 -hex -pfile $1"
-function play {
-	BLACK=$GOGO
-	WHITE=$MOHEX
-	gogui-twogtp -auto -size 13 -black "$BLACK" -white "$WHITE" \
-		-games 1 -sgffile mohex -verbose -alternate -openings openings13
-}
-play
+HIVE="$HOME/code/hivemind/src/hive -gtp -p=100000 -seed -neighbors -var -amaf -k=550 -hex -pfile $HOME/code/hivemind/src/swarm.16.gob -stats -log mohex.log"
+BLACK=$HIVE
+WHITE=$MOHEX
+gogui-twogtp \
+	-auto -size 13 -black "$BLACK" -white "$WHITE" \
+	-games 2 -sgffile mohex -verbose -alternate -openings openings13

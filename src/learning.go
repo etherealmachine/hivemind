@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"container/vector"
-	//"json"
 	"github.com/ajstarks/svgo"
 )
 
@@ -21,7 +20,6 @@ type Swarm struct {
 	Particles     Particles
 	GBest         *Particle
 	GBestGen      uint
-	//evals         *vector.Vector
 	config        *Config
 }
 
@@ -78,7 +76,7 @@ func NewParticle(swarm *Swarm, min, max, vMax float64) *Particle {
 	p.Velocity = make(map[uint32]float64)
 	p.VMax = vMax
 	p.PBest = p.Copy()
-	p.Fitness = math.MaxFloat64
+	p.Fitness = 0
 	return p
 }
 
@@ -110,7 +108,7 @@ func (s Particles) Len() int {
 }
 
 func (s Particles) Less(i, j int) bool {
-	return s[i].Fitness < s[j].Fitness
+	return s[i].Fitness > s[j].Fitness
 }
 
 func (s Particles) Swap(i, j int) {
@@ -131,118 +129,33 @@ func (p *Particle) Init(i uint32) {
 	}
 }
 
-func (s *Swarm) playOneGame() (moves *vector.IntVector, evals *vector.Vector) {
-	moves = new(vector.IntVector)
-	evals = new(vector.Vector)
-	t := NewTracker(s.config)
-	var br, wr *Node
-	var vertex int
-	for {
-		br = NewRoot(BLACK, t, s.config)
-		genmove(br, t)
-		vertex = br.Best().Vertex
-		moves.Push(vertex)
-		evals.Push(br.Best().Mean)
-		t.Play(BLACK, vertex)
-		log.Println(t.String())
-		if t.Winner() != EMPTY || moves.Len() >= 2 * t.Sqsize() {
-			break
-		}
-		wr = NewRoot(WHITE, t, s.config)
-		genmove(wr, t)
-		vertex = wr.Best().Vertex
-		moves.Push(vertex)
-		evals.Push(wr.Best().Mean)
-		t.Play(WHITE, vertex)
-		log.Println(t.String())
-		if t.Winner() != EMPTY || moves.Len() >= 2 * t.Sqsize() {
-			break
-		}
-	}
-	return moves, evals
-}
-
-func (s *Swarm) evaluate(p *Particle) {
-	p.Fitness = 0
-	for i := uint(0); i < s.Samples; i++ {
-		var color byte
-		if rand.Float64() < 0.5 {
-			color = BLACK
-		} else {
-			color = WHITE
-		}
-		t := NewTracker(s.config)
-		var br, wr *Node
-		var vertex int
-		move := 0
-		for {
-			if s.config.Hex && s.config.Swapsafe && move == 0 {
-				vertex = (3 * t.Boardsize()) + 1
-			} else {
-				if color == BLACK {
-					s.config.policy_weights = p
-				} else {
-					s.config.policy_weights = nil
-				}
-				br = NewRoot(BLACK, t, s.config)
-				genmove(br, t)
-				vertex = br.Best().Vertex
-			}
-			t.Play(BLACK, vertex)
-			move++
-			if t.Winner() != EMPTY {
-				break
-			}
-			if color == WHITE {
-				s.config.policy_weights = p
-			} else {
-				s.config.policy_weights = nil
-			}
-			wr = NewRoot(WHITE, t, s.config)
-			genmove(wr, t)
-			vertex = wr.Best().Vertex
-			t.Play(WHITE, vertex)
-			move++
-			if t.Winner() != EMPTY {
-				break
-			}
-		}
-		if t.Winner() == color {
-			p.Fitness++
-		}
-		log.Println(t.String())
-	}
-	p.Fitness /= float64(s.Samples)
-	p.Fitness = 1 - p.Fitness
-	
-	/*
-	for i := 0; i < s.evals.Len(); i++ {
-		s.eval(p, s.evals.At(i).(*Eval))
-	}
-	p.Fitness /= float64(s.evals.Len())
-	*/
-}
-
-func (s *Swarm) eval(p *Particle, eval *Eval) {
-	s.config.policy_weights = p
-	t := NewTracker(s.config)
+// play one game, return true iff black wins
+func (swarm *Swarm) play(p *Particle, target byte) bool {
+	t := NewTracker(swarm.config)
 	color := BLACK
-	for i := range eval.Moves {
-		t.Play(color, eval.Moves[i])
-		color = Reverse(color)
-	}
-	t.Play(color, eval.Next)
-	wins := 0
-	for j := 0; j < 100; j++ {
-		cp := t.Copy()
-		cp.Playout(Reverse(color))
-		if cp.Winner() == color {
-			wins++
+	for move := 0;; {
+		if target == color {
+			swarm.config.policy_weights = p
+		} else {
+			swarm.config.policy_weights = nil
+		}
+		root := NewRoot(color, t, swarm.config)
+		genmove(root, t)
+		t.Play(color, root.Best().Vertex)
+		move++
+		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
+			break
 		}
 	}
-	err := eval.Mean - (float64(wins) / 100.0)
-	err = err * err
-	p.Fitness += err
+	if swarm.config.VeryVerbose {
+		log.Println(Ctoa(t.Winner()))
+		log.Println(t.String())
+	}
+	return t.Winner() == target
+}
+
+func (p *Particle) eval() {
+	panic("broken")
 }
 
 /**
@@ -260,35 +173,44 @@ B_o offspring, lambda = |B_o|
 */
 func (s *Swarm) ESStep() {
 
+	parents := s.Particles
+	
 	// generate lambda (lambda >= mu for comma) children
-	children := make(Particles, s.Lambda)
-	for i := uint(0); i < s.Lambda; i++ {
+	s.Particles = make(Particles, s.Lambda)
+	for i := range s.Particles {
 		// select randomly p parents from parents
 		p := make(Particles, s.P)
 		for j := uint(0); j < s.P; j++ {
-			p[j] = randParticle(s.Particles, p)
+			p[j] = randParticle(parents, p)
 		}
-		children[i] = s.recombine(p)
-		s.mutate(children[i])
+		s.Particles[i] = s.recombine(p)
+		s.mutate(s.Particles[i])
+		s.Particles[i].Fitness = 0
 	}
+	
 	// propagate the 2 last best particles without change
-	children[0] = s.Particles[0].Copy()
-	children[1] = s.Particles[1].Copy()
+	s.Particles[0] = parents[0].Copy()
+	s.Particles[1] = parents[1].Copy()
 
 	// evaluate either children (,) or children + parents (+) for fitness
-	for i := uint(0); i < s.Lambda; i++ {
-		log.Printf("evaluating %d/%d\n", i, s.Lambda)
-		s.evaluate(children[i])
-		log.Printf("fitness of %d: %.4f\n", i, children[i].Fitness)
+	for i := range s.Particles {
+		log.Printf("evaluating %d/%d\n", i, len(s.Particles))
+		p := s.Particles[i]
+		p.Fitness = 0
+		if s.play(p, BLACK) {
+			p.Fitness++
+		}
+		if s.play(p, WHITE) {
+			p.Fitness++
+		}
+		log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	}
 
 	// select mu parents from either children (,) or children + parents (+)
-	sort.Sort(children)
+	sort.Sort(s.Particles)
 
-	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = children[i]
-	}
-	if s.Particles[0].Fitness < s.GBest.Fitness {
+	s.Particles = s.Particles[:s.Mu]
+	if s.Particles[0].Fitness > s.GBest.Fitness {
 		s.GBest = s.Particles[0].Copy()
 	}
 }
@@ -306,7 +228,7 @@ func (s *Swarm) update_particle(i uint) {
 	s.ps_update(s.Particles[i])
 	s.Particles[i].Fitness = 0
 	log.Printf("evaluating %d\n", i)
-	s.evaluate(s.Particles[i])
+	s.Particles[i].eval()
 	log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	s.update_gbest(i)
 	s.update_pbest(i)
@@ -316,7 +238,7 @@ func (s *Swarm) update_gbest(i uint) {
 	if s.Generation - s.GBestGen > 10 {
 		log.Println("re-evaluating gbest")
 		old_fitness := s.GBest.Fitness
-		s.evaluate(s.GBest)
+		s.GBest.eval()
 		s.GBest.Fitness += old_fitness
 		s.GBest.Fitness /= 2.0
 	}
@@ -331,7 +253,7 @@ func (s *Swarm) update_pbest(i uint) {
 	if s.Generation - s.Particles[i].PBestGen > 10 {
 		log.Printf("re-evaluating pbest %d\n", i)
 		old_fitness := s.Particles[i].PBest.Fitness
-		s.evaluate(s.Particles[i].PBest)
+		s.Particles[i].PBest.eval()
 		s.Particles[i].PBest.Fitness += old_fitness
 		s.Particles[i].PBest.Fitness /= 2.0
 	}
@@ -497,26 +419,6 @@ func Train(config *Config) {
 	if config.Sfile != "" {
 		s.LoadSwarm(config.Sfile, config)
 	}
-	/*
-	s.evals = new(vector.Vector)
-	f, err := os.OpenFile("evals.json", os.O_RDONLY, 0666)
-	if err != nil {
-		panic(err)
-	}
-	defer func() { f.Close() }()
-	decoder := json.NewDecoder(f)
-	for {
-		var eval Eval
-		err := decoder.Decode(&eval)
-		if err != nil {
-			if s.evals.Len() == 0 {
-				panic(err)
-			}
-			break
-		}
-		s.evals.Push(&eval)
-	}
-	*/
 	for s.Generation < s.config.Generations {
 		start := time.Nanoseconds()
 		if config.ESswarm {
