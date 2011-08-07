@@ -146,6 +146,7 @@ func (swarm *Swarm) play(p *Particle, target byte) bool {
 		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
 			break
 		}
+		color = Reverse(color)
 	}
 	if swarm.config.VeryVerbose {
 		log.Println(Ctoa(t.Winner()))
