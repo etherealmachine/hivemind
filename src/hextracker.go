@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"fmt"
 	"log"
+	"json"
+	"os"
 )
 
 type HexTracker struct {
@@ -161,12 +163,30 @@ func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
 }
 
 func (t *HexTracker) Playout(color byte) {
+	fmt.Fprintln(jsonLog, "START")
 	for {
 		vertex := t.weights.Rand(color)
 		if t.config.VeryVerbose {
 			log.Println(Ctoa(color) + t.Vtoa(vertex))
 		}
 		t.Play(color, vertex)
+		
+		if t.config.VeryVerbose {
+			m := make(map[string]interface{})
+			for i := range t.board {
+				m[t.Vtoa(i)] = map[string]interface{} {
+					"occ" : Ctoa(t.board[i]),
+					"black" : t.weights.Prob(BLACK, i),
+					"white" : t.weights.Prob(WHITE, i),
+				}
+			}
+			if bytes, err := json.Marshal(m); err != nil {
+				fmt.Fprintln(jsonLog, err)
+			} else {
+				fmt.Fprintln(jsonLog, string(bytes))
+			}
+		}
+		
 		if t.config.VeryVerbose {
 			log.Println(t.String())
 		}
@@ -174,6 +194,7 @@ func (t *HexTracker) Playout(color byte) {
 			if t.config.VeryVerbose {
 				log.Println("FINAL: " + Ctoa(t.winner))
 			}
+			fmt.Fprintln(jsonLog, "END")
 			return
 		}
 		color = Reverse(color)
@@ -347,6 +368,7 @@ var hex_adj map[int][]int
 var hex_neighbors map[int][][][]int
 var hex_min_hash map[uint32]uint32
 var hex_hash_mask [7][4]uint32
+var jsonLog *os.File
 
 func init() {
 	hex_adj = make(map[int][]int)
@@ -400,6 +422,7 @@ func init() {
 		},
 	}
 	setup_hex_min_hash()
+	jsonLog, _ = os.Create("json.log")
 }
 
 func setup_hex_adj(boardsize int) {

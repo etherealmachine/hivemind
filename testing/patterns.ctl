@@ -6,7 +6,7 @@ komi = 0
 import os
 six = os.path.expanduser("~/code/six-0.5.3/six/gtp") + " beginner"
 hive = os.path.expanduser("~/code/hivemind/src/hive") + " -gtp -t 5 -var -amaf -k 550 -hex -swapsafe"
-pfile = os.path.expanduser("~/code/hivemind/src/swarm.16.gob")
+pfile = os.path.expanduser("~/code/hivemind/src/swarm.2.gob")
 hive_swarm = os.path.expanduser("~/code/hivemind/src/hive") + " -gtp -t 5 -var -amaf -k 550 -hex -swapsafe -pfile " + pfile
 
 players = {

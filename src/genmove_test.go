@@ -1,21 +1,36 @@
 package main
 
-import "testing"
-import "fmt"
+import (
+	"testing"
+	"fmt"
+	"log"
+	"os"
+)
 
 var config *Config
+
+func init() {
+	setupConfig()
+}
 
 func setupConfig() {
 	if config == nil {
 		config = NewConfig()
 		config.Stats = true
+		f, err := os.Create("test.log")
+		if err != nil {
+			panic(err)
+		}
+		log.SetFlags(0)
+		log.SetPrefix("")
+		log.SetOutput(f)
 	}
 }
 
 func TestGoGenmove(t *testing.T) {
-	fmt.Println("Go Genmove")
-	setupConfig()
+	log.Println("Go Genmove")
 	config.Go = true
+	config.Hex = false
 	config.MaxPlayouts = 10000
 	tracker := NewTracker(config)
 	root := NewRoot(BLACK, tracker, config)
@@ -23,8 +38,8 @@ func TestGoGenmove(t *testing.T) {
 }
 
 func TestHexGenmove(t *testing.T) {
-	fmt.Println("Hex Genmove")
-	setupConfig()
+	log.Println("Hex Genmove")
+	config.Go = false
 	config.Hex = true
 	config.MaxPlayouts = 10000
 	tracker := NewTracker(config)
@@ -33,9 +48,9 @@ func TestHexGenmove(t *testing.T) {
 }
 
 func TestGoSwarm(t *testing.T) {
-	fmt.Println("Go Swarm")
-	setupConfig()
+	log.Println("Go Swarm")
 	config.Go = true
+	config.Hex = false
 	config.MaxPlayouts = 10000
         config.policy_weights = LoadBest("./swarm.1.gob", config)
 	tracker := NewTracker(config)
@@ -44,34 +59,13 @@ func TestGoSwarm(t *testing.T) {
 }
 
 func TestHexSwarm(t *testing.T) {
-	fmt.Println("Hex Swarm")
-	setupConfig()
+	log.Println("Hex Swarm")
+	config.Go = false
 	config.Hex = true
 	config.MaxPlayouts = 10000
         config.policy_weights = LoadBest("./swarm.1.gob", config)
 	tracker := NewTracker(config)
+	fmt.Println(tracker)
 	root := NewRoot(BLACK, tracker, config)
 	genmove(root, tracker)
-}
-
-func BenchmarkGo(b *testing.B) {
-	setupConfig()
-	config.Go = true
-	config.MaxPlayouts = uint(b.N)
-	runPlayouts(config)
-}
-
-func BenchmarkHex(b *testing.B) {
-	setupConfig()
-	config.Hex = true
-	config.MaxPlayouts = uint(b.N)
-	runPlayouts(config)
-}
-
-func runPlayouts(config *Config) {
-	t := NewTracker(config)
-	for i := uint(0); i < config.MaxPlayouts; i++ {
-		cp := t.Copy()
-		cp.Playout(BLACK)
-	}
 }

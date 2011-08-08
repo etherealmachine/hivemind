@@ -27,7 +27,7 @@ func NewSwarm(config *Config) *Swarm {
 	var min, max, vmax float64
 	if !config.Eval {
 		min = 0.001
-		max = 10.0
+		max = 2.0
 		vmax = 5.0
 	} else if config.Eval {
 		min = 0
@@ -123,7 +123,7 @@ func (p *Particle) Get(i uint32) float64 {
 }
 
 func (p *Particle) Init(i uint32) {
-	p.Position[i] = p.Min + (p.Max-p.Min)*rand.Float64()
+	p.Position[i] = p.Min + (p.Max - p.Min) * rand.Float64()
 	if p.swarm.config.Pswarm {
 		p.Velocity[i] = -p.VMax + 2*p.VMax*rand.Float64()
 	}
@@ -198,11 +198,13 @@ func (s *Swarm) ESStep() {
 		log.Printf("evaluating %d/%d\n", i, len(s.Particles))
 		p := s.Particles[i]
 		p.Fitness = 0
-		if s.play(p, BLACK) {
-			p.Fitness++
-		}
-		if s.play(p, WHITE) {
-			p.Fitness++
+		for j := uint(0); j < s.Samples; j++ {
+			if s.play(p, BLACK) {
+				p.Fitness++
+			}
+			if s.play(p, WHITE) {
+				p.Fitness++
+			}
 		}
 		log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	}

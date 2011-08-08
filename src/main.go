@@ -12,21 +12,6 @@ import (
 func main() {
 	rand.Seed(time.Nanoseconds())
 	config := NewConfig()
-	var f *os.File
-	var err os.Error
-	if config.Lfile == "" && config.Gtp && config.Gfx {
-		f, err = os.Create("/dev/null")
-	} else if config.Lfile == "" {
-		f = os.Stderr
-	} else {
-		f, err = os.Create(config.Lfile)
-	}
-	if err != nil {
-		panic("could not create log file")
-	}
-	log.SetFlags(0)
-	log.SetPrefix("")
-	log.SetOutput(f)
 	
 	shutdown := make(chan bool, 1)
 	if config.Cluster {
@@ -60,6 +45,10 @@ func main() {
 	} else if config.PrintWeights {
 		PrintBestWeights(config)
 		shutdown <- true
+	} else if config.Genmove {
+		t := NewTracker(config)
+		root := NewRoot(BLACK, t, config)
+		genmove(root, t)
 	}
 	<-shutdown
 }

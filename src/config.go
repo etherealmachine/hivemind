@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"json"
+	"log"
 )
 
 type Config struct {
@@ -11,6 +12,7 @@ type Config struct {
 	Help  bool
 	Gtp   bool
 	Book  bool
+	Genmove bool
 	SGF string
 	Cluster bool
 
@@ -96,6 +98,7 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Gtp, "gtp", false, "Listen on stdin for GTP commands")
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 	flag.BoolVar(&config.Book, "book", false, "Make opening book")
+	flag.BoolVar(&config.Genmove, "genmove", false, "Generate one move and quit")
 	flag.BoolVar(&config.Cluster, "cluster", false, "Start cluster")
 
 	flag.UintVar(&config.MaxPlayouts, "p", 10000, "Max number of playouts")
@@ -175,6 +178,22 @@ func NewConfig() *Config {
 	if config.ESswarm {
 		config.Pswarm = false
 	}
+	
+	var f *os.File
+	var err os.Error
+	if config.Lfile == "" && config.Gtp && config.Gfx {
+		f, err = os.Create("/dev/null")
+	} else if config.Lfile == "" {
+		f = os.Stderr
+	} else {
+		f, err = os.Create(config.Lfile)
+	}
+	if err != nil {
+		panic("could not create log file")
+	}
+	log.SetFlags(0)
+	log.SetPrefix("")
+	log.SetOutput(f)
 
 	return config
 }

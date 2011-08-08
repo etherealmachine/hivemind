@@ -10,6 +10,7 @@ import pygame.gfxdraw
 import os
 import sgflib
 import math
+import json
 
 class GUI(object):
 	def __init__(self):
@@ -40,68 +41,99 @@ class GUI(object):
 	def set_size(self, size):
 		self.size = size
 		self.board = [['empty' for i in range(self.size)] for j in range(self.size)]
+		
+	def update_weights(self):
+		bmax, wmax = 0, 0
+		for key, value in self.weights[self.cur].items():
+			i = ord(key[0]) - ord('A')
+			if ord(key[0]) > ord('I'):
+				i -= 1
+			j = int(key[1]) - 1
+			self.board[i][j] = {
+				'occ': value['occ'],
+				'black': value['black'],
+				'white': value['white'],
+			}
+			if value['black'] > bmax:
+				bmax = value['black']
+			if value['white'] > wmax:
+				wmax = value['white']
+		for i in range(self.size):
+			for j in range(self.size):
+				self.board[i][j]['black'] /= bmax
+				self.board[i][j]['white'] /= wmax
 
 	def on_back_clicked(self, btn):
-		try:
-			self.cur.previous()
+		if type(self.cur) == int:
+			self.cur -= 1
+			self.update_weights()
 			self.builder.get_object("forward").set_sensitive(True)
-			self.cur.next()
-			i, j = -1, -1
-			if 'B' in self.cur.node.data:
-				if self.cur.node['B'][0] != '':
+		else:
+			try:
+				self.cur.previous()
+				self.builder.get_object("forward").set_sensitive(True)
+				self.cur.next()
+				i, j = -1, -1
+				if 'B' in self.cur.node.data:
+					if self.cur.node['B'][0] != '':
+						i = self.cur.node['B'][0][0]
+						j = self.cur.node['B'][0][1]
+				elif 'W' in self.cur.node.data:
+					if self.cur.node['W'][0] != '':
+						i = self.cur.node['W'][0][0]
+						j = self.cur.node['W'][0][1]
+				else:
+					print 'error'
+				if i != -1 and j != -1:
+					i, j = ord(i)-97, ord(j)-97
+				if i < self.size and j < self.size:
+					self.board[i][j] = 'empty'
+				self.cur.previous()
+				if 'B' in self.cur.node.data:
 					i = self.cur.node['B'][0][0]
 					j = self.cur.node['B'][0][1]
-			elif 'W' in self.cur.node.data:
-				if self.cur.node['W'][0] != '':
+				elif 'W' in self.cur.node.data:
 					i = self.cur.node['W'][0][0]
 					j = self.cur.node['W'][0][1]
-			else:
-				print 'error'
-			if i != -1 and j != -1:
-				i, j = ord(i)-97, ord(j)-97
-			if i < self.size and j < self.size:
-				self.board[i][j] = 'empty'
-			self.cur.previous()
-			if 'B' in self.cur.node.data:
-				i = self.cur.node['B'][0][0]
-				j = self.cur.node['B'][0][1]
-			elif 'W' in self.cur.node.data:
-				i = self.cur.node['W'][0][0]
-				j = self.cur.node['W'][0][1]
-			else:
-				self.last = None
-				return
-			if i != -1 and j != -1:
-				i, j = ord(i)-97, ord(j)-97
-				j = self.size - j - 1
-			self.last = (i, j)
-		except sgflib.GameTreeEndError:
-			self.builder.get_object("back").set_sensitive(False)
+				else:
+					self.last = None
+					return
+				if i != -1 and j != -1:
+					i, j = ord(i)-97, ord(j)-97
+					j = self.size - j - 1
+				self.last = (i, j)
+			except sgflib.GameTreeEndError:
+				self.builder.get_object("back").set_sensitive(False)
 
 	def on_forward_clicked(self, btn):
-		try:
-			self.cur.next()
+		if type(self.cur) == int:
+			self.cur += 1
+			self.update_weights()
 			self.builder.get_object("back").set_sensitive(True)
-			if 'B' in self.cur.node.data:
-				color = 'black'
-				if self.cur.node['B'][0] == '':
-					raise sgflib.GameTreeEndError
-				i = self.cur.node['B'][0][0]
-				j = self.cur.node['B'][0][1]
-			elif 'W' in self.cur.node.data:
-				color = 'white'
-				if self.cur.node['W'][0] == '':
-					raise sgflib.GameTreeEndError
-				i = self.cur.node['W'][0][0]
-				j = self.cur.node['W'][0][1]
-			i, j = ord(i)-97, ord(j)-97
-			j = self.size - j - 1
-			if color != 'empty':
-				if i < self.size and j < self.size:
-					self.last = (i, j)
-					self.board[i][j] = color
-		except sgflib.GameTreeEndError:
-			self.builder.get_object("forward").set_sensitive(False)
+		else:
+			try:
+				self.cur.next()
+				self.builder.get_object("back").set_sensitive(True)
+				if 'B' in self.cur.node.data:
+					color = 'black'
+					if self.cur.node['B'][0] == '':
+						raise sgflib.GameTreeEndError
+					i = self.cur.node['B'][0][0]
+					j = self.cur.node['B'][0][1]
+				elif 'W' in self.cur.node.data:
+					color = 'white'
+					if self.cur.node['W'][0] == '':
+						raise sgflib.GameTreeEndError
+					i = self.cur.node['W'][0][0]
+					j = self.cur.node['W'][0][1]
+				i, j = ord(i)-97, ord(j)-97
+				j = self.size - j - 1
+				if color != 'empty':
+					if i < self.size and j < self.size:
+						self.last = (i, j)
+						self.board[i][j] = color
+			except sgflib.GameTreeEndError:
+				self.builder.get_object("forward").set_sensitive(False)
 		
 	def on_file_set(self, chooser):
 		self.set_file(chooser.get_filename())
@@ -110,26 +142,36 @@ class GUI(object):
 		gtk.main_quit()
 		
 	def set_file(self, filename):
-		self.tree = sgflib.SGFParser(open(filename).read()).parse()[0]
-		self.set_size(int(self.tree[0]['SZ'][0]))
-		self.pb = self.tree[0]['PB'][0]
-		self.pw = self.tree[0]['PW'][0]
-		self.cur = self.tree.cursor()
-		self.builder.get_object("forward").set_sensitive(True)
+		if filename.endswith("sgf"):
+			self.tree = sgflib.SGFParser(open(filename).read()).parse()[0]
+			self.set_size(int(self.tree[0]['SZ'][0]))
+			self.pb = self.tree[0]['PB'][0]
+			self.pw = self.tree[0]['PW'][0]
+			self.cur = self.tree.cursor()
+			self.builder.get_object("forward").set_sensitive(True)
+		else:
+			self.pb = "None"
+			self.pw = "None"
+			f = open(filename)
+			self.weights = map(json.loads, filter(lambda line: line.startswith("{"), f.readlines()))
+			self.cur = 0
+			self.set_size(int(math.sqrt(len(self.weights[0]))))
+			self.update_weights()
+			self.builder.get_object("forward").set_sensitive(True)
 
 	def draw(self):
+		black = (0, 0, 0)
+		white = (255, 255, 255)
+		gray = (220, 220, 220)
+		red = (255, 0, 0)
+		blue = (67, 83, 255)
+	
 		gobject.idle_add(self.draw)
 		w, h = self.screen.get_size()
-		self.screen.fill((200, 200, 200))
+		self.screen.fill(gray)
 		
 		if not self.size:
 			return
-		
-		black = (0, 0, 0)
-		white = (255, 255, 255)
-		gray = (200, 200, 200)
-		red = (255, 0, 0)
-		blue = (67, 83, 255)
 
 		C = 10
 		A = 0.5*C
@@ -180,6 +222,16 @@ class GUI(object):
 					color = red
 				elif self.board[i][j] == 'white':
 					color = blue
+				elif self.board[i][j] != 'empty':
+					occ = self.board[i][j]['occ']
+					bprob = self.board[i][j]['black']
+					wprob = self.board[i][j]['white']
+					if occ == 'B':
+						color = red
+					elif occ == 'W':
+						color = blue
+					else:
+						color = (gray[0], gray[1], 255 * bprob)
 				xoff = x_margin + i * width + j*width/2.0
 				yoff = y_margin + j * (A+C)
 				pygame.gfxdraw.filled_polygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), gray)
