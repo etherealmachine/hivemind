@@ -69,3 +69,20 @@ func TestHexSwarm(t *testing.T) {
 	root := NewRoot(BLACK, tracker, config)
 	genmove(root, tracker)
 }
+
+func TestWeightTree(t *testing.T) {
+	tree := NewWeightTree(9)
+	for i := 0; i < 9; i++ {
+		tree.Set(BLACK, i, 50)
+	}
+	tree.Set(BLACK, 5, 100)
+	count := 0
+	samples := 100000
+	target := 5
+	for i := 0; i < samples; i++ {
+		if tree.Rand(BLACK) == target {
+			count++
+		}
+	}
+	fmt.Println(tree.Prob(BLACK, target), float64(count) / float64(samples))
+}

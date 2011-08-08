@@ -26,8 +26,8 @@ type Swarm struct {
 func NewSwarm(config *Config) *Swarm {
 	var min, max, vmax float64
 	if !config.Eval {
-		min = 0.001
-		max = 2.0
+		min = 0.01
+		max = 10.0
 		vmax = 5.0
 	} else if config.Eval {
 		min = 0
@@ -129,34 +129,29 @@ func (p *Particle) Init(i uint32) {
 	}
 }
 
-// play one game, return true iff black wins
-func (swarm *Swarm) play(p *Particle, target byte) bool {
-	t := NewTracker(swarm.config)
-	color := BLACK
-	for move := 0;; {
-		if target == color {
-			swarm.config.policy_weights = p
-		} else {
-			swarm.config.policy_weights = nil
+func (s *Swarm) eval(p *Particle) {
+	p.Fitness = 0
+	for i := uint(0); i < s.Samples; i++ {
+		t := NewTracker(s.config)
+		color := BLACK
+		for {
+			if color == WHITE {
+				s.config.policy_weights = p
+			} else {
+				s.config.policy_weights = nil
+			}
+			root := NewRoot(color, t, s.config)
+			genmove(root, t)
+			t.Play(color, root.Best().Vertex)
+			if t.Winner() != EMPTY {
+				break
+			}
+			color = Reverse(color)
 		}
-		root := NewRoot(color, t, swarm.config)
-		genmove(root, t)
-		t.Play(color, root.Best().Vertex)
-		move++
-		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
-			break
+		if t.Winner() == WHITE {
+			p.Fitness++
 		}
-		color = Reverse(color)
 	}
-	if swarm.config.VeryVerbose {
-		log.Println(Ctoa(t.Winner()))
-		log.Println(t.String())
-	}
-	return t.Winner() == target
-}
-
-func (p *Particle) eval() {
-	panic("broken")
 }
 
 /**
@@ -196,16 +191,7 @@ func (s *Swarm) ESStep() {
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := range s.Particles {
 		log.Printf("evaluating %d/%d\n", i, len(s.Particles))
-		p := s.Particles[i]
-		p.Fitness = 0
-		for j := uint(0); j < s.Samples; j++ {
-			if s.play(p, BLACK) {
-				p.Fitness++
-			}
-			if s.play(p, WHITE) {
-				p.Fitness++
-			}
-		}
+		s.eval(s.Particles[i])
 		log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	}
 
@@ -231,7 +217,7 @@ func (s *Swarm) update_particle(i uint) {
 	s.ps_update(s.Particles[i])
 	s.Particles[i].Fitness = 0
 	log.Printf("evaluating %d\n", i)
-	s.Particles[i].eval()
+	s.eval(s.Particles[i])
 	log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	s.update_gbest(i)
 	s.update_pbest(i)
@@ -241,7 +227,7 @@ func (s *Swarm) update_gbest(i uint) {
 	if s.Generation - s.GBestGen > 10 {
 		log.Println("re-evaluating gbest")
 		old_fitness := s.GBest.Fitness
-		s.GBest.eval()
+		s.eval(s.GBest)
 		s.GBest.Fitness += old_fitness
 		s.GBest.Fitness /= 2.0
 	}
@@ -256,7 +242,7 @@ func (s *Swarm) update_pbest(i uint) {
 	if s.Generation - s.Particles[i].PBestGen > 10 {
 		log.Printf("re-evaluating pbest %d\n", i)
 		old_fitness := s.Particles[i].PBest.Fitness
-		s.Particles[i].PBest.eval()
+		s.eval(s.Particles[i].PBest)
 		s.Particles[i].PBest.Fitness += old_fitness
 		s.Particles[i].PBest.Fitness /= 2.0
 	}
@@ -367,7 +353,20 @@ func (s *Swarm) ps_update(p *Particle) {
 	}
 }
 
-func (s *Swarm) Best() (best *Particle) {
+func (s *Swarm) Best() *Particle {
+	bests := make([]*Particle, len(s.Particles))
+	j := 0
+	for i := range s.Particles {
+		if s.Particles[i].Fitness == s.GBest.Fitness {
+			bests[j] = s.Particles[i]
+			j++
+		}
+	}
+	if j > 0 {
+		best := s.recombine(bests[:j])
+		best.Fitness = s.GBest.Fitness
+		return best
+	}
 	return s.GBest
 }
 

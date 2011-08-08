@@ -54,14 +54,6 @@ class GUI(object):
 				'black': value['black'],
 				'white': value['white'],
 			}
-			if value['black'] > bmax:
-				bmax = value['black']
-			if value['white'] > wmax:
-				wmax = value['white']
-		for i in range(self.size):
-			for j in range(self.size):
-				self.board[i][j]['black'] /= bmax
-				self.board[i][j]['white'] /= wmax
 
 	def on_back_clicked(self, btn):
 		if type(self.cur) == int:
@@ -231,7 +223,7 @@ class GUI(object):
 					elif occ == 'W':
 						color = blue
 					else:
-						color = (gray[0], gray[1], 255 * bprob)
+						color = (255 * wprob, 255 * wprob, 255 * wprob)
 				xoff = x_margin + i * width + j*width/2.0
 				yoff = y_margin + j * (A+C)
 				pygame.gfxdraw.filled_polygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), gray)

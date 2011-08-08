@@ -50,20 +50,29 @@ func (t *WeightTree) Prob(color byte, vertex int) float64 {
 }
 
 func (t *WeightTree) Rand(color byte) int {
+	var r int
 	if color == BLACK {
 		if t.weights[0] == 0 {
-			return -1
+			r = -1
+		} else {
+			r = t.rand(0, 0)
 		}
-		return t.rand(0, 0)
+	} else {
+		if t.weights[t.nodes] == 0 {
+			r = -1
+		} else {
+			r = t.rand(0, t.nodes)
+		}
 	}
-	if t.weights[t.nodes] == 0 {
-		return -1
+	if r >= t.size {
+		panic("random vertex out-of-bounds")
 	}
-	return t.rand(0, t.nodes)
+	return r
 }
 
 func (t *WeightTree) Copy() *WeightTree {
 	cp := new(WeightTree)
+	cp.size = t.size
 	cp.nodes = t.nodes
 	cp.interior = t.interior
 	cp.leaves = t.leaves

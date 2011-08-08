@@ -118,7 +118,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		t.weights.Set(BLACK, vertex, 0)
 		t.weights.Set(WHITE, vertex, 0)
 		if t.config.policy_weights != nil {
-			t.updateWeights(vertex)
+			t.updateNeighborWeights(vertex)
 		}
 		
 		if t.played[vertex] == EMPTY {
@@ -127,34 +127,37 @@ func (t *HexTracker) Play(color byte, vertex int) {
 	}
 }
 
-func (t *HexTracker) updateWeights(vertex int) {
-	if t.board[vertex] != EMPTY {
-		for i := range t.neighbors[1][vertex] {
-			neighbor := t.neighbors[1][vertex][i]
-			if neighbor != -1 && t.board[neighbor] == EMPTY {
-				t.updateWeights(neighbor)
-			}
-		}
-	} else {
-		black_weight := t.weights.Get(BLACK, vertex)
-		if black_weight != 0 {
-			weight := t.get_pattern_weight(BLACK, vertex)
-			black_weight = int(float64(black_weight) * weight)
-			if black_weight == 0 {
-				black_weight = 1
-			}
-		}
-		t.weights.Set(BLACK, vertex, black_weight)
-		white_weight := t.weights.Get(WHITE, vertex)
-		if white_weight != 0 {
-			weight := t.get_pattern_weight(WHITE, vertex)
-			white_weight = int(float64(white_weight) * weight)
-			if white_weight == 0 {
-				white_weight = 1
-			}
-		}
-		t.weights.Set(WHITE, vertex, white_weight)
+func (t *HexTracker) updateNeighborWeights(vertex int) {
+	if t.board[vertex] == EMPTY {
+		return
 	}
+	for i := range t.neighbors[1][vertex] {
+		neighbor := t.neighbors[1][vertex][i]
+		if neighbor != -1 && t.board[neighbor] == EMPTY {
+			t.updateWeights(neighbor)
+		}
+	}
+}
+
+func (t *HexTracker) updateWeights(vertex int) {
+	black_weight := t.weights.Get(BLACK, vertex)
+	if black_weight != 0 {
+		weight := t.get_pattern_weight(BLACK, vertex)
+		black_weight = int(float64(black_weight) * weight)
+		if black_weight == 0 {
+			black_weight = 1
+		}
+	}
+	t.weights.Set(BLACK, vertex, black_weight)
+	white_weight := t.weights.Get(WHITE, vertex)
+	if white_weight != 0 {
+		weight := t.get_pattern_weight(WHITE, vertex)
+		white_weight = int(float64(white_weight) * weight)
+		if white_weight == 0 {
+			white_weight = 1
+		}
+	}
+	t.weights.Set(WHITE, vertex, white_weight)
 }
 
 func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
@@ -163,7 +166,6 @@ func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
 }
 
 func (t *HexTracker) Playout(color byte) {
-	fmt.Fprintln(jsonLog, "START")
 	for {
 		vertex := t.weights.Rand(color)
 		if t.config.VeryVerbose {
@@ -171,7 +173,7 @@ func (t *HexTracker) Playout(color byte) {
 		}
 		t.Play(color, vertex)
 		
-		if t.config.VeryVerbose {
+		if t.config.policy_weights != nil && t.config.VeryVerbose {
 			m := make(map[string]interface{})
 			for i := range t.board {
 				m[t.Vtoa(i)] = map[string]interface{} {
@@ -194,7 +196,6 @@ func (t *HexTracker) Playout(color byte) {
 			if t.config.VeryVerbose {
 				log.Println("FINAL: " + Ctoa(t.winner))
 			}
-			fmt.Fprintln(jsonLog, "END")
 			return
 		}
 		color = Reverse(color)
