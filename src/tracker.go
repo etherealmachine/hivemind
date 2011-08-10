@@ -36,6 +36,7 @@ type Tracker interface {
 	Territory(color byte) []float64
 	Verify()
 	Adj(vertex int) []int
+	Moves() *vector.IntVector
 	String() string
 	Vtoa(vertex int) string
 	Atov(s string) int

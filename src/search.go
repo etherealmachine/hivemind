@@ -9,6 +9,8 @@ import (
 	"container/vector"
 	"os"
 	"gob"
+	"json"
+	"sort"
 )
 
 type Node struct {
@@ -21,7 +23,6 @@ type Node struct {
 	Wins, Visits, Mean                                                        float64
 	amafWins, amafVisits, amafMean                                            float64
 	ancestorWins, ancestorVisits, ancestorMean                                float64
-	evalWins, evalVisits, evalMean                                            float64
 	blendedMean                                                               float64
 	value                                                                     float64
 	territory                                                                 []float64
@@ -89,6 +90,7 @@ func genmove(root *Node, t Tracker) {
 			unaccounted := elapsed -
 				root.playout_time - root.update_time - root.win_calc_time - root.next_time - root.play_time - root.copy_time
 			log.Printf("%.2f seconds unaccounted\n", float64(unaccounted)/1e9)
+			root.LogEvals(t)
 		}
 		if root.config.Timelimit > 0 {
 			if elapsed_seconds > float64(root.config.Timelimit) {
@@ -254,10 +256,6 @@ func (node *Node) expand(t Tracker) {
 					child.ancestorWins += granduncle.Wins + granduncle.amafWins
 				}
 			}
-			if node.config.Eval {
-				child.evalVisits += node.config.RAVE
-				child.evalWins += node.config.RAVE * node.config.evaluator.Eval(Reverse(child.Color), cp)
-			}
 			child.recalc()
 		}
 	}
@@ -328,13 +326,12 @@ func (node *Node) recalc() {
 	}
 	node.Mean = node.Wins / node.Visits
 	node.blendedMean = node.Mean
-	rave := node.config.AMAF || node.config.Neighbors || node.config.Ancestor || node.config.Eval
+	rave := node.config.AMAF || node.config.Neighbors || node.config.Ancestor
 	if rave {
 		beta := math.Sqrt(node.config.RAVE / (3*node.Visits + node.config.RAVE))
 		if beta > 0 {
 			node.amafMean = node.amafWins / node.amafVisits
 			node.ancestorMean = node.ancestorWins / node.ancestorVisits
-			node.evalMean = node.evalWins / node.evalVisits
 			if math.IsNaN(node.Mean) {
 				node.Mean = 0
 			}
@@ -343,9 +340,6 @@ func (node *Node) recalc() {
 			}
 			if math.IsNaN(node.ancestorMean) {
 				node.ancestorMean = 0
-			}
-			if math.IsNaN(node.evalMean) {
-				node.evalMean = 0
 			}
 			estimatedMean := 0.0
 			Samples := 0.0
@@ -366,10 +360,6 @@ func (node *Node) recalc() {
 			}
 			if node.config.Ancestor {
 				estimatedMean += node.ancestorMean
-				Samples++
-			}
-			if node.config.Eval {
-				estimatedMean += node.evalMean
 				Samples++
 			}
 			estimatedMean /= Samples
@@ -583,6 +573,38 @@ func LoadBook(config *Config) {
 	}
 }
 
+type Children struct {
+	vector.Vector
+}
+
+func (c *Children) Less(i, j int) bool {
+	return c.At(i).(*Node).Visits > c.At(j).(*Node).Visits
+}
+
+func (root *Node) LogEvals(t Tracker) {
+	children := new(Children)
+	for child := root.Child; child != nil; child = child.Sibling {
+		children.Push(child)
+	}
+	sort.Sort(children)
+	children.Resize(3, 3)
+	for i := 0; i < children.Len(); i++ {
+		child := children.At(i).(*Node)
+		eval := new(Eval)
+		moves := new(vector.IntVector)
+		*moves = t.Moves().Copy()
+		moves.Push(child.Vertex)
+		eval.Moves = moves
+		eval.Wins = child.Wins
+		eval.Visits = child.Visits
+		if bytes, err := json.Marshal(eval); err != nil {
+			panic(err)
+		} else {
+			fmt.Fprintln(root.config.evalLog, string(bytes))
+		}
+	}
+}
+
 func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 	if node.Visits == 0 {
 		return ""
@@ -605,4 +627,9 @@ func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 		}
 	}
 	return
+}
+
+type Eval struct {
+	Moves *vector.IntVector
+	Wins, Visits float64
 }

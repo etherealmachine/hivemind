@@ -9,7 +9,6 @@ learning.go\
 search.go\
 tracker.go\
 zobrist.go\
-board_eval.go\
 dfs.go\
 gotracker.go\
 hextracker.go\

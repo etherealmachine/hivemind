@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"json"
-	"os"
+	"container/vector"
 )
 
 type HexTracker struct {
@@ -20,6 +20,7 @@ type HexTracker struct {
 	played                                    []byte
 	adj                                       []int
 	neighbors                                 [][][]int
+	moves                                     *vector.IntVector
 	config                                    *Config
 	SIDE_UP, SIDE_DOWN, SIDE_LEFT, SIDE_RIGHT int
 }
@@ -57,6 +58,8 @@ func NewHexTracker(config *Config) *HexTracker {
 
 	t.played = make([]byte, t.sqsize)
 	
+	t.moves = new(vector.IntVector)
+	
 	t.config = config
 
 	return t
@@ -84,6 +87,9 @@ func (t *HexTracker) Copy() Tracker {
 	cp.winner = t.winner
 
 	cp.played = make([]byte, cp.sqsize)
+	
+	cp.moves = new(vector.IntVector)
+	*cp.moves = t.moves.Copy()
 	
 	cp.config = t.config
 
@@ -125,6 +131,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 			t.played[vertex] = color
 		}
 	}
+	t.moves.Push(vertex)
 }
 
 func (t *HexTracker) updateNeighborWeights(vertex int) {
@@ -183,9 +190,9 @@ func (t *HexTracker) Playout(color byte) {
 				}
 			}
 			if bytes, err := json.Marshal(m); err != nil {
-				fmt.Fprintln(jsonLog, err)
+				fmt.Fprintln(t.config.probLog, err)
 			} else {
-				fmt.Fprintln(jsonLog, string(bytes))
+				fmt.Fprintln(t.config.probLog, string(bytes))
 			}
 		}
 		
@@ -259,6 +266,10 @@ func (t *HexTracker) Verify() {
 
 func (t *HexTracker) Adj(vertex int) []int {
 	return t.adj[vertex*6 : (vertex+1)*6]
+}
+
+func (t *HexTracker) Moves() *vector.IntVector {
+	return t.moves
 }
 
 func (t *HexTracker) Vtoa(v int) string {
@@ -369,7 +380,6 @@ var hex_adj map[int][]int
 var hex_neighbors map[int][][][]int
 var hex_min_hash map[uint32]uint32
 var hex_hash_mask [7][4]uint32
-var jsonLog *os.File
 
 func init() {
 	hex_adj = make(map[int][]int)
@@ -423,7 +433,6 @@ func init() {
 		},
 	}
 	setup_hex_min_hash()
-	jsonLog, _ = os.Create("json.log")
 }
 
 func setup_hex_adj(boardsize int) {
@@ -559,12 +568,10 @@ func hex_hash(color byte, board []byte, neighbors []int) uint32 {
 	} else {
 		hash = 0
 	}
-	illegal := 0
 	for j := range neighbors {
 		neighbor := neighbors[j]
 		if neighbor == -1 {
 			hash |= hex_hash_mask[j][ILLEGAL]
-			illegal++
 		} else {
 			hash |= hex_hash_mask[j][board[neighbor]]
 		}

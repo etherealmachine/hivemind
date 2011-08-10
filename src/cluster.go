@@ -58,6 +58,7 @@ func process(configs chan Config) {
 }
 
 func eval(config Config, sem chan int) {
+	/*
 	sem <- 1
 	t := NewTracker(&config)
 	color := BLACK
@@ -80,6 +81,7 @@ func eval(config Config, sem chan int) {
 		}
 	}
 	<-sem
+	*/
 }
 
 func play(config Config, sem chan int) byte {
@@ -112,10 +114,4 @@ func play(config Config, sem chan int) byte {
 	}
 	<-sem
 	return t.Winner()
-}
-
-type Eval struct {
-	Moves []int
-	Next int
-	Mean float64
 }

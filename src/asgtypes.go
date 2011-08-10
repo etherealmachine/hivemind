@@ -250,8 +250,5 @@ func Version(config *Config) string {
 	if config.Seed {
 		version += "_seed"
 	}
-	if config.Eval {
-		version += "_eval"
-	}
 	return version
 }

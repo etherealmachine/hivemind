@@ -34,6 +34,7 @@ type GoTracker struct {
 	passes         int
 	winner         byte
 	superko        bool
+	moves          *vector.IntVector
 	history        *vector.Vector
 	config         *Config
 }
@@ -78,6 +79,7 @@ func NewGoTracker(config *Config) (t *GoTracker) {
 	t.koColor = EMPTY
 	t.winner = EMPTY
 	t.superko = true
+	t.moves = new(vector.IntVector)
 	t.history = new(vector.Vector)
 	t.config = config
 	return
@@ -118,6 +120,8 @@ func (t *GoTracker) Copy() Tracker {
 	cp.played = make([]byte, t.sqsize)
 
 	cp.superko = true
+	cp.moves = new(vector.IntVector)
+	*cp.moves = t.moves.Copy()
 	cp.history = new(vector.Vector)
 	*cp.history = t.history.Copy()
 	cp.config = t.config
@@ -282,6 +286,7 @@ func (t *GoTracker) Play(color byte, vertex int) {
 	} else {
 		t.passes++
 	}
+	t.moves.Push(vertex)
 }
 
 // check if empty point is suicide
@@ -395,7 +400,7 @@ func (t *GoTracker) Playout(color byte) {
 		log.Println("winner: ", Ctoa(t.Winner()))
 	}
 	if t.config.Verify {
-		t.CheckNoMoreLegal()
+		t.checkNoMoreLegal()
 	}
 	t.superko = true
 }
@@ -588,7 +593,7 @@ func (t *GoTracker) Verify() {
 	}
 }
 
-func (t *GoTracker) CheckNoMoreLegal() {
+func (t *GoTracker) checkNoMoreLegal() {
 	if t.winner == EMPTY {
 		return
 	}
@@ -612,6 +617,10 @@ func (t *GoTracker) CheckNoMoreLegal() {
 			}
 		}
 	}
+}
+
+func (t *GoTracker) Moves() *vector.IntVector {
+	return t.moves
 }
 
 func (t *GoTracker) Vtoa(v int) string {

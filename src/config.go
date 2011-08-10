@@ -13,6 +13,7 @@ type Config struct {
 	Gtp   bool
 	Book  bool
 	Genmove bool
+	PlayGame bool
 	SGF string
 	Cluster bool
 
@@ -37,16 +38,12 @@ type Config struct {
 
 	// Learning
 	Train       bool
-	Pswarm      bool
-	ESswarm     bool
 	Generations uint
 	Mu          uint
 	Parents     uint
 	Lambda      uint
 	Samples     uint
-
-	// Module options
-	Eval   bool
+	EvalErr     bool
 	
 	// Load/save different modules
 	Prefix string
@@ -88,7 +85,10 @@ type Config struct {
 	// private fields, set by Bfile, Pfile and Efile
 	book      *Node
 	policy_weights   *Particle
-	evaluator BoardEvaluator
+	
+	// log files
+	evalLog *os.File
+	probLog *os.File
 }
 
 func NewConfig() *Config {
@@ -99,6 +99,7 @@ func NewConfig() *Config {
 	flag.StringVar(&config.SGF, "sgf", "", "Load sgf file and generate move")
 	flag.BoolVar(&config.Book, "book", false, "Make opening book")
 	flag.BoolVar(&config.Genmove, "genmove", false, "Generate one move and quit")
+	flag.BoolVar(&config.PlayGame, "playgame", false, "Self-play one game")
 	flag.BoolVar(&config.Cluster, "cluster", false, "Start cluster")
 
 	flag.UintVar(&config.MaxPlayouts, "p", 10000, "Max number of playouts")
@@ -116,15 +117,12 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Swapsafe, "swapsafe", false, "When playing hex, black will choose a swap-safe opening move")
 
 	flag.BoolVar(&config.Train, "train", false, "Do crazy unsupervised training stuff")
-	flag.BoolVar(&config.Pswarm, "pswarm", false, "Train with particle swarm")
-	flag.BoolVar(&config.ESswarm, "esswarm", false, "Train with evolution strategies")
 	flag.UintVar(&config.Generations, "gens", 100, "Generations to train for")
 	flag.UintVar(&config.Mu, "mu", 30, "(Training) Children to keep")
 	flag.UintVar(&config.Parents, "parents", 2, "(Training) Parents per child")
 	flag.UintVar(&config.Lambda, "lambda", 50, "(Training) Children")
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
-	
-	flag.BoolVar(&config.Eval, "eval", false, "Use evaluator")
+	flag.BoolVar(&config.EvalErr, "evalerr", false, "Learn on evals.json and minimize MSE")
 	
 	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
@@ -143,8 +141,8 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Seed, "seed", false, "Seed the playouts using ancestor's results")
 
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose logging")
-	flag.BoolVar(&config.VeryVerbose, "vvv", false, "Very verbose logging")
-	flag.BoolVar(&config.Verify, "vv", false, "Verify correctness of playout")
+	flag.BoolVar(&config.VeryVerbose, "vv", false, "Very verbose logging")
+	flag.BoolVar(&config.Verify, "verify", false, "Verify correctness of playout")
 	flag.BoolVar(&config.PrintWeights, "printweights", false, "Print weights to file")
 	flag.StringVar(&config.Lfile, "log", "", "Log to filename")
 
@@ -158,7 +156,6 @@ func NewConfig() *Config {
 	if config.Pfile != "" {
 		config.policy_weights = LoadBest(config.Pfile, config)
 	}
-	LoadBoardEvaluator(config)
 
 	if !(config.Go || config.Hex) {
 		config.Go = true
@@ -168,15 +165,6 @@ func NewConfig() *Config {
 	}
 	if config.Hex {
 		config.Go = false
-	}
-	if !(config.Pswarm || config.ESswarm) {
-		config.ESswarm = true
-	}
-	if config.Pswarm {
-		config.ESswarm = false
-	}
-	if config.ESswarm {
-		config.Pswarm = false
 	}
 	
 	var f *os.File
@@ -194,6 +182,15 @@ func NewConfig() *Config {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
+	
+	if config.evalLog, err = os.OpenFile("evals.json", os.O_APPEND|os.O_RDWR, 0666); err != nil {
+		if config.evalLog, err = os.Create("evals.json"); err != nil {
+			panic(err)
+		}
+	}
+	if config.probLog, err = os.Create("probs.json"); err != nil {
+		panic(err)
+	}
 
 	return config
 }
