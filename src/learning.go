@@ -11,9 +11,6 @@ import (
 	"log"
 	"container/vector"
 	"github.com/ajstarks/svgo"
-	"bufio"
-	"json"
-	"runtime"
 )
 
 type Swarm struct {
@@ -41,20 +38,7 @@ func NewSwarm(config *Config) *Swarm {
 	s.Generation = 0
 	s.Particles = make(Particles, s.Mu)
 	for i := uint(0); i < s.Mu; i++ {
-		s.Particles[i] = NewParticle(s, 0.01, 10.0)
-	}
-	if config.EvalErr {
-		s.evals = new(vector.Vector)
-		buf := bufio.NewReader(s.config.evalLog)
-		for line, _, err := buf.ReadLine(); err == nil; line, _, err = buf.ReadLine() {
-			eval := new(Eval)
-			err := json.Unmarshal(line, &eval)
-			if err != nil {
-				log.Println(err)
-			} else {
-				s.evals.Push(eval)
-			}
-		}
+		s.Particles[i] = NewParticle(s, 0, 100)
 	}
 	return s
 }
@@ -74,7 +58,7 @@ func NewParticle(swarm *Swarm, min, max float64) *Particle {
 	p.Position = make(map[uint32]float64)
 	p.Min = min
 	p.Max = max
-	p.Fitness = math.MaxFloat64
+	p.Fitness = 0
 	return p
 }
 
@@ -99,7 +83,7 @@ func (s Particles) Len() int {
 }
 
 func (s Particles) Less(i, j int) bool {
-	return s[i].Fitness < s[j].Fitness
+	return s[i].Fitness > s[j].Fitness
 }
 
 func (s Particles) Swap(i, j int) {
@@ -117,11 +101,11 @@ func (p *Particle) Init(i uint32) {
 	p.Position[i] = p.Min + (p.Max - p.Min) * rand.Float64()
 }
 
-func (s *Swarm) evalPlay(p *Particle) {
+func (s *Swarm) evalPlay(p1 *Particle, p2 *Particle) {
 	config := new(Config)
 	*config = *s.config
-	p.Fitness = 0
 	for sample := uint(0); sample < s.Samples; sample++ {
+		log.Printf("game %d / %d\n", sample, s.Samples)
 		t := NewTracker(config)
 		color := BLACK
 		target := BLACK
@@ -130,46 +114,31 @@ func (s *Swarm) evalPlay(p *Particle) {
 		}
 		for {
 			if color == target {
-				config.policy_weights = p
+				config.policy_weights = p1
 			} else {
-				config.policy_weights = nil
+				config.policy_weights = p2
 			}
 			root := NewRoot(color, t, config)
 			genmove(root, t)
 			t.Play(color, root.Best().Vertex)
+			if config.Verbose {
+				log.Println(t.String())
+				log.Println(Ctoa(color), t.Vtoa(root.Best().Vertex))
+				log.Println(Ctoa(Reverse(color)), "to play")
+			}
 			if t.Winner() != EMPTY {
 				break
 			}
 			color = Reverse(color)
 		}
 		if t.Winner() == target {
-			p.Fitness--
+			p1.Fitness++
+			p2.Fitness--
+		} else {
+			p2.Fitness++
+			p1.Fitness--
 		}
 	}
-}
-
-func (s *Swarm) evalErr(p *Particle) {
-	p.Fitness = 0
-	for i := 0; i < s.evals.Len(); i++ {
-		eval := s.evals.At(i).(*Eval)
-		wins := 0
-		for sample := uint(0); sample < s.Samples; sample++ {
-			t := NewTracker(s.config)
-			color := BLACK
-			for j := 0; j < eval.Moves.Len(); j++ {
-				t.Play(color, eval.Moves.At(j))
-				color = Reverse(color)
-			}
-			t.Playout(color)
-			if t.Winner() == Reverse(color) {
-				wins++
-			}
-		}
-		mean := float64(wins) / float64(s.Samples)
-		err := mean - (eval.Wins / eval.Visits)
-		p.Fitness += err * err
-	}
-	p.Fitness /= float64(s.evals.Len())
 }
 
 /**
@@ -199,33 +168,19 @@ func (s *Swarm) step() {
 		}
 		s.Particles[i] = s.recombine(p)
 		s.mutate(s.Particles[i])
-		s.Particles[i].Fitness = math.MaxFloat64
+		s.Particles[i].Fitness = 0
 	}
 	
-	// propagate the 2 last best particles without change
-	s.Particles[0] = parents[0].Copy()
-	s.Particles[1] = parents[1].Copy()
+	// propagate the last best particles without change
+	for i := uint(0); i < s.config.Propagate; i++ {
+		s.Particles[i] = parents[i].Copy()
+	}
 
-	sem := make(chan int, 2)
-	done := make(chan int)
 	// evaluate either children (,) or children + parents (+) for fitness
 	for i := range s.Particles {
-		go func(i int) {
-			sem <- 1
-			runtime.LockOSThread()
-			log.Printf("evaluating %d/%d\n", i, len(s.Particles))
-			if s.config.EvalErr {
-				s.evalErr(s.Particles[i])
-			} else {
-				s.evalPlay(s.Particles[i])
-			}
-			log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
-			<-sem
-			done <- 1
-		}(i)
-	}
-	for _ = range s.Particles {
-		<-done
+		log.Printf("evaluating %d/%d\n", i, len(s.Particles))
+		s.evalPlay(s.Particles[i], randParticle(s.Particles, []*Particle{s.Particles[i]}))
+		log.Printf("fitness of %d: %.4f\n", i, s.Particles[i].Fitness)
 	}
 
 	// select mu parents from either children (,) or children + parents (+)

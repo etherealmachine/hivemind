@@ -30,6 +30,7 @@ type Config struct {
 	// Different games
 	Go       bool
 	Hex      bool
+	HexFast  bool
 
 	// Game-specific variables
 	Size int
@@ -37,13 +38,13 @@ type Config struct {
 	Swapsafe bool
 
 	// Learning
-	Train       bool
-	Generations uint
-	Mu          uint
-	Parents     uint
-	Lambda      uint
-	Samples     uint
-	EvalErr     bool
+	Train        bool
+	Generations  uint
+	Mu           uint
+	Parents      uint
+	Lambda       uint
+	Samples      uint
+	Propagate    uint
 	
 	// Load/save different modules
 	Prefix string
@@ -53,6 +54,7 @@ type Config struct {
 	Sfile  string
 
 	// Tree exploration/expansion
+	TreeSearch  bool
 	Explore     float64
 	RAVE        float64
 	ExpandAfter float64
@@ -61,6 +63,10 @@ type Config struct {
 	Neighbors   bool
 	Ancestor    bool
 	Seed        bool
+	PlayoutProbs bool
+	PlayoutSuggest bool
+	PlayoutSuggestUniform bool
+	PlayoutSuggestUniformTenuki bool
 
 	// Logging
 	Verbose bool
@@ -87,7 +93,6 @@ type Config struct {
 	policy_weights   *Particle
 	
 	// log files
-	evalLog *os.File
 	probLog *os.File
 }
 
@@ -111,18 +116,19 @@ func NewConfig() *Config {
 
 	flag.BoolVar(&config.Go, "go", false, "Play Go")
 	flag.BoolVar(&config.Hex, "hex", false, "Play Hex")
+	flag.BoolVar(&config.HexFast, "hexfast", false, "Play Hex using fast tracker")
 
 	flag.IntVar(&config.Size, "size", 9, "Boardsize")
 	flag.Float64Var(&config.Komi, "komi", 6.5, "Komi")
 	flag.BoolVar(&config.Swapsafe, "swapsafe", false, "When playing hex, black will choose a swap-safe opening move")
 
-	flag.BoolVar(&config.Train, "train", false, "Do crazy unsupervised training stuff")
-	flag.UintVar(&config.Generations, "gens", 100, "Generations to train for")
+	flag.BoolVar(&config.Train, "train", false, "(Training) Do crazy unsupervised training stuff")
+	flag.UintVar(&config.Generations, "gens", 100, "(Training) Generations to train for")
 	flag.UintVar(&config.Mu, "mu", 30, "(Training) Children to keep")
 	flag.UintVar(&config.Parents, "parents", 2, "(Training) Parents per child")
 	flag.UintVar(&config.Lambda, "lambda", 50, "(Training) Children")
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
-	flag.BoolVar(&config.EvalErr, "evalerr", false, "Learn on evals.json and minimize MSE")
+	flag.UintVar(&config.Propagate, "prop", 2, "(Training) Propagate prop best from last generation")
 	
 	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
@@ -131,6 +137,7 @@ func NewConfig() *Config {
 	flag.StringVar(&config.Bfile, "bfile", "", "Load book from file")
 	flag.StringVar(&config.cfile, "cfile", "", "Load config from file")
 
+	flag.BoolVar(&config.TreeSearch, "treesearch", true, "Use UCT (if false, use flat MC playouts)")
 	flag.Float64Var(&config.Explore, "c", 0.5, "UCT coefficient")
 	flag.Float64Var(&config.RAVE, "k", 1000, "RAVE equivalency cutoff")
 	flag.Float64Var(&config.ExpandAfter, "e", 50, "Expand after")
@@ -139,6 +146,10 @@ func NewConfig() *Config {
 	flag.BoolVar(&config.Neighbors, "neighbors", false, "Use neighbors results in RAVE mean")
 	flag.BoolVar(&config.Ancestor, "ancestor", false, "Use ancestors results in RAVE mean")
 	flag.BoolVar(&config.Seed, "seed", false, "Seed the playouts using ancestor's results")
+	flag.BoolVar(&config.PlayoutProbs, "playout_probs", false, "Use policy weights to bias the playout over time")
+	flag.BoolVar(&config.PlayoutSuggest, "playout_suggest", false, "Use policy weights as suggested local response to move")
+	flag.BoolVar(&config.PlayoutSuggestUniform, "playout_suggest_uniform", false, "Use uniform random local response")
+	flag.BoolVar(&config.PlayoutSuggestUniformTenuki, "playout_suggest_uniform_tenuki", false, "Include probability of tenuki in local response")
 
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose logging")
 	flag.BoolVar(&config.VeryVerbose, "vv", false, "Very verbose logging")
@@ -183,11 +194,6 @@ func NewConfig() *Config {
 	log.SetPrefix("")
 	log.SetOutput(f)
 	
-	if config.evalLog, err = os.OpenFile("evals.json", os.O_APPEND|os.O_RDWR, 0666); err != nil {
-		if config.evalLog, err = os.Create("evals.json"); err != nil {
-			panic(err)
-		}
-	}
 	if config.probLog, err = os.Create("probs.json"); err != nil {
 		panic(err)
 	}

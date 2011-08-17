@@ -7,6 +7,7 @@ import (
 	"log"
 	"json"
 	"container/vector"
+	"rand"
 )
 
 type HexTracker struct {
@@ -98,6 +99,11 @@ func (t *HexTracker) Copy() Tracker {
 
 func (t *HexTracker) Play(color byte, vertex int) {
 	if vertex != -1 {
+		if t.board[vertex] != EMPTY {
+			log.Println(t.String())
+			log.Println(Ctoa(color), t.Vtoa(vertex))
+			panic("play on non-empty vertex")
+		}
 		root := find(vertex, t.parent)
 		for i := 0; i < 6; i++ {
 			adj := find(t.adj[vertex*6+i], t.parent)
@@ -123,7 +129,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		// cannot play on occupied vertex
 		t.weights.Set(BLACK, vertex, 0)
 		t.weights.Set(WHITE, vertex, 0)
-		if t.config.policy_weights != nil {
+		if t.config.PlayoutProbs && t.config.policy_weights != nil {
 			t.updateNeighborWeights(vertex)
 		}
 		
@@ -135,36 +141,23 @@ func (t *HexTracker) Play(color byte, vertex int) {
 }
 
 func (t *HexTracker) updateNeighborWeights(vertex int) {
-	if t.board[vertex] == EMPTY {
-		return
-	}
 	for i := range t.neighbors[1][vertex] {
 		neighbor := t.neighbors[1][vertex][i]
 		if neighbor != -1 && t.board[neighbor] == EMPTY {
-			t.updateWeights(neighbor)
+			t.updateWeights(BLACK, neighbor, neighbor)
+			t.updateWeights(WHITE, neighbor, neighbor)
+			t.updateWeights(BLACK, vertex, neighbor)
+			t.updateWeights(WHITE, vertex, neighbor)
 		}
 	}
 }
 
-func (t *HexTracker) updateWeights(vertex int) {
-	black_weight := t.weights.Get(BLACK, vertex)
-	if black_weight != 0 {
-		weight := t.get_pattern_weight(BLACK, vertex)
-		black_weight = int(float64(black_weight) * weight)
-		if black_weight == 0 {
-			black_weight = 1
-		}
+func (t *HexTracker) updateWeights(color byte, v1, v2 int) {
+	weight := t.get_pattern_weight(color, v1) * t.weights.Get(color, v2)
+	if weight == 0 {
+		weight = 1
 	}
-	t.weights.Set(BLACK, vertex, black_weight)
-	white_weight := t.weights.Get(WHITE, vertex)
-	if white_weight != 0 {
-		weight := t.get_pattern_weight(WHITE, vertex)
-		white_weight = int(float64(white_weight) * weight)
-		if white_weight == 0 {
-			white_weight = 1
-		}
-	}
-	t.weights.Set(WHITE, vertex, white_weight)
+	t.weights.Set(color, v2, weight)
 }
 
 func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
@@ -172,32 +165,54 @@ func (t *HexTracker) get_pattern_weight(color byte, vertex int) float64 {
 	return t.config.policy_weights.Get(hash)
 }
 
+func (t *HexTracker) suggestion(color byte, last int) int {
+	if last == -1 || !t.config.PlayoutSuggest {
+		return -1
+	}
+	var weights [6]float64
+	weightSum := 0.0
+	for i := range t.neighbors[1][last] {
+		n := t.neighbors[1][last][i]
+		if n != -1 && t.board[n] == EMPTY {
+			if t.config.PlayoutSuggestUniform {
+				weights[i] = 1
+			} else {
+				hash := hex_min_hash[hex_hash(color, t.board, t.neighbors[1][n])]
+				hash |= 1<<30
+				weights[i] = t.config.policy_weights.Get(hash)
+			}
+			weightSum += weights[i]
+		}
+	}
+	if weightSum > 0 {
+		r := rand.Float64() * weightSum
+		for i := range weights {
+			if weights[i] > 0 {
+				r -= weights[i]
+				if r <= 0 {
+					return t.neighbors[1][last][i]
+				}
+			}
+		}
+	}
+	return -1
+}
+
 func (t *HexTracker) Playout(color byte) {
+	vertex := -1
 	for {
-		vertex := t.weights.Rand(color)
+		vertex = t.suggestion(color, vertex)
+		if vertex == -1 {
+			vertex = t.weights.Rand(color)
+		}
 		if t.config.VeryVerbose {
 			log.Println(Ctoa(color) + t.Vtoa(vertex))
 		}
 		t.Play(color, vertex)
 		
-		if t.config.policy_weights != nil && t.config.VeryVerbose {
-			m := make(map[string]interface{})
-			for i := range t.board {
-				m[t.Vtoa(i)] = map[string]interface{} {
-					"occ" : Ctoa(t.board[i]),
-					"black" : t.weights.Prob(BLACK, i),
-					"white" : t.weights.Prob(WHITE, i),
-				}
-			}
-			if bytes, err := json.Marshal(m); err != nil {
-				fmt.Fprintln(t.config.probLog, err)
-			} else {
-				fmt.Fprintln(t.config.probLog, string(bytes))
-			}
-		}
-		
 		if t.config.VeryVerbose {
 			log.Println(t.String())
+			t.logProbabilities()
 		}
 		if t.winner != EMPTY {
 			if t.config.VeryVerbose {
@@ -350,30 +365,23 @@ func (t *HexTracker) String() (s string) {
 	return
 }
 
-func (t *HexTracker) WeightString() string {
-	s := ""
-	for hash, weight := range t.config.policy_weights.Position {
-		color := BLACK
-		if hash & 0x80000000 != 0 {
-			color = WHITE
-		}
-		board := []byte{EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY}
-		for i := 0; i < 7; i++ {
-			mask := hash & (1<<uint32(2*i) | 1<<uint32((2*i)+1))
-			if mask == hex_hash_mask[i][BLACK] {
-				board[i] = BLACK
-			} else if mask == hex_hash_mask[i][WHITE] {
-				board[i] = WHITE
-			} else if mask == hex_hash_mask[i][ILLEGAL] {
-				board[i] = ILLEGAL
-			}
-		}
-		s += fmt.Sprintf("%.3f\n", weight)
-		s += fmt.Sprintf(" %s %s\n", Ctoa(board[0]), Ctoa(board[1]))
-		s += fmt.Sprintf("%s %s %s\n", Ctoa(board[5]), Ctoa(color), Ctoa(board[2]))
-		s += fmt.Sprintf(" %s %s\n", Ctoa(board[4]), Ctoa(board[3]))
+func (t *HexTracker) logProbabilities() {
+	if t.config.policy_weights == nil {
+		return
 	}
-	return s
+	m := make(map[string]interface{})
+	for i := range t.board {
+		m[t.Vtoa(i)] = map[string]interface{} {
+			"occ" : Ctoa(t.board[i]),
+			"black" : t.weights.Prob(BLACK, i),
+			"white" : t.weights.Prob(WHITE, i),
+		}
+	}
+	if bytes, err := json.Marshal(m); err != nil {
+		fmt.Fprintln(t.config.probLog, err)
+	} else {
+		fmt.Fprintln(t.config.probLog, string(bytes))
+	}
 }
 
 var hex_adj map[int][]int

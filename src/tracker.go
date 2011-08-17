@@ -12,7 +12,7 @@ const (
 	UP_RIGHT   = 1
 	DOWN_LEFT  = 4
 	DOWN_RIGHT = 5
-	INIT_WEIGHT = 50
+	INIT_WEIGHT = 500
 )
 
 var SIDE_UP int
@@ -40,14 +40,17 @@ type Tracker interface {
 	String() string
 	Vtoa(vertex int) string
 	Atov(s string) int
-	WeightString() string
 }
 
 func NewTracker(config *Config) Tracker {
 	if config.Go {
 		return NewGoTracker(config)
 	} else if config.Hex {
-		return NewHexTracker(config)
+		if config.HexFast {
+			return NewFastHexTracker(config)
+		} else {
+			return NewHexTracker(config)
+		}
 	}
 	return nil
 }

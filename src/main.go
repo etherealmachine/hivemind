@@ -50,25 +50,27 @@ func main() {
 		root := NewRoot(BLACK, t, config)
 		genmove(root, t)
 	} else if config.PlayGame {
-		t := NewTracker(config)
-		color := BLACK
-		move := 0
-		for {
-			var vertex int
-			if move == 0 && config.Swapsafe {
-				vertex = (3 * t.Boardsize()) + 2
-			} else {
-				root := NewRoot(color, t, config)
-				genmove(root, t)
-				vertex = root.Best().Vertex
+		for i := uint(0); i < config.Samples; i++ {
+			t := NewTracker(config)
+			color := BLACK
+			move := 0
+			for {
+				var vertex int
+				if move == 0 && config.Swapsafe {
+					vertex = (3 * t.Boardsize()) + 2
+				} else {
+					root := NewRoot(color, t, config)
+					genmove(root, t)
+					vertex = root.Best().Vertex
+				}
+				t.Play(color, vertex)
+				log.Println(t.String())
+				if t.Winner() != EMPTY {
+					break
+				}
+				move++
+				color = Reverse(color)
 			}
-			t.Play(color, vertex)
-			log.Println(t.String())
-			if t.Winner() != EMPTY {
-				break
-			}
-			move++
-			color = Reverse(color)
 		}
 	}
 	<-shutdown

@@ -12,6 +12,7 @@ zobrist.go\
 dfs.go\
 gotracker.go\
 hextracker.go\
+fasthextracker.go\
 sgf.go\
 weight_tree.go\
 cluster.go\

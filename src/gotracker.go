@@ -419,8 +419,8 @@ func (t *GoTracker) updateWeights(vertex int) {
 			weight := t.get_weight(BLACK, vertex)
 			if math.IsNaN(weight) {
 				black_weight = 0
-			} else if black_weight + int(weight) > 0 {
-				black_weight += int(weight)
+			} else if black_weight + weight > 0 {
+				black_weight += weight
 			}
 		}
 		t.weights.Set(BLACK, vertex, black_weight)
@@ -429,8 +429,8 @@ func (t *GoTracker) updateWeights(vertex int) {
 			weight := t.get_weight(WHITE, vertex)
 			if math.IsNaN(weight) {
 				white_weight = 0
-			} else if white_weight + int(weight) > 0 {
-				white_weight += int(weight)
+			} else if white_weight + weight > 0 {
+				white_weight += weight
 			}
 		}
 		t.weights.Set(WHITE, vertex, white_weight)
@@ -692,10 +692,6 @@ func (t *GoTracker) String() (s string) {
 		}
 	}
 	return
-}
-
-func (t *GoTracker) WeightString() string {
-	return ""
 }
 
 func (t *GoTracker) dead() []int {

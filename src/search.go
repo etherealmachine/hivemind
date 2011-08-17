@@ -9,8 +9,6 @@ import (
 	"container/vector"
 	"os"
 	"gob"
-	"json"
-	"sort"
 )
 
 type Node struct {
@@ -67,7 +65,12 @@ func genmove(root *Node, t Tracker) {
 	root.copy_time = 0
 	root.next_count = 0
 	root.play_count = 0
-	playouts := float64(treeSearch(root, t))
+	var playouts float64
+	if root.config.TreeSearch {
+		playouts = float64(treeSearch(root, t))
+	} else {
+		playouts = float64(mcSearch(root, t))
+	}
 	elapsed := time.Nanoseconds() - start
 	elapsed_seconds := float64(elapsed) / 1e9
 	if root.config.Stats {
@@ -90,7 +93,6 @@ func genmove(root *Node, t Tracker) {
 			unaccounted := elapsed -
 				root.playout_time - root.update_time - root.win_calc_time - root.next_time - root.play_time - root.copy_time
 			log.Printf("%.2f seconds unaccounted\n", float64(unaccounted)/1e9)
-			root.LogEvals(t)
 		}
 		if root.config.Timelimit > 0 {
 			if elapsed_seconds > float64(root.config.Timelimit) {
@@ -124,24 +126,10 @@ func genmove(root *Node, t Tracker) {
 func treeSearch(root *Node, t Tracker) uint {
 	playouts := uint(0)
 	start := time.Nanoseconds()
-	s := time.Nanoseconds()
-	trackers := make([]Tracker, 10000)
-	for i := 0; i < len(trackers); i++ {
-		trackers[i] = t.Copy()
-	}
-	root.copy_time += (time.Nanoseconds() - s)
-	tracker := 0
 	for {
-		cp := trackers[tracker]
-		tracker++
-		if tracker >= len(trackers) {
-			s := time.Nanoseconds()
-			for i := 0; i < len(trackers); i++ {
-				trackers[i] = t.Copy()
-			}
-			root.copy_time += (time.Nanoseconds() - s)
-			tracker = 0
-		}
+		s := time.Nanoseconds()
+		cp := t.Copy()
+		root.copy_time += (time.Nanoseconds() - s)
 		root.step(cp)
 		playouts++
 		territory := cp.Territory(Reverse(root.Color))
@@ -173,6 +161,40 @@ func treeSearch(root *Node, t Tracker) uint {
 			}
 		} else if playouts >= root.config.MaxPlayouts {
 			break
+		}
+	}
+	return playouts
+}
+
+func mcSearch(root *Node, t Tracker) uint {
+	playouts := uint(0)
+	start := time.Nanoseconds()
+	root.expand(t)
+	curr := root.Child
+	for curr != nil {
+		s := time.Nanoseconds()
+		cp := t.Copy()
+		root.copy_time += (time.Nanoseconds() - s)
+		cp.Play(curr.Color, curr.Vertex)
+		s = time.Nanoseconds()
+		cp.Playout(Reverse(curr.Color))
+		root.playout_time += time.Nanoseconds() - start
+		if cp.Winner() == curr.Color {
+			curr.Wins++
+		}
+		curr.Visits++
+		playouts++
+		if root.config.Timelimit > 0 {
+			elapsed := time.Nanoseconds() - start
+			if uint64(elapsed) > uint64(root.config.Timelimit)*uint64(1e9) {
+				break
+			}
+		} else if playouts >= root.config.MaxPlayouts {
+			break
+		}
+		curr = curr.Sibling
+		if curr == nil {
+			curr = root.Child
 		}
 	}
 	return playouts
@@ -289,8 +311,14 @@ func (node *Node) Next(root *Node, t Tracker) *Node {
 func (node *Node) Best() *Node {
 	var best *Node
 	for child := node.Child; child != nil; child = child.Sibling {
-		if best == nil || child.Visits > best.Visits {
-			best = child
+		if node.config.TreeSearch {
+			if best == nil || child.Visits > best.Visits {
+				best = child
+			}
+		} else {
+			if best == nil || child.Wins > best.Wins {
+				best = child
+			}
 		}
 	}
 	if best == nil {
@@ -579,30 +607,6 @@ type Children struct {
 
 func (c *Children) Less(i, j int) bool {
 	return c.At(i).(*Node).Visits > c.At(j).(*Node).Visits
-}
-
-func (root *Node) LogEvals(t Tracker) {
-	children := new(Children)
-	for child := root.Child; child != nil; child = child.Sibling {
-		children.Push(child)
-	}
-	sort.Sort(children)
-	children.Resize(3, 3)
-	for i := 0; i < children.Len(); i++ {
-		child := children.At(i).(*Node)
-		eval := new(Eval)
-		moves := new(vector.IntVector)
-		*moves = t.Moves().Copy()
-		moves.Push(child.Vertex)
-		eval.Moves = moves
-		eval.Wins = child.Wins
-		eval.Visits = child.Visits
-		if bytes, err := json.Marshal(eval); err != nil {
-			panic(err)
-		} else {
-			fmt.Fprintln(root.config.evalLog, string(bytes))
-		}
-	}
 }
 
 func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {

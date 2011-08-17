@@ -37,6 +37,10 @@ class GUI(object):
 		gobject.idle_add(self.draw)
 		if len(sys.argv) == 2:
 			self.set_file(sys.argv[1])
+		else:
+			self.set_size(9)
+			self.pb = "None"
+			self.pw = "None"
 		
 	def set_size(self, size):
 		self.size = size
@@ -49,11 +53,21 @@ class GUI(object):
 			if ord(key[0]) > ord('I'):
 				i -= 1
 			j = int(key[1]) - 1
+			black = float(value['black'])
+			white = float(value['white'])
 			self.board[i][j] = {
 				'occ': value['occ'],
-				'black': value['black'],
-				'white': value['white'],
+				'black': black,
+				'white': white,
 			}
+			if black > bmax:
+				bmax = black
+			if white > wmax:
+				wmax = white
+		for i in range(self.size):
+			for j in range(self.size):
+				self.board[i][j]['black'] /= bmax
+				self.board[i][j]['white'] /= wmax
 
 	def on_back_clicked(self, btn):
 		if type(self.cur) == int:
@@ -96,6 +110,7 @@ class GUI(object):
 				self.last = (i, j)
 			except sgflib.GameTreeEndError:
 				self.builder.get_object("back").set_sensitive(False)
+		gobject.idle_add(self.draw)
 
 	def on_forward_clicked(self, btn):
 		if type(self.cur) == int:
@@ -126,9 +141,11 @@ class GUI(object):
 						self.board[i][j] = color
 			except sgflib.GameTreeEndError:
 				self.builder.get_object("forward").set_sensitive(False)
+		gobject.idle_add(self.draw)
 		
 	def on_file_set(self, chooser):
 		self.set_file(chooser.get_filename())
+		gobject.idle_add(self.draw)
 		
 	def on_window_destroy(self, widget):
 		gtk.main_quit()
@@ -145,20 +162,28 @@ class GUI(object):
 			self.pb = "None"
 			self.pw = "None"
 			f = open(filename)
-			self.weights = map(json.loads, filter(lambda line: line.startswith("{"), f.readlines()))
+			lines = filter(lambda line: line.startswith("{"), f.readlines())
+			self.weights = []
+			for line in lines:
+				line = line.replace('+Inf', '"+Inf"')
+				try:
+					self.weights.append(json.loads(line))
+				except ValueError as err:
+					print line
+					print err
+					sys.exit(1)
 			self.cur = 0
 			self.set_size(int(math.sqrt(len(self.weights[0]))))
 			self.update_weights()
 			self.builder.get_object("forward").set_sensitive(True)
+		gobject.idle_add(self.draw)
 
 	def draw(self):
+	
 		black = (0, 0, 0)
 		white = (255, 255, 255)
 		gray = (220, 220, 220)
-		red = (255, 0, 0)
-		blue = (67, 83, 255)
 	
-		gobject.idle_add(self.draw)
 		w, h = self.screen.get_size()
 		self.screen.fill(gray)
 		
@@ -193,41 +218,41 @@ class GUI(object):
 		ly.pop(len(ly)-1)
 		rx.pop(0)
 		ry.pop(0)
-		pygame.draw.lines(self.screen, red, False, zip(map(lambda x: x+x_margin, tx), map(lambda y: y+y_margin, ty)), 6)
-		pygame.draw.lines(self.screen, red, False, zip(map(lambda x: x+x_margin, bx), map(lambda y: y+y_margin, by)), 6)
-		pygame.draw.lines(self.screen, blue, False, zip(map(lambda x: x+x_margin, lx), map(lambda y: y+y_margin, ly)), 6)
-		pygame.draw.lines(self.screen, blue, False, zip(map(lambda x: x+x_margin, rx), map(lambda y: y+y_margin, ry)), 6)
+		pygame.draw.lines(self.screen, black, False, zip(map(lambda x: x+x_margin, tx), map(lambda y: y+y_margin, ty)), 6)
+		pygame.draw.lines(self.screen, black, False, zip(map(lambda x: x+x_margin, bx), map(lambda y: y+y_margin, by)), 6)
+		pygame.draw.lines(self.screen, white, False, zip(map(lambda x: x+x_margin, lx), map(lambda y: y+y_margin, ly)), 6)
+		pygame.draw.lines(self.screen, white, False, zip(map(lambda x: x+x_margin, rx), map(lambda y: y+y_margin, ry)), 6)
 		for i in range(self.size):
 			if chr(97+i) >= 'i':
 				c = chr(97+i+1)
 			else:
 				c = chr(97+i)
-			col = self.font.render(c, True, black)
+			col = self.font.render(c, True, (0, 0, 0))
 			self.screen.blit(col, (x_margin + i*width, y_margin-col.get_height()))
-			row = self.font.render(str(i+1), True, black)
+			row = self.font.render(str(i+1), True, (0, 0, 0))
 			self.screen.blit(row, (x_margin-row.get_width()-5+i*(width/2.0), y_margin+i*(2*C-A)+5))
 		
 		for i in range(self.size):
 			for j in range(self.size):
 				color = None
 				if self.board[i][j] == 'black':
-					color = red
+					color = black
 				elif self.board[i][j] == 'white':
-					color = blue
+					color = white
 				elif self.board[i][j] != 'empty':
 					occ = self.board[i][j]['occ']
 					bprob = self.board[i][j]['black']
 					wprob = self.board[i][j]['white']
 					if occ == 'B':
-						color = red
+						color = black
 					elif occ == 'W':
-						color = blue
+						color = white
 					else:
-						color = (255 * wprob, 255 * wprob, 255 * wprob)
+						color = (255 * bprob, 255 * bprob, 255 * bprob)
 				xoff = x_margin + i * width + j*width/2.0
 				yoff = y_margin + j * (A+C)
 				pygame.gfxdraw.filled_polygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), gray)
-				pygame.gfxdraw.aapolygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), black)
+				pygame.gfxdraw.aapolygon(self.screen, zip(map(lambda x: x+xoff, x), map(lambda y: y+yoff, y)), (0, 0, 0))
 				if color:
 					mx, my = int(width/2.0+xoff), int(height/2.0+yoff)
 					pygame.gfxdraw.filled_circle(self.screen, mx, my, int(C*0.7), color)
@@ -235,13 +260,16 @@ class GUI(object):
 				if self.last:
 					if i == self.last[0] and j == self.last[1]:
 						mx, my = int(width/2.0+xoff), int(height/2.0+yoff)
-						pygame.gfxdraw.filled_circle(self.screen, mx, my, 3, black)
-						pygame.gfxdraw.aacircle(self.screen, mx, my, 3, black)
+						
+						pygame.gfxdraw.filled_circle(self.screen, mx, my, 3, (255, 114, 0))
+						pygame.gfxdraw.aacircle(self.screen, mx, my, 3, (255, 114, 0))
 
-		pb = self.font.render('Red: {0}'.format(self.pb), True, red)
+		'''
+		pb = self.font.render('Black: {0}'.format(self.pb), True, black)
 		self.screen.blit(pb, (4, 0))
-		pw = self.font.render('Blue: {0}'.format(self.pw), True, blue)
+		pw = self.font.render('White: {0}'.format(self.pw), True, white)
 		self.screen.blit(pw, (4, 20))
+		'''
 
 		pygame.display.flip()
 		
