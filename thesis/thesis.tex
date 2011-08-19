@@ -8,10 +8,34 @@
 \newcommand{\black}{\texttt{Black}}
 \newcommand{\white}{\texttt{White}}
 \newcommand{\loc}[1]{\texttt{#1}}
-\author{James Pettit}
-\title{Simulation Learning in Computer Hex}
 \begin{document}
-\maketitle
+
+\begin{titlepage}
+\begin{center}
+UNIVERSITY OF CALIFORNIA\\[0.5cm]
+SANTA CRUZ\\[0.75cm]
+\textbf{Simulation Learning in Computer Hex*}\\[0.5cm]
+\small{A report submitted in partial satisfaction}\\
+\small{of the requirements for the degree of}\\[0.5cm]
+MASTER OF SCIENCE\\[0.5cm]
+in\\[0.5cm]
+COMPUTER SCIENCE\\[0.5cm]
+by\\[0.5cm]
+\textbf{James Pettit}\\[0.5cm]
+\today
+\end{center}
+\vfill
+\begin{flushright}
+The Report of Simulation Learning in Computer Hex\\
+is approved:\\[1cm]
+\line(1,0){120}\\
+Professor David Helmbold\\[1cm]
+\line(1,0){120}\\
+Professor Robert Levinson\\[3cm]
+\end{flushright}
+\small{*Many thanks to David Helmbold, David Doshay, and Charlie McDowell for their advice, patience, and the computational resources required to complete this research.}
+\end{titlepage}
+
 \tableofcontents
 
 \chapter{Introduction}
@@ -76,18 +100,21 @@ $C$, the \emph{exploration coefficient}, can be varied to increase or decrease t
 \subsection{Simulation Policy}
 The \texttt{simulate} function plays out the rest of the game from the current position. The simplest policy plays a legal uniform random move until the game ends (in Hex, when one player has a winning path). The simulation policy has the largest effect on the strength of the entire search. Initial research in Computer Go focused on using a strong simulation policy, using expert-derived heuristics to select the next move. The top Computer Go programs all have complex hand-crafted policies with rules to examine the current position and select a ``good'' move to play, possibly with a stocastic choice between several candidates. Only when none of the rules match do they fall back to a uniform random move. It was quickly found that building a stronger simulation policy does not guarantee better performance when used in the full tree search. A test and check methodology is required, with changes to the simulation policy having unpredictable effects on overall performance.
 
-Recent research has focused on learning a simulation policy...
-
 \subsection{Update Policy}
-AMAF/RAVE
+Once a simulation is finished, the result is used to update the tree statistics. In the basic implementation, only the win/visit statistics along the traversed path are updated. It was quickly discovered that more sophisticated update strategies could be used to keep alternate statistics, and update them at nodes similar to those used in the playout that were not in the path. One simple example of this is the All-Moves-As-First (AMAF) heuristic. Briefly, it leverages the fact that moves played in the simulation could have been played in any order. Thus, a move deep in the simulation could be fictitiously referred to as the ``first'' move. In addition to updating the statistics of the nodes in the path, all siblings of the path nodes are also updated with a fictitious AMAF win/visit, if they participated in the simulation. Variations on AMAF have been tested, including Permutations AMAF, which updates node if any permutation of the simulation contained the node's position, and Some-Moves-As-First, which attempts to restrict the number of siblings updated.
 
-\section{Biasing the Tree}\label{bias}
-In general, there are three ways to bias the tree search. First, upon expansion of a node, an initial estimate of the node's value is used. Over time, the initial estimate is gradually replaced RAVE and progressive bias are examples 
+Several methods exist to blend the AMAF results with the ``pure'' results. Formally, a given update policy must define the statistics kept for each node (e.g. \texttt{Pure\_Wins}, \texttt{Pure\_Visits}, \texttt{AMAF\_Wins}, \texttt{AMAF\_Visits}). These counts can be blended into the estimated win-rate used in the UCT selection policy. One simple policy is $\alpha$-AMAF, where a single value, $\alpha \in [0, 1]$, determines the relative weight given to each statistic, e.g.
 
-Mogo and others showed that using heuristics in both the expansion and playout policy can prove extremely beneficial. However, this requires expert knowledge (heuristics) that can be hard to obtain or not available for some games (particularly new games). It was also found that just improving the playout policy to play better was not enough. The playout policy can implicitly prune good moves, never allowing them to be played. If there is some small probability of playing a purely random move, the convergence properties of the MCT search will still hold, but can require a prohibitive amount of playouts to ``find'' the move sequence. Biasing tree expansion has similar problems. If the initial value estimate is incorrect, the selection policy will eventually expand the node enough times to find a winning sequence, but in practice the heuristics can hurt performance.
+\[
+\texttt{winrate} = \alpha\frac{\texttt{AMAF\_Wins}}{\texttt{AMAF\_Visits}} + (1 - \alpha)\frac{\texttt{Pure\_Wins}}{\texttt{Pure\_Visits}}
+\]
+
+Other blending functions include Cutoff and Rapid Action Value Estimation (RAVE). Helmbold and Parker-Wood (2009) have a good summary of the various update policies and blending methods, along with experimental results showing marked improvement over the baseline of pure UCT\cite{helmbold2009all}. One noteworthy conjecture is that there is no ``silver bullet'' update policy. If the simulation policy is random and unbiased, the AMAF updates might be similarly unbiased. However, a simulation policy that preferentially plays certain moves might have an unpredictable effect on which nodes receive AMAF updates. This can then propagate to which nodes are selected during the UCT selection, and have chaotic effects on the search as a whole. 
+
+\section{Biasing the Simulation}\label{bias}
+Gelly and others have shown that using heuristics in both the expansion and playout policy can prove extremely beneficial\cite{gelly2006modification}\cite{gelly2008achieving}. However, this frequently requires expert knowledge (heuristics) that can be hard to obtain or not available for some games (particularly new games). It was also found that improving the performance of playout policy did not guarantee an improvement in the tree search. For example, the playout policy can implicitly prune good moves, never allowing them to be played. In Go, the policy must correctly handle complicated situations like Nakade. If it fails to correctly play out a complex position, the tree might fail to see an opponent response. Much time and energy has been spent on hand-tuning the policies of the top engines to correctly handle complicated tactical situation. If there is some small probability of playing a purely random move, the convergence properties of the UCT algorithm will still hold, but can require a prohibitive amount of playouts to ``find'' the move sequence. In fact, one of the top Go engines, MoGo, uses a near-zero exploration coefficient in the selection policy\cite{gelly2007combining}. This puts most of the control of the search in the hands of the simulation policy.
 
 \chapter{Problem Statement}\label{problem}
-Want to find a way to learn how to bias the search. Hand-crafted heuristics are tedious and don't extend to new games. Learning heuristics from expert games can be automatic, but requires a corpus, again, can't be used on new games.
 
 \chapter{Solution}\label{solution}
 
@@ -123,21 +150,35 @@ Figure \ref{mutate} shows the differential equations for this evolutionary updat
 \caption{Differential equations for $\tau$, $\sigma$, and $\bf{p}$, indexed by time $t$. $D$ is the number of dimensions, i.e. $|\bf{p}|$}
 \end{figure}\label{mutate}
 
-\section{Using ES to Bias a Simulation}\label{esmods}
+\section{Using ES to Bias the Simulation}\label{esmods}
 
 \section{Fitness Evaluation}\label{fitness}
 
 \chapter{Results and Conclusions}\label{results}
+To test the effects of learning policy weights, the evolution process was ran for 41 generations. This took approximately 2 days using a single core of an Intel Xeon CPU running at 2.80GHz. Although evolution strategies is easy to parallelize by running multiple evaluations simultaneously, the current implementation is single-threaded. After training was completed, the weights of top 4 individuals of the 41st generation were blended in proportion to their fitness to form a single individual. This final individual was used to bias the simulation policy and compared to the uniform local bias, uniform local bias with a $\frac{5}{6}$th probability of playing locally. The control consisted of uniform random playouts. All players used a slightly modified UCT selection policy that included the variance term suggested by Gelly 2006\cite{gelly2006exploration}. A pure update policy was used, only the nodes directly in the path traversed by UCT were updated with the result of a simulation.
+
+200 games per pair were played, with time controls set at 5 seconds per move. All players have approximately the same performance with regard to simulations per second, so the 5 seconds per move resulted in around 10,000 simulated playouts. A boardsize of 13x13 was used, and to control for the swap rule a swap-safe move was used as the first move for black.
+
 \begin{itemize}
-\item uniform local vs. control: 69.33\%
-\item uniform local with tenuki vs. control: 61.33\%
-\item learned local vs. control: 77.63\%
-\item uniform local with tenuki vs. uniform local: 45.33\%
-\item learned local vs. uniform local: 73.68\%
-\item learned local vs. uniform local with tenuki: 75.00\%
+\item uniform local vs. control: 65.00\%
+\item uniform local with tenuki vs. control: 58.50\%
+\item learned local vs. control: 81.50\%
+\item uniform local with tenuki vs. uniform local: 45.50\%
+\item learned local vs. uniform local: 76.50\%
+\item learned local vs. uniform local with tenuki: 79.00\%
 \end{itemize}
 
 Learned local play is the clear winner. Interestingly, the addition of a tenuki probability lowers performance in all cases. As expected, uniform local play significantly improves upon pure random playouts. The fact that evolutionary learning can find weights that boost performance versus uniform local in the same manner that uniform local improves upon pure random shows how much further there is to go, and shows the weaknesses of purely random simulations.
+
+As an outside control, MoHex from the University of Alberta was compiled and ran with the default settings\cite{mohex}. Again, 200 games were played. As MoHex is a particularly strong competitor, Hivemind used 100,000 simulations per move. Default time settings for MoHex are 10 seconds, but MoHex uses some time to perform game theoretic search and pruning before the Monte-Carlo phase, and will stop the search early if it believes no better moves will be found. The pre-search can also discover ``must-play'' moves that will be immediately played in lieu of the MCTS. As a result, the time controls are not directly comparable. However, CPU time was tracked and can be used as another performance comparison.
+
+\begin{itemize}
+\item learned local vs. MoHex: 6.5\%, CPU=6.64x
+\item control vs. MoHex: 0\% CPU=5.55x
+\item learned local vs. control 92.5\% CPU=1.31x
+\end{itemize}
+
+Learned local patterns provided the only wins against MoHex, with 13 wins out of 200 played. Despite the low performance, MoHex used about 1/6th to CPU time, showing a large distance to cover to get Hivemind up to competition strength.
 
 \bibliography{thesis}
 \bibliographystyle{plain}
