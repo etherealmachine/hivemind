@@ -7,6 +7,8 @@
 \usepackage{url}
 \newcommand{\black}{\texttt{Black}}
 \newcommand{\white}{\texttt{White}}
+\newcommand{\blacks}{\texttt{Black's}}
+\newcommand{\whites}{\texttt{White's}}
 \newcommand{\loc}[1]{\texttt{#1}}
 \begin{document}
 
@@ -159,8 +161,33 @@ Figure \ref{mutate} shows the differential equations for this evolutionary updat
 \end{figure}\label{mutate}
 
 \subsection{Using ES to Bias the Simulation}\label{esmods}
+Evolution Strategies evolves a set of real numbered values that are used to bias the playouts. In most applications, the set of values is simply an array, and the array directly used in fitness evaluation. To apply ES to simulation biasing, an encoding is used that maps from a local pattern to a single 32-bit integer. The 32-bit integer is used to index a single real-valued weight for the pattern. To save space, a growable hashmap is used instead of an array with $2^{32}$ elements. In practice there are less than $2 * 4^6$ possible local patterns so a 16-bit integer could be used. However, this 32-bit hashmap implementation has small overhead and allows space to add properties into the encoding (for example, distance to one side) in the future.
+
+Figures \ref{fig:localpattern} and \ref{fig:encoding} show graphically how a local pattern is mapped to a 32-bit integer. The orange marker denotes the last move played. Around this move any empty vertices are examined for a local response. In the example shown in figure \ref{fig:localpattern}, the sum of the three weights is 11. Thus, vertex A will be selected with probability $P(A) = \frac{6}{11} \approx 0.54$. B will be selected with $P(B) \approx 0.27$ and C with $P(C) \approx 0.18$. Note that $P(A)+P(B)+P(C) = 1$ so one of A, B, or C will be selected. A pattern can have a weight of 0. If so, it will never be selected using the local response policy. If all patterns have weight 0, or if all adjacent vertices are non-empty, play falls back to the default policy (uniform random).
+
+Finally, note that in \ref{fig:encoding} the encoding includes a color bit in the 31st position. This denotes the color to play (either \black\ (1) or \white\ (0)). This bit is important because \black\ and \white\ have conflicting goals of moving, generally, on different diagonals. In fact, by using a reflection and flipping colors, one position can be translated into a similar position for the opposite color. A preliminary implementation was done that used this fact to compress the hashmap with the hope of accelerating learning. In practice this transform is tricky enough to perform that the simpler implementation using color bits was required to ensure correct results.
+
+Using a hashmap slightly complicates the recombination step of ES. The algorithm must now take the superset of patterns (i.e. hashmap keys) from all parents and use those to form the new individual. In practice the hashmap quickly grows to include all possible local patterns after just one generation. Mutation then operates on all values of the hashmap, instead of all values in an array.
+
+\begin{figure}
+	\begin{center}
+	\includegraphics[width=300px]{graphics/local-pattern.png}
+	\caption{A 5x5 board with the 3 patterns shown around \blacks\ last move. Example weights are shown in the center vertex.}
+	\end{center}
+	\label{fig:localpattern}
+\end{figure}
+
+\begin{figure}
+	\begin{center}
+	\includegraphics[width=300px]{graphics/weight-pattern-map.png}
+	\caption{The encoding from pattern A to a 32-bit integer. Using the weight from figure \ref{fig:localpattern}, the real value 6 would be stored at position 102 in the weight map.}
+	\end{center}
+	\label{fig:encoding}
+\end{figure}
 
 \subsection{Fitness Evaluation}\label{fitness}
+The ES population is initialized with $\lambda$ individuals, all with uniform random weights in the range $[0, 100]$. In practice, weights are not initialized until a pattern lookup is performed (a form of lazy evaluation).
+
 Every generation, each individual plays $n$ games against another random individual. Roughly half the games are played as black, half as white. The swap-safe rule was used to play the first move to further equalize the first-mover advantage. The winner of a game receives 1 point added to their fitness, the loser has 1 point deducted from their fitness.
 
 \section{Results and Conclusions}\label{results}
