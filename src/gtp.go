@@ -102,6 +102,13 @@ func GTP(config *Config) {
 				fail = true
 			}
 			config.Size = boardsize
+			t = NewTracker(config)
+			color = WHITE
+			passcount = 0
+			movecount = 0
+			game_over = false
+			book = config.book
+			root = nil
 		case "clear_board":
 			t = NewTracker(config)
 			color = WHITE
