@@ -247,28 +247,32 @@ func (s *Swarm) mutate(p *Particle) {
 	}
 }
 
-func (s *Swarm) Best() *Particle {
-	best := NewParticle(s, s.Particles[0].Min, s.Particles[0].Max)
-	best.Fitness = 0
-	superset := make(map[uint32]bool)
-	for i := range s.Particles {
-		for j := range s.Particles[i].Position {
-			superset[j] = true
-		}
-		best.Fitness += s.Particles[i].Fitness
+func (s *Swarm) Best() (best *Particle) {
+  if s.config.Combine {
+	  best = NewParticle(s, s.Particles[0].Min, s.Particles[0].Max)
+	  best.Fitness = 0
+	  superset := make(map[uint32]bool)
+	  for i := range s.Particles {
+		  for j := range s.Particles[i].Position {
+			  superset[j] = true
+		  }
+		  best.Fitness += s.Particles[i].Fitness
+	  }
+	  best.Fitness /= float64(len(s.Particles))
+	  for i := range superset {
+		  count := 0.0
+		  for j := range s.Particles {
+			  if _, exists := s.Particles[j].Position[i]; exists {
+				  best.Position[i] += s.Particles[j].Fitness * s.Particles[j].Position[i]
+				  count += s.Particles[j].Fitness
+			  }
+		  }
+		  best.Position[i] /= float64(count)
+	  }
+	} else {
+	  best = s.Particles[0]
 	}
-	best.Fitness /= float64(len(s.Particles))
-	for i := range superset {
-		count := 0.0
-		for j := range s.Particles {
-			if _, exists := s.Particles[j].Position[i]; exists {
-				best.Position[i] += s.Particles[j].Fitness * s.Particles[j].Position[i]
-				count += s.Particles[j].Fitness
-			}
-		}
-		best.Position[i] /= float64(count)
-	}
-	return best
+	return
 }
 
 func (s *Swarm) SaveSwarm() {

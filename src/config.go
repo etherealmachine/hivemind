@@ -45,6 +45,7 @@ type Config struct {
 	Lambda       uint
 	Samples      uint
 	Propagate    uint
+	Combine      bool
 	
 	// Load/save different modules
 	Prefix string
@@ -129,6 +130,7 @@ func NewConfig() *Config {
 	flag.UintVar(&config.Lambda, "lambda", 50, "(Training) Children")
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
 	flag.UintVar(&config.Propagate, "prop", 2, "(Training) Propagate prop best from last generation")
+	flag.BoolVar(&config.Combine, "combine", false, "(Training) Use combination of all particles to form best")
 	
 	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
