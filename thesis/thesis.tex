@@ -4,6 +4,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{listings}
 \usepackage{url}
 \newcommand{\black}{\texttt{Black}}
 \newcommand{\white}{\texttt{White}}
@@ -75,7 +76,7 @@ Hex is very similar to the game of Havannah, another ``connection'' game. It als
 	\label{fig:13x13finished}
 \end{figure}
 
-\section{Overview of the Thesis}\label{overview}
+\section{Overview of the Thesis}
 In Chapter \ref{mcts} we will review the current state of the art in Monte Carlo Tree Search (MCTS). MCTS is a technique to stochastically sample paths through a game-tree. It has been found to work well in games where: the tree is too large to consider brute-force search, no good solution exists to prune ``bad'' nodes, and no good evaluation function exists. Section \ref{bias} covers the current methods of biasing the tree search, including some methods similar to the technique presented in this paper. Chapter \ref{problem} covers why finding a generic way to bias the tree search would be a step forward in MCTS, with a formal definition of biasing the search, allowing a comparison of different but similar techniques. Chapter \ref{solution} presents a way of biasing the tree that can be automatically evolved through self-play, and does not require outside ``expert'' knowledge. Finally Chapter \ref{results} summarizes the technique and its usefulness, and discusses what can be done in the future to improve and extend it.
 
 \section{State of the Art in Monte Carlo Tree Search}\label{mcts}
@@ -84,23 +85,22 @@ As stated, the current top computer Hex player, MoHex, uses the open-source Fueg
 
 All nodes in the tree correspond to a fixed position, i.e. the occupancy state of the board and which player is next to move. Nodes also have statistics associated with each position - the number of winning simulations performed that used the node, and the total number of simulations that included the node. In general, at each iteration the algorithm will, starting at the root node, recursively traverse the tree until it reaches a leaf node whose estimated value is unknown. A simulation is run from the position of this leaf node and the result used to update all nodes along the path. The algorithm continues for some set number of iterations, each iteration finishing with one simulation.
 
-\begin{verbatim}
-function search(root):
+\begin{lstlisting}[float,frame=single,language=Python,caption=MCTS Algorithm Pseudocode]
+def search(root):
   for i in range(simulations):
     step(root)
-		
-function play_from(node) returns outcome:
+
+def play_from(node) returns outcome:
   if node.visits < threshold:
     outcome = simulate(node)
   else:
     child = select(node)
     outcome = play_from(child)
-  if outcome is win for node's player:
+  if outcome is win for node.player:
     node.wins++
   node.visits++
   return outcome
-\end{verbatim}
-% TODO: figure with caption
+\end{lstlisting}
 
 \subsection{Selection Policy}
 The \texttt{select} function defines the selection policy. It must return the child of the given node to step into next. In general, selection must trade off between \emph{exploitation} and \emph{exploration}. It is advantageous to exploit child nodes with high win-rates, to discover possible weaknesses that would result in the opponent winning. Simultaneously, a node with a low win-rate might only have had a few unlucky simulations run through it, resulting in an incorrect value estimate. Nodes with a low number of visits must be explored to see if they result in a high-value position.
