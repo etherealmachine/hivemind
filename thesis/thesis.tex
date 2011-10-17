@@ -55,23 +55,33 @@ Abstract strategy games provide an attractive testbed for artificial intelligenc
 The Hivemind system uses a slightly different approach. It directs a probabilistic (Monte Carlo) tree search with learned heuristics. The problem of requiring a strong outside player or expert knowledge is solved using evolutionary learning from games of self-play. Hivemind provides a framework for Monte Carlo Tree Search, with implementations that can play Hex and Go.
 
 \section{Background: The Game of Hex}
-Hex is a two player, full-information, abstract strategy game played on an $N$x$N$ grid of hexagons. The players are denoted by colors here \black{} and \white. The object of the game is to form an unbroken chain from one side of the board to the other. \black{} attempts to connect top to bottom, \white{} left to right. Figure \ref{fig:13x13inprogress} shows an example game in progress on a 13x13 board. Figure \ref{fig:13x13finished} shows the final position, \black{} having just played the winning move, with an unbroken chain connecting top to bottom. Hex has properties that make it attractive for AI research. Once placed, a piece never leaves the board. The only criterion for a legal move is that the hexagon be unoccupied (empty). Gale '79 proved the game cannot end in a draw, simplifying minimax methods. Nash, one of the inventors of the game, used a strategy stealing argument to prove the existence of a winning strategy for the first player, but the proof is by reduction and offers no insight into the strategy itself. Solutions for all opening positions for 7x7 and 8x8 boards have been found\cite{henderson2009solving}. A good portion, but not all, 9x9 openings have also been solved. Nash proposed 11x11 as the ideal board size, but 13x13 has been more common in competitions, especially as the ability of computer players improves.
+Hex is a two player, full-information, abstract strategy game played on an $N$x$N$ grid of hexagons. The players are denoted by colors here \black{} and \white. The object of the game is to form an unbroken chain from one side of the board to the other. Figure \ref{fig:13x13inprogress} shows an example game in progress on a 13x13 board. Figure \ref{fig:13x13finished} shows the final position, \black{} having just played the winning move, with an unbroken chain connecting both his sides. Hex has properties that make it attractive for AI research. Once placed, a piece never leaves the board. The only criterion for a legal move is that the hexagon be unoccupied (empty). Gale '79 proved the game cannot end in a draw, simplifying minimax methods. Nash, one of the inventors of the game, used a strategy stealing argument to prove the existence of a winning strategy for the first player, but the proof is by reduction and offers no insight into the strategy itself. Solutions for all opening positions for 7x7 and 8x8 boards have been found\cite{henderson2009solving}. A good portion, but not all, 9x9 openings have also been solved. Nash proposed 11x11 as the ideal board size, but 13x13 has been more common in competitions, especially as the ability of computer players improves.
 
 Three Hex programs are currently in the running as viable world champions. Gabor Melis' \emph{Six} is the previous world champion (up to 2007). Six uses traditional alpha-beta search with an evaluation function based on an electrical circuit model (proposed by Anshelevich 2002)\cite{anshelevich2002hierarchical}. \emph{Wolve}, from the University Alberta, also uses the Anshelevich algorithm, but more aggressively prunes provably inferior moves. \emph{MoHex}, also from Alberta, is based on the newer Monte-Carlo Tree Search technique, leveraging the open source \emph{Fuego} library. MoHex is the current world-champion, having finished ahead of Wolve in 2009 and 2010.
 
 Hex is very similar to the game of Havannah, another ``connection'' game. It also has similarities to the board game Go (also known as Igo, Weiqi, and Baduk). Go is a much older game than Hex or Havannah, and much research has been done on Go playing algorithms. Hex has simpler rules than Go, but has a similar branching factor and complexity. Much of this thesis will use Hex as a simpler analog for Go, with the techniques discussed being useful for any large branching game played on a regular board.
 
 \begin{figure}
-	\begin{center}
-	\includegraphics[width=200px]{graphics/13x13-in-progress.png}
-	\end{center}
+	\begin{HexBoard}[board size=13]
+		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,
+					 h9,h5,h4,i4,g9,f9,g8,f7,f8,e8}
+	\end{HexBoard}
 	\caption{13x13 Hex Game, \white{} to play.}
 	\label{fig:13x13inprogress}
 \end{figure}
+
 \begin{figure}
-	\begin{center}
-	\includegraphics[width=200px]{graphics/13x13-finished.png}
-	\end{center}
+	\begin{HexBoard}[board size=13]
+		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,
+				   h9,h5,h4,i4,g9,f9,g8,f7,f8,
+				   e8,e9,c10,k8,c9,g6,g7,c11,
+				   d10,h6,h7,i5,j5,j4,k4,k3,
+				   m2,l3,m3,l4,c6,e11,l5,m4,
+				   d11,b7,e6,d12,c12,c7,e7,f5,
+				   e5,d9,d8,f4,e4,f3,a2,e3,d6,
+				   c3,d3,d4,b5,e2,d2,d1,e1,b13,
+				   c13,c5,b6}
+	\end{HexBoard}
 	\caption{Finished 13x13 Hex Game, \black{}'s play at \loc{b6} gives him an unbroken path from top to bottom.}
 	\label{fig:13x13finished}
 \end{figure}
