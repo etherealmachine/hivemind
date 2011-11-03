@@ -63,8 +63,7 @@ Hex is very similar to the game of Havannah, another ``connection'' game. It als
 
 \begin{figure}
 	\begin{HexBoard}[board size=13]
-		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,
-					 h9,h5,h4,i4,g9,f9,g8,f7,f8,e8}
+		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,h9,h5,h4,i4,g9,f9,g8,f7,f8,e8}
 	\end{HexBoard}
 	\caption{13x13 Hex Game, \white{} to play.}
 	\label{fig:13x13inprogress}
@@ -102,7 +101,7 @@ In Chapter \ref{mcts} we will review the current state of the art in Monte Carlo
 	\label{fig:tree}
 \end{figure}
 
-As stated, the current top computer Hex player, MoHex, uses the open-source Fuego implementation of Monte-Carlo Tree Search (MCTS). The basic Monte-Carlo technique for Computer Go was proposed by Bru\"{u}gmann\cite{brugmann1993monte}. His program \emph{Mango} effectively used a ``flat'' search tree (1-ply) and simply ran simulations from each candidate move to estimate its value. To contrast, MCTS uses Monte-Carlo simulations to grow a minimax search tree. The UCT algorithm was developed alongside MCTS to direct the growth of the search tree\cite{gelly2006exploration}. At any point, the search can be stopped and the current state of the tree used to select a move to play. Performance of the search is primarily based on three algorithms.
+As stated, the current top computer Hex player, MoHex, uses the open-source Fuego implementation of Monte-Carlo Tree Search (MCTS)\cite{mohex}. The basic Monte-Carlo technique for Computer Go was proposed by Bru\"{u}gmann\cite{brugmann1993monte}. His program \emph{Mango} effectively used a ``flat'' search tree (1-ply) and simply ran simulations from each candidate move to estimate its value. To contrast, MCTS uses Monte-Carlo simulations to grow a minimax search tree. The UCT algorithm was developed alongside MCTS to direct the growth of the search tree\cite{gelly2006exploration}. At any point, the search can be stopped and the current state of the tree used to select a move to play. Performance of the search is primarily based on three algorithms.
 \begin{itemize}
 \item{The \emph{selection} policy recursively traverses the tree, selecting good-looking moves for exploration.}
 \item{The \emph{simulation} policy randomly or semi-randomly ``plays out'' the game from the current position until a final position.}
@@ -237,7 +236,7 @@ Using a hashmap slightly complicates the recombination step of ES. The algorithm
 The ES population is initialized with $\lambda$ individuals, with uniform random weights in the range $[0, 100]$. In practice, weights are not initialized until a pattern lookup is performed (lazy lookup). Every generation, each individual plays $n$ complete games, each game played against a random individual. Competitors are drawn with replacement from the child population, so a given individual might play the same competitor more than once each generation. At the beginning of each game, one of the two individuals is randomly chosen to play \black, the other to play \white. A swap-safe move was used to play the first move to further equalize first-mover advantage. The winner of a game receives 1 point added to their fitness, the loser has 1 point deducted from their fitness.
 
 \subsection{The Hivemind System}
-Hivemind was designed for experiments in learning to play abstract strategy games on a regular board. The system consists of three modules: the evolutionary learning process, a Monte-Carlo based UCT search tree implementation, and a ``game tracker interface''. The tracker interface is currently implemented for the games of Hex, Go, and Tic-Tac-Toe. It is designed to be possible to implement many different games in the tracker, abstracting away the learning and search process. Hivemind is open-source software, available at \url{http://github.com/etherealmachine/hivemind}.
+Hivemind was designed for experiments in learning to play abstract strategy games on a regular board. The system consists of three modules: the evolutionary learning process, a Monte-Carlo based UCT search tree implementation, and a ``game tracker interface''. Blah blah blah Fuego\cite{fuego}. The tracker interface is currently implemented for the games of Hex, Go, and Tic-Tac-Toe. It is designed to be possible to implement many different games in the tracker, abstracting away the learning and search process. Hivemind is open-source software, available at \url{http://github.com/etherealmachine/hivemind}.
 
 \subsubsection{Learning}
 The learning module is responsible for driving the evolutionary search process. Currently, Hivemind uses Evolution Strategies (see Section \ref{estrats}), although previous versions experimented with Particle Swarm Optimization. As described earlier, the learning process consists of three steps, iterated once per generation: selection, mutation, and evaluation. In general, the learning module is responsible for finding a strategy (described in Section \ref{esmods}) that generates optimal results during the evaluation step. Evaluation is performed by selecting two individuals from the population and having them play a game against each other, each individual parameterized by their strategy. The individual that wins receives points. During the selection step, individuals are culled based on points received, and the process continues. To play a game, the learning module iteratively calls into the search module with the strategy, until the tracker module reports the game is over. The tracker module is also used to collect the game results.
