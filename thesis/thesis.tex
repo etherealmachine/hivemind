@@ -259,7 +259,7 @@ The game tracker interface provides a simple definition of what is needed for a 
 \section{Results and Conclusions}\label{results}
 To test the effects of learning policy weights, the evolution process was run for 100 generations. The Hivemind learning parameters used were: \texttt{generations=100, lambda=40, mu=30, parents=2, samples=5}. See sections \ref{estrats} and \ref{learning} for a description of the learning parameters. Each game was played with boardsize of 7x7 and 1000 playouts per move. After 100 generations were complete, the best individual from the 100th generation was selected for comparison. This individual was used to bias the simulation policy and compared to the uniform local bias, uniform local bias with a $\frac{5}{6}$th probability of playing locally. The control consisted of uniform random playouts. All players used a slightly modified UCT selection policy that included the variance term suggested by Gelly 2006\cite{gelly2006exploration}. A pure update policy was used, only the nodes directly in the path traversed by UCT were updated with the result of a simulation.
 
-200 games per pair were played, with time controls set at 5 seconds per move. All players have approximately the same performance with regard to simulations per second, so the 5 seconds per move resulted in around 10,000 simulated playouts. A boardsize of 7x7 was used, and to control for the swap rule a swap-safe move was used as the first move for black. Matches were run using the Gomill software\cite{gomill}. Gomill required no modification to work with Hex playing programs. Results are shown in figure \ref{fig:results}.
+200 games per pair were played, with time controls set at 10,000 playouts per move. A boardsize of 7x7 was used, and to control for the swap rule a swap-safe move was used as the first move for black. Matches were run using the Gomill software\cite{gomill}. Gomill required no modification to work with Hex playing programs. Results are shown in figure \ref{fig:results}.
 
 \begin{figure}
 	\begin{center}
@@ -299,6 +299,40 @@ Learned local patterns provided the only wins against MoHex, with 13 wins out of
 With infinite time, an unbiased playout policy can find the true minimax value of a position in the game of Hex. In practice, both resources and time are finite. Bias in the playout policy can be extremely useful for improving the overall quality and performance of a Monte-Carlo Tree Search. Evolutionary learning can provide a substantial performance boost over naive patterns. With self-play and evolution, weights can be learned automatically, without requiring expert knowledge or test-and-check tuning. The learning process can be done offline, and the final result can be used with little overhead.
 
 Source code for the Hivemind Computer Hex/Go player is available at \url{http://github.com/etherealmachine/hivemind}. The included README file has instructions on running the evolutionary learning process and using the results.
+
+\section{Appendix}\label{appendix}
+\subsection{A1 - Stability of Evolution}
+Stochastic processes like evolutionary search can have large variations in their end results. To test the variation of Hivemind, 10 independent individuals were produced. Each individual was the best individual from the 100th generation of an independent run of the learning process. The parameters used for each run were that same as those used for the final results of self-play,  \texttt{generations=100, lambda=40, mu=30, parents=2, samples=5}, with 1000 playouts per move on a 7x7 board. To test, each independent individual (Learned 1 through 10) played 200 games on a 7x7 board, against a player using the default policy (Default), all players simulating 10,000 playouts per move.
+
+\begin{figure}
+	\begin{center}
+		\begin{tabular}{c c c c}
+		& Default \\
+		\hline
+		Learned 1 & 91.0\% \\
+		Learned 2 & 90.5\% \\
+		Learned 3 & 90.5\% \\
+		Learned 4 & 87.5\% \\
+		Learned 5 & 90.5\% \\
+		Learned 6 & 93.5\% \\
+		Learned 7 & 93.0\% \\
+		Learned 8 & 91.5\% \\
+		Learned 9 & 87.0\% \\
+		Learned 10 & 92.5\% \\
+		Min & 87.0\% \\
+		Max & 93.5\% \\
+		Mean & 90.75\% \\
+		Std. Dev. & ~2.14\% \\
+		\end{tabular}
+		\caption{Results of 10 independent evolutionary processes versus the default policy.}
+		\label{fig:a1results}
+	\end{center}
+\end{figure}
+
+Figure \ref{fig:a1results} shows the results of these games. Overall, the 10 individuals had a standard deviation of about 2.14\%, with a mean of 90.75\%. This indicated that the evolutionary processes is relatively stable. With only a few independent runs of the evolutionary processes, an implementer can reasonably assume that the best individual would perform as well as after several hundred runs.
+
+\subsection{A2 - Effects of different board sizes}
+The computational time required of learning process greatly depends on the boardsize used in learning. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage.
 
 \bibliography{thesis}
 \bibliographystyle{plain}
