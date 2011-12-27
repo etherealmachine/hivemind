@@ -2,20 +2,20 @@ package main
 
 import (
 	"flag"
-	"os"
 	"json"
 	"log"
+	"os"
 )
 
 type Config struct {
 	// Modes
-	Help  bool
-	Gtp   bool
-	Book  bool
-	Genmove bool
+	Help     bool
+	Gtp      bool
+	Book     bool
+	Genmove  bool
 	PlayGame bool
-	SGF string
-	Cluster bool
+	SGF      string
+	Cluster  bool
 
 	// Time limits
 	MaxPlayouts uint
@@ -28,25 +28,25 @@ type Config struct {
 	Gfx bool
 
 	// Different games
-	Go       bool
-	Hex      bool
-	HexFast  bool
+	Go      bool
+	Hex     bool
+	HexFast bool
 
 	// Game-specific variables
-	Size int
-	Komi float64
+	Size     int
+	Komi     float64
 	Swapsafe bool
 
 	// Learning
-	Train        bool
-	Generations  uint
-	Mu           uint
-	Parents      uint
-	Lambda       uint
-	Samples      uint
-	Propagate    uint
-	Combine      bool
-	
+	Train       bool
+	Generations uint
+	Mu          uint
+	Parents     uint
+	Lambda      uint
+	Samples     uint
+	Propagate   uint
+	Combine     bool
+
 	// Load/save different modules
 	Prefix string
 	Bfile  string
@@ -55,44 +55,44 @@ type Config struct {
 	Sfile  string
 
 	// Tree exploration/expansion
-	TreeSearch  bool
-	Explore     float64
-	RAVE        float64
-	ExpandAfter float64
-	Var         bool
-	AMAF        bool
-	Neighbors   bool
-	Ancestor    bool
-	Seed        bool
-	PlayoutProbs bool
-	PlayoutSuggest bool
-	PlayoutSuggestUniform bool
+	TreeSearch                  bool
+	Explore                     float64
+	RAVE                        float64
+	ExpandAfter                 float64
+	Var                         bool
+	AMAF                        bool
+	Neighbors                   bool
+	Ancestor                    bool
+	Seed                        bool
+	PlayoutProbs                bool
+	PlayoutSuggest              bool
+	PlayoutSuggestUniform       bool
 	PlayoutSuggestUniformTenuki bool
 
 	// Logging
-	Verbose bool
-	VeryVerbose bool
-	Verify  bool
-	PrintWeights  bool
-	Lfile   string
-	
+	Verbose      bool
+	VeryVerbose  bool
+	Verify       bool
+	PrintWeights bool
+	Lfile        string
+
 	// Used by cluster to store game history
 	Moves []int
-	
+
 	// Used by cluster to select message type
 	MsgType string
-	
+
 	// Used by cluster
-	Black_policy_weights   *Particle
-	White_policy_weights   *Particle
+	Black_policy_weights *Particle
+	White_policy_weights *Particle
 
 	// private flag, used to load config from json file
-	cfile  string
-	
+	cfile string
+
 	// private fields, set by Bfile, Pfile and Efile
-	book      *Node
-	policy_weights   *Particle
-	
+	book           *Node
+	policy_weights *Particle
+
 	// log files
 	probLog *os.File
 }
@@ -131,7 +131,7 @@ func NewConfig() *Config {
 	flag.UintVar(&config.Samples, "samples", 7, "(Training) Evaluations per generation")
 	flag.UintVar(&config.Propagate, "prop", 2, "(Training) Propagate prop best from last generation")
 	flag.BoolVar(&config.Combine, "combine", false, "(Training) Use combination of all particles to form best")
-	
+
 	flag.StringVar(&config.Prefix, "prefix", "", "Prefix to use when saving file")
 	flag.StringVar(&config.Sfile, "sfile", "", "Load swarm from file")
 	flag.StringVar(&config.Efile, "efile", "", "Load evaluator from file")
@@ -160,11 +160,11 @@ func NewConfig() *Config {
 	flag.StringVar(&config.Lfile, "log", "", "Log to filename")
 
 	flag.Parse()
-	
+
 	if config.cfile != "" {
 		config.Load()
 	}
-	
+
 	LoadBook(config)
 	if config.Pfile != "" {
 		config.policy_weights = LoadBest(config.Pfile, config)
@@ -179,7 +179,7 @@ func NewConfig() *Config {
 	if config.Hex {
 		config.Go = false
 	}
-	
+
 	var f *os.File
 	var err os.Error
 	if config.Lfile == "" && config.Gtp && config.Gfx {
@@ -195,14 +195,13 @@ func NewConfig() *Config {
 	log.SetFlags(0)
 	log.SetPrefix("")
 	log.SetOutput(f)
-	
+
 	if config.probLog, err = os.Create("probs.json"); err != nil {
 		panic(err)
 	}
 
 	return config
 }
-
 
 func (config *Config) Load() {
 	f, err := os.Open(config.cfile)

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"strings"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -130,17 +130,17 @@ func StatsBoard(root *Node, t Tracker) (s string) {
 	}
 	for row := 0; row < t.Boardsize(); row++ {
 		for col := 0; col < t.Boardsize(); col++ {
-			v := row * t.Boardsize() + col
+			v := row*t.Boardsize() + col
 			if board[v] == "" {
 				s += "\"\""
 			} else {
 				s += board[v]
 			}
-			if col != t.Boardsize() - 1 {
+			if col != t.Boardsize()-1 {
 				s += " "
 			}
 		}
-		if row != t.Boardsize() - 1 {
+		if row != t.Boardsize()-1 {
 			s += "\n"
 		}
 	}

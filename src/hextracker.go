@@ -1,13 +1,13 @@
 package main
 
 import (
-	"strings"
-	"strconv"
-	"fmt"
-	"log"
-	"json"
 	"container/vector"
+	"fmt"
+	"json"
+	"log"
 	"rand"
+	"strconv"
+	"strings"
 )
 
 type HexTracker struct {
@@ -42,7 +42,7 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.rank = make([]int, t.sqsize+4)
 	t.weights = NewWeightTree(t.sqsize)
 	// initialize union-find data structure
-	for i := 0; i < t.sqsize + 4; i++ {
+	for i := 0; i < t.sqsize+4; i++ {
 		t.parent[i] = i
 		if i < t.sqsize {
 			t.rank[i] = 1
@@ -58,9 +58,9 @@ func NewHexTracker(config *Config) *HexTracker {
 	t.winner = EMPTY
 
 	t.played = make([]byte, t.sqsize)
-	
+
 	t.moves = new(vector.IntVector)
-	
+
 	t.config = config
 
 	return t
@@ -88,10 +88,10 @@ func (t *HexTracker) Copy() Tracker {
 	cp.winner = t.winner
 
 	cp.played = make([]byte, cp.sqsize)
-	
+
 	cp.moves = new(vector.IntVector)
 	*cp.moves = t.moves.Copy()
-	
+
 	cp.config = t.config
 
 	return cp
@@ -132,7 +132,7 @@ func (t *HexTracker) Play(color byte, vertex int) {
 		if t.config.PlayoutProbs && t.config.policy_weights != nil {
 			t.updateNeighborWeights(vertex)
 		}
-		
+
 		if t.played[vertex] == EMPTY {
 			t.played[vertex] = color
 		}
@@ -178,7 +178,7 @@ func (t *HexTracker) suggestion(color byte, last int) int {
 				weights[i] = 1
 			} else {
 				hash := hex_min_hash[hex_hash(color, t.board, t.neighbors[1][n])]
-				hash |= 1<<30
+				hash |= 1 << 30
 				weights[i] = t.config.policy_weights.Get(hash)
 			}
 			weightSum += weights[i]
@@ -209,7 +209,7 @@ func (t *HexTracker) Playout(color byte) {
 			log.Println(Ctoa(color) + t.Vtoa(vertex))
 		}
 		t.Play(color, vertex)
-		
+
 		if t.config.VeryVerbose {
 			log.Println(t.String())
 			t.logProbabilities()
@@ -371,10 +371,10 @@ func (t *HexTracker) logProbabilities() {
 	}
 	m := make(map[string]interface{})
 	for i := range t.board {
-		m[t.Vtoa(i)] = map[string]interface{} {
-			"occ" : Ctoa(t.board[i]),
-			"black" : t.weights.Prob(BLACK, i),
-			"white" : t.weights.Prob(WHITE, i),
+		m[t.Vtoa(i)] = map[string]interface{}{
+			"occ":   Ctoa(t.board[i]),
+			"black": t.weights.Prob(BLACK, i),
+			"white": t.weights.Prob(WHITE, i),
 		}
 	}
 	if bytes, err := json.Marshal(m); err != nil {
@@ -497,11 +497,11 @@ func setup_hex_neighbors(size int) {
 		v2 := vertex + 1
 		v3 := vertex + size
 		v4 := vertex + size + 1
-		if (vertex+1) % size == 0 {
+		if (vertex+1)%size == 0 {
 			v2 = -1
 			v4 = -1
 		}
-		if vertex >= (size * size) - size {
+		if vertex >= (size*size)-size {
 			v3 = -1
 			v4 = -1
 		}
@@ -515,12 +515,12 @@ func setup_hex_neighbors(size int) {
 		neighbors[vertex][4] = vertex + size - 1
 		neighbors[vertex][5] = vertex - 1
 		neighbors[vertex][6] = vertex
-		if vertex % size == 0 {
+		if vertex%size == 0 {
 			// left
 			neighbors[vertex][4] = -1
 			neighbors[vertex][5] = -1
 		}
-		if (vertex+1) % size == 0 {
+		if (vertex+1)%size == 0 {
 			// right
 			neighbors[vertex][1] = -1
 			neighbors[vertex][2] = -1
@@ -530,7 +530,7 @@ func setup_hex_neighbors(size int) {
 			neighbors[vertex][0] = -1
 			neighbors[vertex][1] = -1
 		}
-		if vertex >= (size * size) - size {
+		if vertex >= (size*size)-size {
 			// bottom
 			neighbors[vertex][3] = -1
 			neighbors[vertex][4] = -1
@@ -572,7 +572,7 @@ func setup_hex_min_hash() {
 func hex_hash(color byte, board []byte, neighbors []int) uint32 {
 	var hash uint32
 	if color == WHITE {
-		hash = 1<<31
+		hash = 1 << 31
 	} else {
 		hash = 0
 	}

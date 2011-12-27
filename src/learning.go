@@ -1,16 +1,16 @@
 package main
 
 import (
-	"math"
+	"container/vector"
+	"fmt"
+	"github.com/ajstarks/svgo"
 	"gob"
+	"log"
+	"math"
 	"os"
 	"rand"
 	"sort"
 	"time"
-	"fmt"
-	"log"
-	"container/vector"
-	"github.com/ajstarks/svgo"
 )
 
 type Swarm struct {
@@ -44,11 +44,11 @@ func NewSwarm(config *Config) *Swarm {
 }
 
 type Particle struct {
-	Strategy       float64
-	Position       map[uint32]float64
-	Min, Max       float64
-	Fitness        float64
-	swarm          *Swarm
+	Strategy float64
+	Position map[uint32]float64
+	Min, Max float64
+	Fitness  float64
+	swarm    *Swarm
 }
 
 func NewParticle(swarm *Swarm, min, max float64) *Particle {
@@ -98,7 +98,7 @@ func (p *Particle) Get(i uint32) float64 {
 }
 
 func (p *Particle) Init(i uint32) {
-	p.Position[i] = p.Min + (p.Max - p.Min) * rand.Float64()
+	p.Position[i] = p.Min + (p.Max-p.Min)*rand.Float64()
 }
 
 func (s *Swarm) evalPlay(p1 *Particle, p2 *Particle) {
@@ -157,7 +157,7 @@ B_o offspring, lambda = |B_o|
 func (s *Swarm) step() {
 
 	parents := s.Particles
-	
+
 	// generate lambda (lambda >= mu for comma) children
 	s.Particles = make(Particles, s.Lambda)
 	for i := range s.Particles {
@@ -170,7 +170,7 @@ func (s *Swarm) step() {
 		s.mutate(s.Particles[i])
 		s.Particles[i].Fitness = 0
 	}
-	
+
 	// propagate the last best particles without change
 	for i := uint(0); i < s.config.Propagate; i++ {
 		s.Particles[i] = parents[i].Copy()
@@ -248,29 +248,29 @@ func (s *Swarm) mutate(p *Particle) {
 }
 
 func (s *Swarm) Best() (best *Particle) {
-  if s.config.Combine {
-	  best = NewParticle(s, s.Particles[0].Min, s.Particles[0].Max)
-	  best.Fitness = 0
-	  superset := make(map[uint32]bool)
-	  for i := range s.Particles {
-		  for j := range s.Particles[i].Position {
-			  superset[j] = true
-		  }
-		  best.Fitness += s.Particles[i].Fitness
-	  }
-	  best.Fitness /= float64(len(s.Particles))
-	  for i := range superset {
-		  count := 0.0
-		  for j := range s.Particles {
-			  if _, exists := s.Particles[j].Position[i]; exists {
-				  best.Position[i] += s.Particles[j].Fitness * s.Particles[j].Position[i]
-				  count += s.Particles[j].Fitness
-			  }
-		  }
-		  best.Position[i] /= float64(count)
-	  }
+	if s.config.Combine {
+		best = NewParticle(s, s.Particles[0].Min, s.Particles[0].Max)
+		best.Fitness = 0
+		superset := make(map[uint32]bool)
+		for i := range s.Particles {
+			for j := range s.Particles[i].Position {
+				superset[j] = true
+			}
+			best.Fitness += s.Particles[i].Fitness
+		}
+		best.Fitness /= float64(len(s.Particles))
+		for i := range superset {
+			count := 0.0
+			for j := range s.Particles {
+				if _, exists := s.Particles[j].Position[i]; exists {
+					best.Position[i] += s.Particles[j].Fitness * s.Particles[j].Position[i]
+					count += s.Particles[j].Fitness
+				}
+			}
+			best.Position[i] /= float64(count)
+		}
 	} else {
-	  best = s.Particles[0]
+		best = s.Particles[0]
 	}
 	return
 }
@@ -345,26 +345,26 @@ func drawHex(xoff, yoff, width float64, pos int, style1, style2 string, s *svg.S
 	a := 0.5 * c
 	b := math.Sin(1.04719755) * c
 	switch pos {
-		case 0:
-		case 1:
-			xoff += 1.5 * c
-			yoff -= b
-		case 2:
-			xoff += 3 * c
-		case 3:
-			xoff += 3 * c
-			yoff += 2 * b
-		case 4:
-			xoff += 1.5 * c
-			yoff += 3 * b
-		case 5:
-			yoff += 2 * b
-		case 6:
-			xoff += 1.5 * c
-			yoff += b
-		}
-	x := []int{int(xoff), int(a + xoff), int(a + c + xoff), int(2 * c + xoff), int(a + c + xoff), int(a + xoff)}
-	y := []int{int(b + yoff), int(yoff), int(yoff), int(b + yoff), int(2 * b + yoff), int(2 * b + yoff)}
+	case 0:
+	case 1:
+		xoff += 1.5 * c
+		yoff -= b
+	case 2:
+		xoff += 3 * c
+	case 3:
+		xoff += 3 * c
+		yoff += 2 * b
+	case 4:
+		xoff += 1.5 * c
+		yoff += 3 * b
+	case 5:
+		yoff += 2 * b
+	case 6:
+		xoff += 1.5 * c
+		yoff += b
+	}
+	x := []int{int(xoff), int(a + xoff), int(a + c + xoff), int(2*c + xoff), int(a + c + xoff), int(a + xoff)}
+	y := []int{int(b + yoff), int(yoff), int(yoff), int(b + yoff), int(2*b + yoff), int(2*b + yoff)}
 	s.Polygon(x, y, style1)
 	if style2 != "" {
 		s.Circle(int(xoff+c), int(yoff+b), int(width/2), style2)
@@ -390,22 +390,22 @@ func PrintBestWeights(config *Config) {
 		w := 20
 		width := 3 * w
 		height := 2 * width
-		s.Start(5 * width, height * v.Len())
+		s.Start(5*width, height*v.Len())
 		for i := 0; i < v.Len(); i++ {
 			a = v.At(i).([]byte)
 			x := float64(width) / 2.0
-			y := float64(20 + i * height)
+			y := float64(20 + i*height)
 			for j := range a {
 				s1 := "fill:#d6d6d6;stroke:#464646;stroke-width:2"
 				s2 := ""
 				switch a[j] {
-					case EMPTY:
-					case BLACK:
-						s2 = "fill:black;stroke:black;stroke-width:2"
-					case WHITE:
-						s2 = "fill:white;stroke:black;stroke-width:2"
-					case ILLEGAL:
-						s1 = ""
+				case EMPTY:
+				case BLACK:
+					s2 = "fill:black;stroke:black;stroke-width:2"
+				case WHITE:
+					s2 = "fill:white;stroke:black;stroke-width:2"
+				case ILLEGAL:
+					s1 = ""
 				}
 				drawHex(x, y, float64(w), j, s1, s2, s)
 			}

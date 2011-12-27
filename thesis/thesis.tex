@@ -302,11 +302,9 @@ Source code for the Hivemind Computer Hex/Go player is available at \url{http://
 
 \section{Appendix}\label{appendix}
 \subsection{A1 - Stability of Evolution}
-Stochastic processes like evolutionary search can have large variations in their end results. To test the variation of Hivemind, 10 independent individuals were produced. Each individual was the best individual from the 100th generation of an independent run of the learning process. The parameters used for each run were that same as those used for the final results of self-play,  \texttt{generations=100, lambda=40, mu=30, parents=2, samples=5}, with 1000 playouts per move on a 7x7 board. To test, each independent individual (Learned 1 through 10) played 200 games on a 7x7 board, against a player using the default policy (Default), all players simulating 10,000 playouts per move.
-
-\begin{figure}
+\begin{figure}[t]
 	\begin{center}
-		\begin{tabular}{c c c c}
+		\begin{tabular}{c c}
 		& Default \\
 		\hline
 		Learned 1 & 91.0\% \\
@@ -324,15 +322,34 @@ Stochastic processes like evolutionary search can have large variations in their
 		Mean & 90.75\% \\
 		Std. Dev. & ~2.14\% \\
 		\end{tabular}
-		\caption{Results of 10 independent evolutionary processes versus the default policy.}
+		\caption{Results of 10 independent evolutionary processes versus the default policy. Percentage shown is average win-rate of row player versus column player.}
 		\label{fig:a1results}
 	\end{center}
 \end{figure}
 
-Figure \ref{fig:a1results} shows the results of these games. Overall, the 10 individuals had a standard deviation of about 2.14\%, with a mean of 90.75\%. This indicated that the evolutionary processes is relatively stable. With only a few independent runs of the evolutionary processes, an implementer can reasonably assume that the best individual would perform as well as after several hundred runs.
+Stochastic processes like evolutionary search can have large variations in their end results. To test the variation of Hivemind, 10 independent individuals were produced. Each individual was the best individual from the 100th generation of an independent run of the learning process. The parameters used for each run were that same as those used for the final results of self-play,  \texttt{generations=100, lambda=40, mu=30, parents=2, samples=5}, with 1000 playouts per move on a 7x7 board. To test, each independent individual (Learned 1 through 10) played 200 games on a 7x7 board, against a player using the default policy (Default), all players simulating 10,000 playouts per move.
+
+Figure \ref{fig:a1results} shows the results of these games. Overall, the 10 individuals had a standard deviation of about 2.14\%, with a mean of 90.75\%. This indicated that the evolutionary processes is relatively stable. With only a few independent runs of the evolutionary processes, an implementer can reasonably assume that the best individual would perform well.
 
 \subsection{A2 - Effects of different board sizes}
-The computational time required of learning process greatly depends on the boardsize used in learning. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage.
+\begin{figure}[t]
+	\begin{center}
+		\begin{tabular}{c c c c}
+		& Learned \\
+		Default 11x11 & 96.8\% \\
+		Default 13x13 & 100.0\% \\
+		Uniform 11x11 & 82.76\% \\
+		Uniform 13x13 & 92.86\% \\
+		\hline
+		\end{tabular}
+		\caption{Results of evolutionary process learned on a 7x7 board, playing on an 11x11 and 13x13 board. Percentage shown is average win-rate of column player versus row player.}
+		\label{fig:a2results}
+	\end{center}
+\end{figure}
+
+The computational time required of learning process greatly depends on the boardsize used in learning. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage. The best individual from the 100th generation of this training was used in matches against the default and uniform policy, but a boardsize of 11x11 and 13x13 was used for the matches. Because of the increased boardsize, players used 100,000 simulated playouts per move. The computational time required for these games is significantly higher than that required for the 7x7 games, so the results shown in Figure \ref{fig:a2results} are only after 30 games per match.
+
+Even with the low number of games, the results shown in Figure \ref{fig:a2results} are positive. Learning on a 7x7 board provides results that can generalize to larger boardsizes. This is especially useful because of the exponential increase in computational time required to play games for evolutionary learning when learning on larger board sizes.
 
 \bibliography{thesis}
 \bibliographystyle{plain}

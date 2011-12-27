@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
 	"bufio"
 	"fmt"
-	"strings"
-	"strconv"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 )
 
 var supported_commands = `name
@@ -102,13 +102,6 @@ func GTP(config *Config) {
 				fail = true
 			}
 			config.Size = boardsize
-			t = NewTracker(config)
-			color = WHITE
-			passcount = 0
-			movecount = 0
-			game_over = false
-			book = config.book
-			root = nil
 		case "clear_board":
 			t = NewTracker(config)
 			color = WHITE
@@ -164,9 +157,10 @@ func GTP(config *Config) {
 				vertex := -1
 				// HEX, swap-safe: if black and first move of game, play a move that should be safe from swapping
 				if config.Hex && color == BLACK && config.Swapsafe && movecount == 0 {
-					vertex = (3 * t.Boardsize()) + 2
-					// Pass if: no time left, game definitely won
-				} else if config.Timelimit != 0 && t.Winner() == EMPTY && !game_over {
+					vertex = swap_safe(boardsize)
+				}
+				// Pass if: no time left, game definitely won
+				if vertex == -1 && config.Timelimit != 0 && t.Winner() == EMPTY && !game_over {
 					if book != nil {
 						best := book.Best()
 						if best.Visits > 100 {
@@ -201,7 +195,7 @@ func GTP(config *Config) {
 				if book != nil {
 					book = book.Play(color, vertex, t)
 				}
-				if game_over && t.Winner() == Reverse(color) {
+				if (game_over && t.Winner() == Reverse(color)) || (config.Hex && vertex == -1) {
 					res = "resign"
 				} else {
 					res = t.Vtoa(vertex)
@@ -256,7 +250,7 @@ func GTP(config *Config) {
 			}
 			res = TerritoryBoard(value, 1, t)
 		case "legal":
-			res = LegalBoard(t, map[byte]string{BOTH:"green",BLACK:"black",WHITE:"white",EMPTY:"none"})
+			res = LegalBoard(t, map[byte]string{BOTH: "green", BLACK: "black", WHITE: "white", EMPTY: "none"})
 		case "time_settings":
 			main_time, _ = strconv.Atoi(args[1])
 			byo_yomi_time, _ := strconv.Atoi(args[2])

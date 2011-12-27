@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"rand"
 	"time"
 )
@@ -12,14 +12,14 @@ import (
 func main() {
 	rand.Seed(time.Nanoseconds())
 	config := NewConfig()
-	
+
 	shutdown := make(chan bool, 1)
 	if config.Cluster {
 		InitCluster(shutdown)
 	} else {
 		shutdown <- true
 	}
-	
+
 	if config.Help {
 		flag.Usage()
 		os.Exit(0)

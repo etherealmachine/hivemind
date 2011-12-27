@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/etherealmachine/redis.go"
-	"log"
 	"json"
+	"log"
 )
 
 func InitCluster(shutdown chan bool) {
@@ -49,38 +49,38 @@ func process(configs chan Config) {
 	sem := make(chan int, 4)
 	for config := range configs {
 		switch config.MsgType {
-			case "eval":
-				go eval(config, sem)
-			case "play":
-				go play(config, sem)
+		case "eval":
+			go eval(config, sem)
+		case "play":
+			go play(config, sem)
 		}
 	}
 }
 
 func eval(config Config, sem chan int) {
 	/*
-	sem <- 1
-	t := NewTracker(&config)
-	color := BLACK
-	for i := range config.Moves {
-		t.Play(color, config.Moves[i])
-		color = Reverse(color)
-	}
-	root := NewRoot(color, t, &config)
-	genmove(root, t)
-	eval := &Eval{config.Moves, root.Best().Vertex, root.Best().Wins / root.Best().Visits}
-	bytes, err := json.Marshal(eval)
-	if err != nil {
-		log.Println(err)
-	} else {
-		var client redis.Client
-		client.Addr = "127.0.0.1:6379"
-		err := client.Publish("evals", bytes)
+		sem <- 1
+		t := NewTracker(&config)
+		color := BLACK
+		for i := range config.Moves {
+			t.Play(color, config.Moves[i])
+			color = Reverse(color)
+		}
+		root := NewRoot(color, t, &config)
+		genmove(root, t)
+		eval := &Eval{config.Moves, root.Best().Vertex, root.Best().Wins / root.Best().Visits}
+		bytes, err := json.Marshal(eval)
 		if err != nil {
 			log.Println(err)
+		} else {
+			var client redis.Client
+			client.Addr = "127.0.0.1:6379"
+			err := client.Publish("evals", bytes)
+			if err != nil {
+				log.Println(err)
+			}
 		}
-	}
-	<-sem
+		<-sem
 	*/
 }
 
@@ -88,14 +88,14 @@ func play(config Config, sem chan int) byte {
 	sem <- 1
 	t := NewTracker(&config)
 	var vertex int
-	for move := 0;; {
+	for move := 0; ; {
 		config.policy_weights = config.Black_policy_weights
 		br := NewRoot(BLACK, t, &config)
 		genmove(br, t)
 		vertex = br.Best().Vertex
 		t.Play(BLACK, vertex)
 		move++
-		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
+		if t.Winner() != EMPTY || move >= 2*t.Sqsize() {
 			break
 		}
 		config.policy_weights = config.White_policy_weights
@@ -104,7 +104,7 @@ func play(config Config, sem chan int) byte {
 		vertex = wr.Best().Vertex
 		t.Play(WHITE, vertex)
 		move++
-		if t.Winner() != EMPTY || move >= 2 * t.Sqsize() {
+		if t.Winner() != EMPTY || move >= 2*t.Sqsize() {
 			break
 		}
 	}

@@ -38,7 +38,7 @@ class GUI(object):
 		if len(sys.argv) == 2:
 			self.set_file(sys.argv[1])
 		else:
-			self.set_size(9)
+			self.set_size(7)
 			self.pb = "None"
 			self.pw = "None"
 		

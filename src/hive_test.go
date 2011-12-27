@@ -1,10 +1,10 @@
 package main
 
 import (
-	"testing"
 	"fmt"
 	"log"
 	"os"
+	"testing"
 )
 
 var config *Config
@@ -52,7 +52,7 @@ func TestGoSwarm(t *testing.T) {
 	config.Go = true
 	config.Hex = false
 	config.MaxPlayouts = 10000
-        config.policy_weights = LoadBest("./swarm.1.gob", config)
+	config.policy_weights = LoadBest("./swarm.1.gob", config)
 	tracker := NewTracker(config)
 	root := NewRoot(BLACK, tracker, config)
 	genmove(root, tracker)
@@ -63,7 +63,7 @@ func TestHexSwarm(t *testing.T) {
 	config.Go = false
 	config.Hex = true
 	config.MaxPlayouts = 10000
-        config.policy_weights = LoadBest("./swarm.1.gob", config)
+	config.policy_weights = LoadBest("./swarm.1.gob", config)
 	tracker := NewTracker(config)
 	fmt.Println(tracker)
 	root := NewRoot(BLACK, tracker, config)
@@ -84,5 +84,5 @@ func TestWeightTree(t *testing.T) {
 			count++
 		}
 	}
-	fmt.Println(tree.Prob(BLACK, target), float64(count) / float64(samples))
+	fmt.Println(tree.Prob(BLACK, target), float64(count)/float64(samples))
 }

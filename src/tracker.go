@@ -4,14 +4,14 @@ import "container/vector"
 import "rand"
 
 const (
-	UP         = 0
-	DOWN       = 1
-	LEFT       = 2
-	RIGHT      = 3
-	UP_LEFT    = 0
-	UP_RIGHT   = 1
-	DOWN_LEFT  = 4
-	DOWN_RIGHT = 5
+	UP          = 0
+	DOWN        = 1
+	LEFT        = 2
+	RIGHT       = 3
+	UP_LEFT     = 0
+	UP_RIGHT    = 1
+	DOWN_LEFT   = 4
+	DOWN_RIGHT  = 5
 	INIT_WEIGHT = 500
 )
 

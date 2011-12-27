@@ -6,10 +6,10 @@ import (
 )
 
 type WeightTree struct {
-	size int
-	nodes int
-	interior int
-	leaves int
+	size          int
+	nodes         int
+	interior      int
+	leaves        int
 	black_weights []float64
 	white_weights []float64
 }
@@ -31,12 +31,12 @@ func NewWeightTree(size int) *WeightTree {
 
 func (t *WeightTree) Set(color byte, vertex int, weight float64) {
 	if color == BLACK {
-		t.black_weights[t.interior + vertex] = weight
+		t.black_weights[t.interior+vertex] = weight
 		for parent := t.parent(t.interior + vertex); parent >= 0; parent = t.parent(parent) {
 			t.black_weights[parent] = t.black_weights[2*parent+1] + t.black_weights[2*parent+2]
 		}
 	} else {
-		t.white_weights[t.interior + vertex] = weight
+		t.white_weights[t.interior+vertex] = weight
 		for parent := t.parent(t.interior + vertex); parent >= 0; parent = t.parent(parent) {
 			t.white_weights[parent] = t.white_weights[2*parent+1] + t.white_weights[2*parent+2]
 		}
@@ -45,9 +45,9 @@ func (t *WeightTree) Set(color byte, vertex int, weight float64) {
 
 func (t *WeightTree) Get(color byte, vertex int) float64 {
 	if color == BLACK {
-		return t.black_weights[t.interior + vertex]
+		return t.black_weights[t.interior+vertex]
 	}
-	return t.white_weights[t.interior + vertex]
+	return t.white_weights[t.interior+vertex]
 }
 
 func (t *WeightTree) Prob(color byte, vertex int) float64 {
@@ -95,15 +95,15 @@ func (t *WeightTree) rand(color byte, node int, root int) int {
 	if node >= t.interior {
 		return node - t.interior
 	}
-	left := 2 * node + 1
-	right := 2 * node + 2
+	left := 2*node + 1
+	right := 2*node + 2
 	var weights []float64
 	if color == BLACK {
 		weights = t.black_weights
 	} else {
 		weights = t.white_weights
 	}
-	if rand.Float64() * weights[root + node] < weights[root + left] {
+	if rand.Float64()*weights[root+node] < weights[root+left] {
 		return t.rand(color, left, root)
 	}
 	return t.rand(color, right, root)

@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"math"
-	"time"
-	"log"
-	"rand"
 	"container/vector"
-	"os"
+	"fmt"
 	"gob"
+	"log"
+	"math"
+	"os"
+	"rand"
+	"time"
 )
 
 type Node struct {
@@ -349,7 +349,7 @@ func (node *Node) update(t Tracker) {
 
 func (node *Node) recalc() {
 	if node.Visits == 10 {
-		node.value = 1 + 0.1 * rand.Float64()
+		node.value = 1 + 0.1*rand.Float64()
 		return
 	}
 	node.Mean = node.Wins / node.Visits
@@ -400,9 +400,9 @@ func (node *Node) recalc() {
 	r := math.Log1p(node.parent.Visits) / node.Visits
 	v := 1.0
 	if node.config.Var {
-		v = math.Fmin(0.25, node.blendedMean - (node.blendedMean * node.blendedMean) + math.Sqrt(2*r))
+		v = math.Fmin(0.25, node.blendedMean-(node.blendedMean*node.blendedMean)+math.Sqrt(2*r))
 	}
-	node.value = node.blendedMean + node.config.Explore * math.Sqrt(r*v)
+	node.value = node.blendedMean + node.config.Explore*math.Sqrt(r*v)
 }
 
 // return node's grandparent's sibling corresponding to node's move
@@ -626,7 +626,7 @@ func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 	if depth < maxdepth && node.Child != nil {
 		for child := node.Child; child != nil; child = child.Sibling {
 			if child.Visits > 0 {
-				s += child.String(depth + 1, maxdepth, t)
+				s += child.String(depth+1, maxdepth, t)
 			}
 		}
 	}
@@ -634,6 +634,6 @@ func (node *Node) String(depth, maxdepth int, t Tracker) (s string) {
 }
 
 type Eval struct {
-	Moves *vector.IntVector
+	Moves        *vector.IntVector
 	Wins, Visits float64
 }
