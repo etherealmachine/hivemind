@@ -186,7 +186,7 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 \end{figure}
 
 The basic Monte-Carlo technique for Computer Go was proposed by Br\"{u}gmann~\cite{brugmann1993monte}. His program \emph{Mango} effectively used a ``flat'' search tree (1-ply) and simply ran simulations from each candidate move to estimate its value. 
-Later MCTS techniques use Monte-Carlo simulations to grow a partial  search tree. 
+Later MCTS techniques use Monte-Carlo simulations to grow a partial search tree. 
 The UCT algorithm was developed alongside MCTS to direct the growth of the search tree~\cite{gelly2006exploration}. 
 At any point, the search can be stopped and the current state of the tree used to select a move to play. 
 
@@ -198,6 +198,10 @@ The result of the simulation is used to update the statistics at nodes in the tr
 (see Listing 1).
 If the leaf node has been visited enough times (50 in our case), then it is expanded and nodes for all possible moves from 
 that position are added to the search tree.
+% TODO 7
+% comment: how did you come with the constant of 50?
+% answer: balancing exploration versus computational requirements and preliminary results
+% also, this was suggested as a good starting point in the computer Go mailing list (5, 10, and 50 were some common values)
 
 The effectiveness of MCTS depends on three policies:
 \begin{itemize}
@@ -213,7 +217,7 @@ However, this requires expert knowledge (heuristics) that is hard to obtain or n
 Figure \ref{fig:tree} shows a partial Monte-Carlo search tree for the given position. In the example, the child-selection policy visited the node for \texttt{Black E4}, then \texttt{White A1}. 
 The continuation policy ran, completing the game from the positiion with \texttt{E4} occupied by \hblack\ and \texttt{A1} occupied by \hwhite.
 This resulted in a loss for \hblack. 
-The update policy choose to update all nodes along the visited path, incrementing the wins for \hwhite\ moves and incrementing the losses for \hblack\ moves.
+The update policy updates all nodes along the visited path, incrementing the wins for \hwhite\ moves and incrementing the losses for \hblack\ moves.
 
 \begin{lstlisting}[float,frame=single,language=Pascal,caption=MCTS Algorithm Pseudocode]
 function search(root):
@@ -376,6 +380,9 @@ There are three simple continuation policies that we use as baseline comparators
 	With probability 5/6 the move is chosen with the Uniform Local policy and with probability 1/6 it is chosen with the Default policy. 
 \end{description}
 
+% TODO 9
+% comment: would it be possible to include patterns/weights from competition-level programs such as MoGo (in Go)?
+% answer: yes
 
 \subsection{Hivemind Game Tracker module}
 \label{s:tracker}
@@ -436,7 +443,7 @@ Evolution strategies (ES) is a collection of algorithms that operate on real-val
 More information on evolution strategies and evolutionary learning in general can be found in Eberhard and Shi's excellent textbook \emph{Computational Intelligence: Concepts to Implementations}~\cite{eberhart2007computational}. 
 The Evolution Strategies article on Scholarpedia.org also provides a good introduction to the topic~\cite{Beyer:2007}.
 
-Our implementation of EW works as follows.
+Our implementation of ES works as follows.
 \begin{enumerate}
 \item An initial population (we use 30 individuals) is randomly generated. 
 Each individual is represented by its vector of $2^{13}$ local pattern weights 
@@ -455,6 +462,10 @@ During assessment, the individual will also be assigned a real-valued ``fitness'
 		${\cal N}(0, \sigma^2)$.
 		\end{enumerate}
 	\item The best 5 performing parents are propagated through without mutation.  This is done to preserve well-performing solutions.
+	% TODO 10
+	% comment: this appears to be against the spirit of natural evolution where mutation is always (presumably) present
+	% answer: 5/35 children will be unmutated, so mutation is definitely still present in the system.
+	% This is also standard in a lot the genetic algorithm literature.
 	\item Evaluate the fitness of the new pool of 40 individuals, and keep only the top 30 as parents for the next generation.
 	\end{enumerate}
 \end{enumerate}
@@ -479,6 +490,13 @@ A swap-safe move was used to play the first move to greatly reduce the first-mov
 The winner of each game receives 1 point added to their fitness, the loser has 1 point deducted from their fitness.
 This means that individuals will be evaluated on about $10$ games, but the exact number depends on how often they are
 chosen as opponents.
+% TODO 12
+% comment: so the pool consisted of three basic policies? Why wasn't MoHex a part of the pool? In fact, the authors touch on this later in the paper:
+% "A potential problem with self-learning is that the system might only be learning how to exploit the weaknesses of its competitors, and not making
+% a general improvement in playing strength." This sentence is also problematic. Namely, it is unclear what a "general improvement in playing strength" is. A strong player against player A may be weak against player B. It is unclear how to define an opponent-independent measure of playing
+% strength. However, by not including MoHex in the pool during the evolution the authors did not specifically evolve their continuation policies
+% against MoHex. I wonder why.
+% answer: To preserve MoHex as an outside comparator. Learning from self-play is also the research question.
 
 \section{Results and Conclusions}\label{results}
 
@@ -585,7 +603,10 @@ Despite this, the superiority of the learned policy over the baseline ones is dr
 
 \subsubsection*{Generalization across board sizes}
 
-The time required to learn greatly depends on the boardsize used. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage. 
+The time required to learn greatly depends on the boardsize used. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage.
+% TODO 13
+% comment: explain
+% answer: 
 We now examine how well the policy learned on 7x7 boards generalizes to larger boards. 
 We played 200 game matches on 11x11 and 13x13 boards between the learned policy and the 
 default and uniform local policies.  
@@ -637,6 +658,14 @@ that  the learned continuation policies are coupled with relatively naive update
 polices.  
 There is still a large gap between the automatically learned Hivemind policy and current champion programs,
 but it remains to be seen how much of this gap can be closed with improved child-selection and update policies.
+% TODO 13
+% comment: yes, I think the results of this paper would be even more interesting if either (i) only continuation policies were compared
+% e.g. by disabling all other techniques in MoHex) or (ii) other advanced techniques (e.g., child-selection policy, the update policy, etc.)
+% were added to Hivemind as well.
+% answer: Comparing just continuation policies is a tricky issue. Hivemind specifically scores candidates on winning a full game using MCTS, it does
+% not attempt to build a strong continuation policy. It is true that a strong continuation policy can lead to stronger overall play, but especially
+% the simulation balancing paper shows that strong playouts are not always the best approach to a stronger overall player.
+% As to (ii), improving Hivemind's other areas is definitely a good idea
 
 Source code for the Hivemind Computer Hex/Go player is available at \url{http://github.com/etherealmachine/hivemind}. The included README file has instructions on running the evolutionary learning process and using the results.
 
