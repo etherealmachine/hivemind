@@ -1,0 +1,710 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.1 r9760"
+   sodipodi:docname="tree.svg"
+   inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+   inkscape:export-xdpi="200"
+   inkscape:export-ydpi="200">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow2Sstart"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow2Sstart"
+       style="overflow:visible">
+      <path
+         id="path4090"
+         style="font-size:12.0;fill-rule:evenodd;stroke-width:0.62500000;stroke-linejoin:round"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         transform="scale(0.3) translate(-2.3,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow2Lstart"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow2Lstart"
+       style="overflow:visible">
+      <path
+         id="path4078"
+         style="font-size:12.0;fill-rule:evenodd;stroke-width:0.62500000;stroke-linejoin:round"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         transform="scale(1.1) translate(1,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow2Send"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow2Send"
+       style="overflow:visible;">
+      <path
+         id="path4093"
+         style="font-size:12.0;fill-rule:evenodd;stroke-width:0.62500000;stroke-linejoin:round;"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         transform="scale(0.3) rotate(180) translate(-2.3,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow2Mend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow2Mend"
+       style="overflow:visible;">
+      <path
+         id="path4087"
+         style="font-size:12.0;fill-rule:evenodd;stroke-width:0.62500000;stroke-linejoin:round;"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         transform="scale(0.6) rotate(180) translate(0,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Mend"
+       style="overflow:visible;">
+      <path
+         id="path4069"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.4) rotate(180) translate(10,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Send"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Send"
+       style="overflow:visible;">
+      <path
+         id="path4075"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.2) rotate(180) translate(6,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Lstart"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Lstart"
+       style="overflow:visible">
+      <path
+         id="path4060"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none"
+         transform="scale(0.8) translate(12.5,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow2Sstart"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow2Sstart-1"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path4090-9"
+         style="font-size:12px;fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         transform="matrix(0.3,0,0,0.3,-0.69,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow2Send"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow2Send-1"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path4093-9"
+         style="font-size:12px;fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         transform="matrix(-0.3,0,0,-0.3,0.69,0)" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.46106482"
+     inkscape:cx="405.93694"
+     inkscape:cy="507.30999"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1280"
+     inkscape:window-height="723"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="fill:none;stroke:#00ab00;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow2Send)"
+       d="m 457.90658,520.46345 63.50814,-84.56411"
+       id="path3218-2"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#bf3500;stroke-width:5.67044687;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 457.29001,813.8718 c 36.9076,-35.43794 -21.50504,-53.21828 -7.60512,-90.82964 13.90555,-37.66652 16.28752,-54.34431 7.19299,-94.18729 -9.24461,-19.68966 -3.97704,-31.19282 6.80791,-48.30092"
+       id="path4016"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       transform="matrix(0.62468272,0,0,0.62468272,171.62413,124.43935)"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,-93.800426,271.34608)"
+       sodipodi:type="arc"
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-0"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,12.529262,272.24548)"
+       sodipodi:type="arc"
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-4"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,331.51844,270.44667)"
+       sodipodi:type="arc"
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-0-7"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,437.84817,270.8464)"
+       sodipodi:type="arc"
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-4-1"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,-149.56739,408.38051)"
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-0-9"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,-43.237682,411.30358)"
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-4-13"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,223.83905,413.8269)"
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-0-5-3"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,330.16877,414.22664)"
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-4-8-8"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       transform="matrix(0.62468272,0,0,0.62468272,436.49849,413.02744)"
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="path3100-0-7-5"
+       sodipodi:cx="369.86343"
+       sodipodi:cy="238.40668"
+       sodipodi:rx="58.870995"
+       sodipodi:ry="58.870995"
+       d="m 428.73443,238.40668 a 58.870995,58.870995 0 1 1 -117.74199,0 58.870995,58.870995 0 1 1 117.74199,0 z"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 169.42884,402.46259 370.48946,291.1799"
+       id="path3202"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-0"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 270.51931,396.14301 375.72867,298.39888"
+       id="path3204"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-4"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#00abdc;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-start:url(#Arrow2Sstart)"
+       d="M 535.40867,394.57676 429.82849,298.16632"
+       id="path3210"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-0-7"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 636.66521,402.05025 434.90168,291.09256"
+       id="path3212"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-4-1"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 645.73975,532.33967 584.37177,448.99151"
+       id="path3214"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-0-7-5"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100-0-7"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 561.56127,526.38107 0.65927,-70.23176"
+       id="path3216"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-4-8-8"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100-0-7"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#00abdc;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-start:url(#Arrow2Sstart);marker-end:none"
+       d="m 476.97197,533.34737 63.50814,-84.56411"
+       id="path3218"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-0-5-3"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100-0-7"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 95.345727,523.23699 123.38105,454.34666"
+       id="path3220"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-0-9"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100-0"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:1.87404811;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="M 175.31062,525.63495 149.74586,454.87177"
+       id="path3222"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       inkscape:connection-start="#path3100-4-13"
+       inkscape:connection-start-point="d4"
+       inkscape:connection-end="#path3100-0"
+       inkscape:connection-end-point="d4"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#00ab00;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow2Send)"
+       d="m 521.76581,406.75699 -96.74583,-92.8767"
+       id="path3210-5"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#bf3500;stroke-width:5.34989405;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       d="m 393.57621,707.21493 c -31.42165,-37.03971 -47.44262,21.30612 -80.87537,7.26589 -33.48183,-14.04613 -48.31928,-16.49037 -83.81489,-7.54472 -17.55706,9.17102 -27.77885,3.86053 -42.97141,-6.98819"
+       id="path4016-5"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#00abdc;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-start:none"
+       d="m 400.60252,663.31043 -209.38761,0.2869"
+       id="path3210-2"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <path
+       style="fill:none;stroke:#00ab00;stroke-width:6.24682713;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-start:none;marker-end:none"
+       d="M 395.13265,748.35749 188.48865,748.166"
+       id="path3210-5-7"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="49.233402"
+       y="673.95496"
+       id="text10501"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10503"
+         x="49.233402"
+         y="673.95496"
+         style="font-size:32px">Select</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="48.396217"
+       y="715.86847"
+       id="text10505"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10507"
+         x="48.396217"
+         y="715.86847"
+         style="font-size:32px">Simulate</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="48.635414"
+       y="756.73877"
+       id="text10509"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10511"
+         x="48.635414"
+         y="756.73877"
+         style="font-size:32px">Update</tspan></text>
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect10513"
+       width="385.60461"
+       height="146.80397"
+       x="38.486294"
+       y="634.02887"
+       ry="0"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="115.06013"
+       y="433.89493"
+       id="text10585"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587"
+         x="115.06013"
+         y="433.89493">A1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="218.57509"
+       y="437.13376"
+       id="text10585-9"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-8"
+         x="218.57509"
+         y="437.13376">A2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="538.31781"
+       y="434.96484"
+       id="text10585-3"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-0"
+         x="538.31781"
+         y="434.96484">E4</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="642.59357"
+       y="434.96487"
+       id="text10585-34"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-01"
+         x="642.59357"
+         y="434.96487">E5</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="57.739254"
+       y="571.77399"
+       id="text10585-0"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-3"
+         x="57.739254"
+         y="571.77399">A2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="163.09943"
+       y="573.94287"
+       id="text10585-0-8"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-3-2"
+         x="163.09943"
+         y="573.94287">A4</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="431.8732"
+       y="577.19617"
+       id="text10585-0-5"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-3-0"
+         x="431.8732"
+         y="577.19617">A1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="538.14893"
+       y="577.19623"
+       id="text10585-0-7"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-3-7"
+         x="538.14893"
+         y="577.19623">A2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:44.88906097px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="645.50909"
+       y="575.02734"
+       id="text10585-0-77"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10587-3-6"
+         x="645.50909"
+         y="575.02734">A4</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="370.20151"
+       y="845.95435"
+       id="text10509-5"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10511-6"
+         x="370.20151"
+         y="845.95435"
+         style="font-size:32px">Win for White</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="323.03259"
+       y="570.10956"
+       id="text10509-5-0"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10511-6-3"
+         x="323.03259"
+         y="570.10956"
+         style="font-size:32px">+Wins</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="402.64548"
+       y="430.88925"
+       id="text10509-5-0-0"
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/jpettit/code/hivemind/thesis/graphics/tree.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200"><tspan
+         sodipodi:role="line"
+         id="tspan10511-6-3-4"
+         x="402.64548"
+         y="430.88925"
+         style="font-size:32px">+Losses</tspan></text>
+  </g>
+</svg>
