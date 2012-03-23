@@ -185,7 +185,7 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 	\label{fig:tree}
 \end{figure}
 
-The basic Monte-Carlo technique for Computer Go was proposed by Br\"{u}gmann~\cite{brugmann1993monte}. His program \emph{Mango} effectively used a ``flat'' search tree (1-ply) and simply ran simulations from each candidate move to estimate its value. 
+The basic Monte-Carlo technique for computer Go was proposed by Br\"{u}gmann~\cite{brugmann1993monte}. His program \emph{Mango} effectively used a ``flat'' search tree (1-ply) and simply ran simulations from each candidate move to estimate its value. 
 Later MCTS techniques use Monte-Carlo simulations to grow a partial search tree. 
 The UCT algorithm was developed alongside MCTS to direct the growth of the search tree~\cite{gelly2006exploration}. 
 At any point, the search can be stopped and the current state of the tree used to select a move to play. 
@@ -196,12 +196,8 @@ For each simulation the algorithm will start at the root node, recursively trave
 The simulation continues from the position represented by this leaf node until a winner is determined.
 The result of the simulation is used to update the statistics at nodes in the tree
 (see Listing 1).
-If the leaf node has been visited enough times (50 in our case), then it is expanded and nodes for all possible moves from 
+If the leaf node has been visited enough times (50 in our case\footnote{Lower numbers promote accurate exploration at the cost of larger trees and increased computation. Our choice of 50 is somewhat arbitrary, values from 1 to 100 are used in UCT programs on the CGOS Computer Go Server\cite{cgosbots}.}), then it is expanded and nodes for all possible moves from 
 that position are added to the search tree.
-% TODO 7
-% comment: how did you come with the constant of 50?
-% answer: balancing exploration versus computational requirements and preliminary results
-% also, this was suggested as a good starting point in the computer Go mailing list (5, 10, and 50 were some common values)
 
 The effectiveness of MCTS depends on three policies:
 \begin{itemize}
@@ -270,7 +266,7 @@ The continuation policy has a large effect on the strength of the MCTS player.
 In fact, one of the top Go engines, MoGo, uses a near-zero exploration coefficient in its child selection policy,
 putting most of the control of the search in the hands of the continuation policy~\cite{gelly2007combining}.
 Initial research in MCTS Go players focused on using a strong continuation policy, with expert-derived heuristics to select the next move~\cite{chaslot2010adding}. 
-The top Computer Go programs all have complex hand-crafted policies with rules to examine the current position and select a ``good'' move to play, possibly with a stochastic choice between several candidates. 
+The top computer Go programs all have complex hand-crafted policies with rules to examine the current position and select a ``good'' move to play, possibly with a stochastic choice between several candidates. 
 Only when none of the rules match do they fall back to a uniform random move. 
 It was quickly found that building a stronger continuation policy does not guarantee better performance when used in the full tree search~\cite{gelly2006modification}. 
 In other words, when the continuation policies are used as players, the relative strengths of the continuation policies are poor predictors
@@ -368,7 +364,14 @@ This bit is important because \hblack\ and \hwhite\ have different goals -- they
 By using a reflection and flipping colors, one position can be translated into a symmetric  position for the opposite color. 
 We experimented with this approach, but it proved more troublesome than beneficial.
 
-There are three simple continuation policies that we use as baseline comparators for our learned policies.
+
+%There are three simple continuation policies that we use as baseline comparators for our learned policies.
+In principle any player could be used to evaluate the effectiveness of learning.   We used three simple continuation policies that were easily implementable in Hivemind as baseline comparators for our learned policies.
+% TODO 9
+% comment: would it be possible to include patterns/weights from competition-level programs such as MoGo (in Go)?
+% answer: yes
+% DPH: the more I think about it the more I think I don't understand the comment.  Is it about representing MoGo patterns with the 
+% pattern encodings, or about using mogo patterns as a comparator?
 
 \begin{description}
 	\item[Default] - The next move is chosen uniformly at random from the set of all legal moves.
@@ -380,9 +383,6 @@ There are three simple continuation policies that we use as baseline comparators
 	With probability 5/6 the move is chosen with the Uniform Local policy and with probability 1/6 it is chosen with the Default policy. 
 \end{description}
 
-% TODO 9
-% comment: would it be possible to include patterns/weights from competition-level programs such as MoGo (in Go)?
-% answer: yes
 
 \subsection{Hivemind Game Tracker module}
 \label{s:tracker}
@@ -461,11 +461,7 @@ During assessment, the individual will also be assigned a real-valued ``fitness'
 		\item Each local pattern weight of the child is mutated by adding a random variable drawn from the Normal Distribution
 		${\cal N}(0, \sigma^2)$.
 		\end{enumerate}
-	\item The best 5 performing parents are propagated through without mutation.  This is done to preserve well-performing solutions.
-	% TODO 10
-	% comment: this appears to be against the spirit of natural evolution where mutation is always (presumably) present
-	% answer: 5/35 children will be unmutated, so mutation is definitely still present in the system.
-	% This is also standard in a lot the genetic algorithm literature.
+	\item The best 5 performing parents are propagated through without mutation.  This is commonly done to preserve well-performing solutions. 
 	\item Evaluate the fitness of the new pool of 40 individuals, and keep only the top 30 as parents for the next generation.
 	\end{enumerate}
 \end{enumerate}
@@ -483,20 +479,13 @@ This choice of $\tau$ is driven by experimental literature suggesting it works i
 
 \subsubsection*{Fitness Evaluation}
 
-Every generation, each individual plays $n=5$ complete games against opponents chosen  randomly from the pool.
+Every generation, each individual plays $n=5$ complete games against opponents chosen  randomly from the current population.
 Opponents are drawn with replacement, so a given individual could play the same opponent more than once each generation. 
 At the beginning of each game, one of the two players is randomly chosen to play \hblack, the other to play \hwhite. 
 A swap-safe move was used to play the first move to greatly reduce the first-mover advantage. 
 The winner of each game receives 1 point added to their fitness, the loser has 1 point deducted from their fitness.
 This means that individuals will be evaluated on about $10$ games, but the exact number depends on how often they are
 chosen as opponents.
-% TODO 12
-% comment: so the pool consisted of three basic policies? Why wasn't MoHex a part of the pool? In fact, the authors touch on this later in the paper:
-% "A potential problem with self-learning is that the system might only be learning how to exploit the weaknesses of its competitors, and not making
-% a general improvement in playing strength." This sentence is also problematic. Namely, it is unclear what a "general improvement in playing strength" is. A strong player against player A may be weak against player B. It is unclear how to define an opponent-independent measure of playing
-% strength. However, by not including MoHex in the pool during the evolution the authors did not specifically evolve their continuation policies
-% against MoHex. I wonder why.
-% answer: To preserve MoHex as an outside comparator. Learning from self-play is also the research question.
 
 \section{Results and Conclusions}\label{results}
 
@@ -521,7 +510,7 @@ Gomill required no modification to work with Hex playing programs.
 To determine the benefits of the learned continuation policy we played a round-robin set of matches between the learned, 
 default, uniform local, and uniform with tenuki policies.
 Each match consisted of 200 games on a 7x7 board where the first player alternated was forced to start with a
-swap-safe\footnote{A swap-safe first move is a neutral or mediocre move by the first player in an attempt to eliminate the first-player advantage.  We used C4 in our 7x7 games and C8 in the 11x11 games.}
+swap-safe\footnote{A swap-safe first move is a neutral or mediocre move by the first player in an attempt to eliminate the first-player advantage.  This is similar to the \emph{Komi} rule in Go.  We used C4 in our 7x7 games and C8 in the 11x11 games.}
 move.
 Each player was allowed 10,000 simulations per move and the results are shown in Figure~\ref{fig:results}.
 
@@ -569,10 +558,13 @@ This surprising result indicates that the evolutionary process is far more stabl
 
 \subsubsection*{Comparison against MoHex}
 
-A potential problem with self-learning is that the system might only be learning how to exploit the weaknesses of its competitors, and
-not making a general improvement in playing strength.  
-To examine this we used an outside control:  the MoHex program from the University of Alberta, compiled and run with its default settings~\cite{mohex}. 
-The optimization and domain expertise in MoHex make it a very strong  competitor --  MoHex has won the computer hex world championships in 2008, 2009 and 2010.
+A potential problem with self-learning is that the system might only be learning how to exploit the weaknesses of its competitors, and not making a general improvement in playing strength.
+We use ``general playing strength'' in an intuitive sense -- we want to avoid focusing on
+particular ``tricks'' that are only effective against the algorithms in the current population.
+Although improvement against the three baseline opponents gives some evidence against this over-specialization, 
+we perform further comparison against a strong outside control. 
+For this, we used the MoHex program from the University of Alberta, compiled and run with its default settings~\cite{mohex}.
+The optimization and domain expertise in MoHex make it a very strong  competitor --  MoHex has won the computer Hex world championships in 2008, 2009 and 2010.
 
 In the 7x7 matches against MoHex, 
 MoHex played with the default time limit of 10 seconds per move while the Hivemind programs again used
@@ -603,10 +595,7 @@ Despite this, the superiority of the learned policy over the baseline ones is dr
 
 \subsubsection*{Generalization across board sizes}
 
-The time required to learn greatly depends on the boardsize used. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and bias toward first-mover advantage.
-% TODO 13
-% comment: explain
-% answer: 
+The time required to learn greatly depends on the boardsize used. For training, a boardsize of 7x7 was chosen as a tradeoff between computation time and the game's deepness and subtlety.
 We now examine how well the policy learned on 7x7 boards generalizes to larger boards. 
 We played 200 game matches on 11x11 and 13x13 boards between the learned policy and the 
 default and uniform local policies.  
@@ -658,14 +647,6 @@ that  the learned continuation policies are coupled with relatively naive update
 polices.  
 There is still a large gap between the automatically learned Hivemind policy and current champion programs,
 but it remains to be seen how much of this gap can be closed with improved child-selection and update policies.
-% TODO 13
-% comment: yes, I think the results of this paper would be even more interesting if either (i) only continuation policies were compared
-% e.g. by disabling all other techniques in MoHex) or (ii) other advanced techniques (e.g., child-selection policy, the update policy, etc.)
-% were added to Hivemind as well.
-% answer: Comparing just continuation policies is a tricky issue. Hivemind specifically scores candidates on winning a full game using MCTS, it does
-% not attempt to build a strong continuation policy. It is true that a strong continuation policy can lead to stronger overall play, but especially
-% the simulation balancing paper shows that strong playouts are not always the best approach to a stronger overall player.
-% As to (ii), improving Hivemind's other areas is definitely a good idea
 
 Source code for the Hivemind Computer Hex/Go player is available at \url{http://github.com/etherealmachine/hivemind}. The included README file has instructions on running the evolutionary learning process and using the results.
 
