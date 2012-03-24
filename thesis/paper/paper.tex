@@ -1,4 +1,5 @@
 \documentclass{acm_proc_article-sp}
+%\documentclass{sig-alternate}
 \usepackage[latin1]{inputenc}
 \usepackage{amsmath}
 \usepackage{amsfonts}
@@ -7,12 +8,13 @@
 \usepackage{listings}
 \usepackage{url}
 \usepackage{havannah}
+\usepackage{enumitem}
+
 \newcommand{\hblack}{\texttt{Black}}
 \newcommand{\hwhite}{\texttt{White}}
 \newcommand{\hblacks}{\texttt{Black's}}
 \newcommand{\hwhites}{\texttt{White's}}
 \newcommand{\loc}[1]{\texttt{#1}}
-
 
 \title{Evolutionary Learning of Policies for MCTS Simulations}
 \numberofauthors{2}
@@ -33,8 +35,18 @@ David Helmbold \\
 
 \begin{document}
 
+\toappear{Permission to make digital or hard copies of all or part of this work for
+   personal or classroom use is granted without fee provided that copies are
+   not made or distributed for profit or commercial advantage and that copies
+   bear this notice and the full citation on the first page. To copy otherwise,
+   to republish, to post on servers or to redistribute to lists, requires prior
+   specific permission and/or a fee. \\
+   FDG '12, May 29-June 1, 2012 Raleigh, NC, USA. \\
+   Copyright (c) 2012 ACM 978-1-4503-1333-9/12/05... \$10.00.}
 
 \maketitle
+
+\setlist{topsep=0.5pt,partopsep=0.5pt,parsep=0.5pt,itemsep=0.5pt}
 
 \begin{abstract}
 Monte-Carlo Tree Search (MCTS) 
@@ -52,9 +64,12 @@ The Hivemind learned rules result in a 90\% win rate against a baseline MCTS sys
 significant improvement against the computer Hex world champion, MoHex.
 \end{abstract}
 
+\category{I.2.6}{Computing Methodologies}{Artificial Intelligence}
+
 \keywords{Monte Carlo Tree Search, Computer Hex, Evolution Strategies, Evolutionary Learning, Adversarial Search, Monte Carlo} 
 
 \section{Introduction}
+
 Abstract strategy games provide an attractive testbed for artificial intelligence and machine learning applications. The game framework provides immediate feedback on algorithm performance. 
 Starting with mathematical game theory research, the most common technique for game AI has been brute force search of the tree of legal moves. 
 This technique, highly tuned and optimized, is what led to Chinook's ascendance to World Champion in 1994 and Deep Blue's eventual victory in 1997 over then World Champion Gary Kasparov. These victories cemented brute force tree search as standard techniques in abstract strategy games, to the point where computers constructing endgame tables have been strong enough to find sequences lasting for hundreds of moves. Kasparov himself suggested a version of Chess that allowed the player to consult a computer for move advice. Chinook went so far as to solve checkers, proving that perfect play will end in a draw. 
@@ -91,10 +106,12 @@ Although our experiments have focused on Hex,
 the Hivemind framework is suitable for generic Monte-Carlo Tree Search, and has been implemented for
 both Go and Hex.
 
-Our experiments answer several questions, including: \\
-$\bullet$  How beneficial are the learned policies ?  \\
-$\bullet$   How stable is the evolutionary learning process? \\
-$\bullet$   Do the learned policies work on different board sizes?
+Our experiments answer several questions, including: 
+\begin{itemize}
+\item How beneficial are the learned policies ? 
+\item How stable is the evolutionary learning process? 
+\item Do the learned policies work on different board sizes?
+\end{itemize}
 
 
 The continuation biases learned by Hivemind dramatically improve the playing strength of simple MCTS players.
@@ -129,6 +146,7 @@ Figure \ref{fig:13x13inprogress} shows an example game in progress on a 13x13 bo
 the order in which the markers were played and have no effect on the game.
 Figure \ref{fig:13x13finished} shows the final position, \hblack{} having just played the winning move (71), completing an unbroken chain connecting both his sides. 
 
+
 Hex is a cutting and connecting game whose high computational complexity and simple scoring mechanism makes it attractive for AI research. 
 Once placed, a piece never leaves the board. 
 The only criterion for a legal move is that the hexagon be unoccupied (empty). 
@@ -149,7 +167,7 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 (such as Go or Havannah).
 
 \begin{figure}[tb]
-\resizebox{3.5in}{!}{	\begin{HexBoard}[board size=13]
+\resizebox{3.35in}{!}{	\begin{HexBoard}[board size=13]
 		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,h9,h5,h4,i4,g9,f9,g8,f7,f8,e8}
 	\end{HexBoard}
 	}
@@ -158,7 +176,7 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 \end{figure}
 
 \begin{figure}[tb]
-\resizebox{3.5in}{!}{	\begin{HexBoard}[board size=13]
+\resizebox{3.35in}{!}{	\begin{HexBoard}[board size=13]
 		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,
 				   h9,h5,h4,i4,g9,f9,g8,f7,f8,
 				   e8,e9,c10,k8,c9,g6,g7,c11,
@@ -179,7 +197,7 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 
 \begin{figure}
 	\begin{center}
-	\includegraphics[width=3.0in]{graphics/tree.pdf}
+	\includegraphics[width=2.5in]{graphics/tree.pdf}
 	\end{center}
 	\caption{Partial MC Search Tree}
 	\label{fig:tree}
@@ -189,6 +207,7 @@ The basic Monte-Carlo technique for computer Go was proposed by Br\"{u}gmann~\ci
 Later MCTS techniques use Monte-Carlo simulations to grow a partial search tree. 
 The UCT algorithm was developed alongside MCTS to direct the growth of the search tree~\cite{gelly2006exploration}. 
 At any point, the search can be stopped and the current state of the tree used to select a move to play. 
+
 
 All nodes in the tree correspond to a fixed board position, i.e.~the occupancy state of the board and which player is next to move. 
 Nodes also have statistics associated with their position:  the number of winning simulations performed that used the node, and the total number of simulations that included the node. 
@@ -236,14 +255,13 @@ function simulate_from(node) returns outcome
 \subsection{Child Selection Policy}
 The \verb+select_child+ function defines the child selection policy. It must return the child of the given node to step into next. 
 In general, child selection must trade off between \emph{exploitation} and \emph{exploration}. 
-It is important to ``exploit" those child nodes with high win-rates, both
+It is important to ``exploit'' those child nodes with high win-rates, both
 to discover possible weaknesses and to obtain highly accurate win-rate estimates. 
 Simultaneously, a child with a low number of visits must also be explored since a low win-rate
 could be due to a few unlucky simulations.
 This exploration/exploitation tradeoff is related to a variance reduction problem.  
 We want very low variance on the estimates for the good moves in order to maximize the chances of making the best move.
-On the other hand, if the variance of a seemingly poor move is very high, then there is a significant chance that that move
-could actually be very good.
+On the other hand, if the variance of a seemingly poor move is very high, then there is a significant chance that that move could actually be very good.
 
 One way to balance this exploration/exploitation trade-off is the Upper-Confidence for Trees algorithm (UCT). 
 UCT incorporates the win-rate of a child with a term that increases in value as the ratio of the child's visits to its parents decreases. 
@@ -338,7 +356,7 @@ Note that $P(A)+P(B)+P(C) = 1$ so one of A, B, or C will be selected.
 
 \begin{figure}
 	\begin{center}
-	\includegraphics[width=3.0in]{graphics/local-pattern.pdf}
+	\includegraphics[width=2.85in]{graphics/local-pattern.pdf}
 	\caption{A 4x4 board with the 3 patterns shown around \hblacks\ last move. Example weights are shown in the center vertex.}
 	\label{fig:localpattern}
 	\end{center}
@@ -346,7 +364,7 @@ Note that $P(A)+P(B)+P(C) = 1$ so one of A, B, or C will be selected.
 
 \begin{figure}
 	\begin{center}
-	\includegraphics[width=3.0in]{graphics/weight-pattern-map.pdf}
+	\includegraphics[width=3.25in]{graphics/weight-pattern-map.pdf}
 	\caption{The encoding from pattern A to a 32-bit integer. Using the weight from figure \ref{fig:localpattern}, the real value 6 would be stored at position 102 in the weight map.}
 	\label{fig:encoding}
 	\end{center}
@@ -364,25 +382,7 @@ This bit is important because \hblack\ and \hwhite\ have different goals -- they
 By using a reflection and flipping colors, one position can be translated into a symmetric  position for the opposite color. 
 We experimented with this approach, but it proved more troublesome than beneficial.
 
-
-%There are three simple continuation policies that we use as baseline comparators for our learned policies.
-In principle any player could be used to evaluate the effectiveness of learning.   We used three simple continuation policies that were easily implementable in Hivemind as baseline comparators for our learned policies.
-% TODO 9
-% comment: would it be possible to include patterns/weights from competition-level programs such as MoGo (in Go)?
-% answer: yes
-% DPH: the more I think about it the more I think I don't understand the comment.  Is it about representing MoGo patterns with the 
-% pattern encodings, or about using mogo patterns as a comparator?
-
-\begin{description}
-	\item[Default] - The next move is chosen uniformly at random from the set of all legal moves.
-	This policy corresponds to setting all of the weights to 0 in our encoding .
-	\item[Uniform local] - The next move is chosen uniformly at random from the empty locations adjacent to the last move.
-	If no legal move exists on these 6 points, then the move is chosen uniformly from the set of all legal moves 
-	(i.e. using the default policy).  This policy corresponds to setting all the weights to 1.
-	\item[Uniform local with ``tenuki''] - The tenuki (Japanese for  ``play away'') variant is a mixture of the Default and Uniform local policies.  
-	With probability 5/6 the move is chosen with the Uniform Local policy and with probability 1/6 it is chosen with the Default policy. 
-\end{description}
-
+Note that many kinds of local hand-coded patterns (like those used by MoGo \cite{gelly2006modification} for Go) can be expressed using the Hivemind encoding system.
 
 \subsection{Hivemind Game Tracker module}
 \label{s:tracker}
@@ -396,6 +396,7 @@ current simulation.
 The Game Tracker also stores the continuation policies of the two players as well as both
 the real-game board state and the board state in the current simulation.
 Note that the player making the move in the ``real game" uses their continuation policy for both players in the simulated games.
+
 
 The MCTS  module is a simple 
 generic implementation of Monte-Carlo Tree Search, using the UCT algorithm for child selection
@@ -419,6 +420,7 @@ This is not the case for Go, so the Go engine uses other optimizations for fast 
 
 The Game Tracker module uses an interface that is easily extendible to other games. 
 In addition to the \texttt{Playout} function, the Game Tracker provides the following functionality.
+
 \begin{enumerate}
 \item A single function, \texttt{Play(color, vertex)}, is used by the search tree to make a move in the simulated game.
 \item The \texttt{Legal(color, vertex)} function is used to query the legality of a given move in the simulated game. 
@@ -428,6 +430,7 @@ one child is added for each legal move from the leaf node's state.
 	A special \texttt{Empty} player is returned if the game has not finished.
 \item The \texttt{WasPlayed(color, vertex)} function provides information required for the AMAF heuristic.
 \end{enumerate}
+
 A few extra functions also provide for debugging by pretty-printing the tracker's internal state.
 
 The Game Tracker interface provides a simple definition of what is needed for a game to use the MCTS+UCT framework. 
@@ -442,6 +445,7 @@ Hivemind implements evolution strategies to learn good continuation policies.
 Evolution strategies (ES) is a collection of algorithms that operate on real-valued vectors. 
 More information on evolution strategies and evolutionary learning in general can be found in Eberhard and Shi's excellent textbook \emph{Computational Intelligence: Concepts to Implementations}~\cite{eberhart2007computational}. 
 The Evolution Strategies article on Scholarpedia.org also provides a good introduction to the topic~\cite{Beyer:2007}.
+
 
 Our implementation of ES works as follows.
 \begin{enumerate}
@@ -507,8 +511,19 @@ Matches were run using the Gomill software~\cite{gomill}.
 Gomill required no modification to work with Hex playing programs.  
 
 \subsubsection*{Benefits of learned policy}
-To determine the benefits of the learned continuation policy we played a round-robin set of matches between the learned, 
-default, uniform local, and uniform with tenuki policies.
+In principle any player could be used to evaluate the effectiveness of learning.   
+We used a round-robin tournament between the learned policy and the three following continuation policies that were easily implementable in Hivemind.
+
+\begin{description}
+	\item[Default] - The next move is chosen uniformly at random from the set of all legal moves.
+	This policy corresponds to setting all of the weights to 0 in our encoding .
+	\item[Uniform local] - The next move is chosen uniformly at random from the empty locations adjacent to the last move.
+	If no legal move exists on these 6 points, then the move is chosen uniformly from the set of all legal moves 
+	(i.e. using the default policy).  This policy corresponds to setting all the weights to 1.
+	\item[Uniform local with ``tenuki''] - The tenuki (Japanese for  ``play away'') variant is a mixture of the Default and Uniform local policies.  
+	With probability 5/6 the move is chosen with the Uniform Local policy and with probability 1/6 it is chosen with the Default policy. 
+\end{description}
+
 Each match consisted of 200 games on a 7x7 board where the first player alternated was forced to start with a
 swap-safe\footnote{A swap-safe first move is a neutral or mediocre move by the first player in an attempt to eliminate the first-player advantage.  This is similar to the \emph{Komi} rule in Go.  We used C4 in our 7x7 games and C8 in the 11x11 games.}
 move.
@@ -537,8 +552,7 @@ As expected, uniform local play significantly improves upon the default (random 
 
 \subsubsection*{Stability of Evolution}
 
-A natural concern is that the evolution strategies could have large variations in their end results and our first learned policy was
-just a ``lucky'' happenstance. 
+A natural concern is that the evolution strategies could have large variations in their end results and our first learned policy was just a ``lucky'' happenstance. 
 To protect against this, we re-ran the learning process described above another 9 times, creating a total of 10 different learned continuation policies.
 We then played 200 game matches between each of the resulting policies and the default policy using the above protocol.
 The following table gives the resulting win-rates for the learned policies.
@@ -599,7 +613,7 @@ The time required to learn greatly depends on the boardsize used. For training, 
 We now examine how well the policy learned on 7x7 boards generalizes to larger boards. 
 We played 200 game matches on 11x11 and 13x13 boards between the learned policy and the 
 default and uniform local policies.  
-Because of the increased boardsize,  each player used 100,000 simulated playouts per move. 
+Because of the increased boardsize, each player used 100,000 simulated playouts per move. 
 
 \centerline{
 \begin{tabular}{c | cc cc}
@@ -627,28 +641,23 @@ The following table gives the results of 200 game matches on 11x11 boards betwee
 		\end{tabular}
 }
 
-
 The learned policy provided 22 of the 23 wins against MoHex.
-Whereas the Hivemind programs were faster on the 7x7 boards, MoHex's optimizations allow it to use only 1/5 to 1/6 the CPU time
-on the larger board.
-Note that the pattern lookup required by the learned weights slightly increases the time per simulation.
-
+Whereas the Hivemind programs were faster on the 7x7 boards, MoHex's optimizations allow it to use only 1/5 to 1/6 the CPU time on the larger board. Note that the pattern lookup required by the learned weights slightly increases the time per simulation.
 
 \subsubsection* {Conclusions}
 With infinite time, an unbiased playout policy can find the true minimax value of a position in the game of Hex. 
 In practice, both resources and time are finite. 
-Bias in the playout policy is extremely useful for improving the overall quality and performance of a Monte-Carlo Tree Search
-and evolutionary learning can provide a substantial performance boost over naive patterns. 
-We showed how self-play and evolution can automatically learn good weights, without requiring expert knowledge or manual tuning. 
-The learning process can be done offline, and the final result requires little overhead.
+Bias in the playout policy is extremely useful for improving the overall quality and performance of a Monte-Carlo Tree Search and evolutionary learning can provide a substantial performance boost over naive patterns. 
+We showed how self-play and evolution can automatically learn good weights, without requiring expert knowledge or manual tuning. The learning process can be done offline, and the final result requires little overhead.
 
-It is worth emphasizing 
-that  the learned continuation policies are coupled with relatively naive update and child-selection
-polices.  
+It is worth emphasizing that  the learned continuation policies are coupled with relatively naive update and child-selection polices.  
 There is still a large gap between the automatically learned Hivemind policy and current champion programs,
 but it remains to be seen how much of this gap can be closed with improved child-selection and update policies.
 
 Source code for the Hivemind Computer Hex/Go player is available at \url{http://github.com/etherealmachine/hivemind}. The included README file has instructions on running the evolutionary learning process and using the results.
+
+\subsection*{Acknowledgements}
+We thank David Doshay and the Hierarchical Systems Research Foundation for the use of the their compute cluster. \\
 
 \bibliography{paper}
 \bibliographystyle{plain}
