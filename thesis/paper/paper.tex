@@ -142,10 +142,9 @@ and Section~\ref{results} describes our experimental setup and results.
 \label{s:hex}
 Hex is a two player, full-information, abstract strategy game played on an $N$x$N$ grid of hexagons. The players are \hblack{} and \hwhite{} and alternate placing markers of their color on empty hexagons. 
 The object of the game is to form an unbroken chain from one side of the board to the other. 
-Figure \ref{fig:13x13inprogress} shows an example game in progress on a 13x13 board, note that the numbers indicate
+Figure \ref{fig:inprogress} shows an example game in progress on a 7x7 board, note that the numbers indicate
 the order in which the markers were played and have no effect on the game.
-Figure \ref{fig:13x13finished} shows the final position, \hblack{} having just played the winning move (71), completing an unbroken chain connecting both his sides. 
-
+Figure \ref{fig:finished} shows the final position, \hblack{} having just played the winning move (25), completing an unbroken chain connecting both his sides. 
 
 Hex is a cutting and connecting game whose high computational complexity and simple scoring mechanism makes it attractive for AI research. 
 Once placed, a piece never leaves the board. 
@@ -167,29 +166,21 @@ Although we emphasize Hex here, the techniques we propose generalize to any cutt
 (such as Go or Havannah).
 
 \begin{figure}[tb]
-\resizebox{3.35in}{!}{	\begin{HexBoard}[board size=13]
-		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,h9,h5,h4,i4,g9,f9,g8,f7,f8,e8}
+\resizebox{3.3in}{!}{	\begin{HexBoard}[board size=7]
+		\HGame{d4,d3,e3,f1,c2,d6,b5,e2}
 	\end{HexBoard}
 	}
-	\caption{13x13 Hex Game, \hwhite{} to play.}
-	\label{fig:13x13inprogress}
+	\caption{7x7 Hex Game, \hwhite{} to play.}
+	\label{fig:inprogress}
 \end{figure}
 
 \begin{figure}[tb]
-\resizebox{3.35in}{!}{	\begin{HexBoard}[board size=13]
-		\HGame{c4,f6,e11,i8,h8,i1,i6,d5,i3,
-				   h9,h5,h4,i4,g9,f9,g8,f7,f8,
-				   e8,e9,c10,k8,c9,g6,g7,c11,
-				   d10,h6,h7,i5,j5,j4,k4,k3,
-				   m2,l3,m3,l4,c6,e11,l5,m4,
-				   d11,b7,e6,d12,c12,c7,e7,f5,
-				   e5,d9,d8,f4,e4,f3,a2,e3,d6,
-				   c3,d3,d4,b5,e2,d2,d1,e1,b13,
-				   c13,c5,b6}
+\resizebox{3.3in}{!}{	\begin{HexBoard}[board size=7]
+		\HGame{d4,d3,e3,f1,c2,d6,b5,e2,c4,c3,a4,b6,c6,c5,d5,b7,c7,b4,a5,b3,a3,b1,b2,c1,d1}
 	\end{HexBoard}
 	}
-	\caption{Finished 13x13 Hex Game, \hblack{}'s play 71 (at \loc{b6}) gives him an unbroken path from top to bottom.}
-	\label{fig:13x13finished}
+	\caption{Finished 7x7 Hex Game, \hblack{}'s play 25 (at \loc{d1}) gives him an unbroken path from top to bottom.}
+	\label{fig:finished}
 \end{figure}
 
 
