@@ -1,0 +1,98 @@
+\documentclass{beamer}
+\usetheme{Boadilla}
+\usepackage{havannah}
+
+\title[Learning MCTS]{Evolutionary Learning of Policies for MCTS Simulations}
+\author[Pettit, Helmbold]{James Pettit, David Helmbold}
+\institute[UCSC]{
+  University of California, Santa Cruz\\
+  \texttt{jpettit@soe.ucsc.edu}
+}
+\date[July 2012]{July 2012}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\begin{frame}{Overview}
+\end{frame}
+
+\begin{frame}{The Game of Hex}
+% example board, play a few moves, show final position
+% useful for experimentation:
+% 1. Easy to program
+% 2. Clear-cut winning condition (not so for Go)
+% 3. Large problem space
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+\begin{frame}{The Game of Hex}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+\begin{frame}{The Game of Hex}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+\begin{frame}{The Game of Hex}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+\begin{frame}{The Game of Hex}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1,c2}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+\begin{frame}{The Game of Hex}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1,c2,d6,b5,e2,c4,c3,a4,b6,c6,c5,d5,b7,c7,b4,a5,b3,a3,b1,b2,c1,d1}
+		\end{HexBoard}
+		}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{MCTS - Overview}
+% Minimax game tree cannot be fully constructed
+% Use random playouts to estimate minimax value
+% Large enough playouts will converge to true minimax value
+\end{frame}
+
+\begin{frame}{MCTS - Playout Policy}
+% One of the ways to improve the quality of the estimation
+\end{frame}
+
+\begin{frame}{Evolutionary Learning}
+\end{frame}
+
+\begin{frame}{Encoding}
+\end{frame}
+
+\begin{frame}{Results}
+\end{frame}
+
+\begin{frame}{Future Work}
+\end{frame}
+
+\end{document}
