@@ -17,54 +17,24 @@
 \end{frame}
 
 \begin{frame}{Overview}
+\begin{enumerate}
+	\item The Game of Hex
+	\item Monte-Carlo Tree Search (MCTS)
+	\item Apply Evolutionary Learningto MCTS+Hex
+	\item Results and Future Work
+\end{enumerate}
 \end{frame}
 
 \begin{frame}{The Game of Hex}
+\begin{itemize}
+	\item 2 player, perfect information
+	\item 6-sided hexagons on a parallelogram board
+	\item Common sizes: 11, 13
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Board}
 % example board, play a few moves, show final position
-% useful for experimentation:
-% 1. Easy to program
-% 2. Clear-cut winning condition (not so for Go)
-% 3. Large problem space
-	\begin{figure}[tb]
-	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
-		  \HGame{d4}
-		\end{HexBoard}
-		}
-	\end{figure}
-\end{frame}
-\begin{frame}{The Game of Hex}
-	\begin{figure}[tb]
-	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
-		  \HGame{d4,d3}
-		\end{HexBoard}
-		}
-	\end{figure}
-\end{frame}
-\begin{frame}{The Game of Hex}
-	\begin{figure}[tb]
-	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
-		  \HGame{d4,d3,e3}
-		\end{HexBoard}
-		}
-	\end{figure}
-\end{frame}
-\begin{frame}{The Game of Hex}
-	\begin{figure}[tb]
-	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
-		  \HGame{d4,d3,e3,f1}
-		\end{HexBoard}
-		}
-	\end{figure}
-\end{frame}
-\begin{frame}{The Game of Hex}
-	\begin{figure}[tb]
-	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
-		  \HGame{d4,d3,e3,f1,c2}
-		\end{HexBoard}
-		}
-	\end{figure}
-\end{frame}
-\begin{frame}{The Game of Hex}
 	\begin{figure}[tb]
 	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
 		  \HGame{d4,d3,e3,f1,c2,d6,b5,e2,c4,c3,a4,b6,c6,c5,d5,b7,c7,b4,a5,b3,a3,b1,b2,c1,d1}
@@ -73,26 +43,69 @@
 	\end{figure}
 \end{frame}
 
-\begin{frame}{MCTS - Overview}
-% Minimax game tree cannot be fully constructed
-% Use random playouts to estimate minimax value
-% Large enough playouts will converge to true minimax value
+\begin{frame}{The Game of Hex - Good for AI}
+\begin{itemize}
+	\item Easy to program
+	\item Clear-cut winning condition
+	\item Large problem space
+	\item Solved for boards up to 7x7
+\end{itemize}
 \end{frame}
 
-\begin{frame}{MCTS - Playout Policy}
-% One of the ways to improve the quality of the estimation
+\begin{frame}{Tree Search}
+\begin{itemize}
+	\item Game tree grows exponentially
+	\item Symmetry can halve space
+	\item Limited opportunities for provable pruning
+	\item No good position ranking heuristic
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Monte Carlo Tree Search}
+\begin{itemize}
+	\item Use random playouts to estimate minimax value
+	\item Large enough playouts will converge to true minimax value
+	\item Seems dumb, actually works
+	\item Computationally very expensive
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Monte Carlo Tree Search - Playout Policy}
+\begin{itemize}
+	\item Naively ``improving'' the strength of the playout policy can hurt overall performance
+	\item Requires careful and expensive testing to verify improvement
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Evolutionary Learning}
+\begin{itemize}
+	\item Idea: Evolve playout policy
+	\item Individual policies compete in a tournament to reproduce
+	\item Self-play yields a self-bootstrapping system
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Encoding}
+\begin{itemize}
+	\item Individual policy is a collection of evolvable weights
+	\item One weight, many interpretations
+	\item Explicitly requires domain knowledge
+	\item Implicitly limits the system
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Results}
+\begin{itemize}
+	\item Strong and robust
+\end{itemize}
 \end{frame}
 
 \begin{frame}{Future Work}
+\begin{itemize}
+	\item Different encodings
+	\item General game play
+	\item Encode expert knowledge in weights
+\end{itemize}
 \end{frame}
 
 \end{document}
