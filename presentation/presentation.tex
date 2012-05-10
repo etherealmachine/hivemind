@@ -77,12 +77,24 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Evolutionary Learning}
+\begin{frame}{Evolutionary Learning (Hivemind)}
 \begin{itemize}
 	\item Idea: Evolve playout policy
 	\item Individual policies compete in a tournament to reproduce
 	\item Self-play yields a self-bootstrapping system
 \end{itemize}
+\end{frame}
+
+\begin{frame}{Evolution}
+\begin{enumerate}
+	\item Generate $n$ individuals (population)
+	\item Evaluate fitness\label{eval}
+	\item Rank by fitness
+	\item Select top $c$ children, $c < n$
+	\item Recombine children into $n$ new individuals (next generation)
+	\item Mutate population
+	\item Repeat from \ref{eval}
+\end{enumerate}
 \end{frame}
 
 \begin{frame}{Encoding}
@@ -94,10 +106,80 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Results}
+\begin{frame}{Encoding - Example}
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=3.25in]{graphics/local-pattern.pdf}
+  \label{fig:encoding}
+  \end{center}
+\end{figure}
 \begin{itemize}
-	\item Strong and robust
+	\item Weight moves local to last-played move
+	\item If local area is filled, use default policy
 \end{itemize}
+\end{frame}
+
+\begin{frame}{Encoding - Example}
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=3.25in]{graphics/weight-pattern-map.pdf}
+  \label{fig:encoding}
+  \end{center}
+\end{figure}
+\begin{itemize}
+	\item Map from 32-bit integer to floating point weight
+	\item Evolution (mutation/recombination) operates on individual's map entries
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results (Self)}
+\begin{figure}
+	\begin{center}
+		\begin{tabular}{c | c c c}
+		& \multispan{3}{\hfil opponent \hfil} \\
+		 player & default & uniform & uniform (tenuki) \\
+		\hline
+		uniform & 70.50\% & & \\
+		uniform (tenuki) & 61.00\% & 50.00\% & \\
+		learned & 90.00\% & 84.00\% & 86.00\% \\
+		\end{tabular}
+	\label{fig:results}
+	\end{center}
+\end{figure}
+All-play-all tournament of the 4 Hivemind variants.
+
+Each element is the percent win-rate of the row variant versus the column variant.
+\end{frame}
+
+\begin{frame}{Results (Self)}
+\centerline{
+\begin{tabular}{c | cc cc}
+ & \multispan{2}{\hfil default \hfil} & \multispan{2}{\hfil uniform local\hfil} \\
+ & 11x11 & 13x13 & 11x11 & 13x13 \\ \hline
+ learned win \%	& 92.5 \% & 94 \%  & 88.5\% & 85\% 
+ \end{tabular}
+}
+\end{frame}
+
+\begin{frame}{Results (MoHex 7x7)}
+\centerline{
+\begin{tabular}{lccc}
+& Learned policy & Uniform local & Default policy \\
+win \% & 42\% & 26\% & 11.75\%
+\end{tabular}
+}
+\end{frame}
+
+\begin{frame}{Results (MoHex 11x11)}
+\centerline{
+		\begin{tabular}{c  | c c c}
+		Hivemind & Win-rate & Relative CPU \\
+		\hline
+		Default & 0.5\% & 510\% \\
+		Local & 0.0\% & 545\% \\
+		Learned & 11\% & 620\% \\
+		\end{tabular}
+}
 \end{frame}
 
 \begin{frame}{Future Work}
