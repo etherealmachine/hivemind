@@ -1,6 +1,8 @@
 \documentclass{beamer}
 \usetheme{Boadilla}
 \usepackage{havannah}
+\usepackage{color}
+\newcommand{\hilight}[1]{\colorbox{yellow}{#1}}
 
 \title[Learning MCTS]{Evolutionary Learning of Policies for MCTS Simulations}
 \author[Pettit, Helmbold]{James Pettit, David Helmbold}
@@ -16,97 +18,179 @@
   \titlepage
 \end{frame}
 
-\begin{frame}{Overview}
+\begin{frame}{Motivation}
 \begin{enumerate}
-	\item The Game of Hex
-	\item Monte-Carlo Tree Search (MCTS)
-	\item Apply Evolutionary Learningto MCTS+Hex
-	\item Results and Future Work
+	\item Cutting and connecting games are hard
+	\item Computer Go - Next AI Grand Challenge
+	\item Monte Carlo techniques promising
+	\item Tuning policies difficult
+	\item Solution: use evolution and self-play to learn better policies 
 \end{enumerate}
 \end{frame}
 
-\begin{frame}{The Game of Hex}
-\begin{itemize}
-	\item 2 player, perfect information
-	\item 6-sided hexagons on a parallelogram board
-	\item Common sizes: 11, 13
-\end{itemize}
+\begin{frame}{The Game of Hex - Good for AI}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item 2 player, perfect information
+		\item Easy to program
+		\item Clear-cut winning condition
+		\item Large problem space
+		\item Solved for boards up to 7x7
+		\item Common sizes: 11x11, 13x13
+	\end{itemize}
 \end{frame}
 
-\begin{frame}{The Game of Hex - Example Board}
-% example board, play a few moves, show final position
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1,c2}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
+	\begin{figure}[tb]
+	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
+		  \HGame{d4,d3,e3,f1,c2,d6}
+		\end{HexBoard}
+		}
+	\end{figure}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{The Game of Hex - Example Game}
 	\begin{figure}[tb]
 	\resizebox{3.3in}{!}{ \begin{HexBoard}[board size=7]
 		  \HGame{d4,d3,e3,f1,c2,d6,b5,e2,c4,c3,a4,b6,c6,c5,d5,b7,c7,b4,a5,b3,a3,b1,b2,c1,d1}
 		\end{HexBoard}
 		}
 	\end{figure}
-\end{frame}
-
-\begin{frame}{The Game of Hex - Good for AI}
-\begin{itemize}
-	\item Easy to program
-	\item Clear-cut winning condition
-	\item Large problem space
-	\item Solved for boards up to 7x7
-\end{itemize}
+	\begin{itemize}
+		\item Connect opposing sides
+		\item Cut opponents connections
+	\end{itemize}
 \end{frame}
 
 \begin{frame}{Tree Search}
 \begin{itemize}
 	\item Game tree grows exponentially
-	\item Symmetry can halve space
+	\begin{itemize}
+		\item Hex on a general board is PSPACE-complete
+	\end{itemize}
+	\item No effective position evaluation heuristic
+	\begin{itemize}
+		\item Previous champion until 2006, (\emph{Six}, used circuit simulation
+	\end{itemize}
 	\item Limited opportunities for provable pruning
-	\item No good position ranking heuristic
+	\begin{itemize}
+		\item Current champion, \emph{MoHex}, does lots of this
+	\end{itemize}
 \end{itemize}
 \end{frame}
 
 \begin{frame}{Monte Carlo Tree Search}
 \begin{itemize}
+	\item Grow tree dynamically
 	\item Use random playouts to estimate minimax value
-	\item Large enough playouts will converge to true minimax value
-	\item Seems dumb, actually works
-	\item Computationally very expensive
+	\item In the limit, converges to true minimax value
+	\item Simple idea, remarkably successful
+	\item Computationally expensive
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Monte Carlo Tree Search - Playout Policy}
+\begin{frame}{Monte Carlo Tree Search - Overview}
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=2.25in]{graphics/tree.pdf}
+  \label{fig:encoding}
+  \end{center}
+\end{figure}
 \begin{itemize}
-	\item Naively ``improving'' the strength of the playout policy can hurt overall performance
-	\item Requires careful and expensive testing to verify improvement
+	\item \emph{Select} - using win/loss statistics, traverse tree to a leaf
+	\item {\bf Playout} - from selected position, \emph{randomly} play out game until final position
+	\item \emph{Update} - using results of playout, update win/loss statistics
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Evolutionary Learning (Hivemind)}
+\begin{frame}{Monte Carlo Tree Search - Playout Policies}
 \begin{itemize}
-	\item Idea: Evolve playout policy
-	\item Individual policies compete in a tournament to reproduce
-	\item Self-play yields a self-bootstrapping system
+	\item Playout policy a critical part of overall performance
+	\item We examine 4 different policies:
+	\begin{itemize}
+		\item Default - uniform random
+		\item Uniform Local - play in local neighborhood first
+		\item Uniform Local with Tekuki (Play-Away) - possibly play in local neighborhood first
+		\item Local Pattern Weighted - stochastic, weighted local neighborhood
+	\end{itemize}
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Evolution}
-\begin{enumerate}
-	\item Generate $n$ individuals (population)
-	\item Evaluate fitness\label{eval}
-	\item Rank by fitness
-	\item Select top $c$ children, $c < n$
-	\item Recombine children into $n$ new individuals (next generation)
-	\item Mutate population
-	\item Repeat from \ref{eval}
-\end{enumerate}
-\end{frame}
-
-\begin{frame}{Encoding}
-\begin{itemize}
-	\item Individual policy is a collection of evolvable weights
-	\item One weight, many interpretations
-	\item Explicitly requires domain knowledge
-	\item Implicitly limits the system
-\end{itemize}
-\end{frame}
-
-\begin{frame}{Encoding - Example}
+\begin{frame}{Weighting the Playout Policy}
 \begin{figure}
   \begin{center}
   \includegraphics[width=3.25in]{graphics/local-pattern.pdf}
@@ -114,12 +198,13 @@
   \end{center}
 \end{figure}
 \begin{itemize}
+	\item Use patterns to weight moves
 	\item Weight moves local to last-played move
 	\item If local area is filled, use default policy
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Encoding - Example}
+\begin{frame}{Example Encoding}
 \begin{figure}
   \begin{center}
   \includegraphics[width=3.25in]{graphics/weight-pattern-map.pdf}
@@ -127,67 +212,138 @@
   \end{center}
 \end{figure}
 \begin{itemize}
-	\item Map from 32-bit integer to floating point weight
-	\item Evolution (mutation/recombination) operates on individual's map entries
+	\item Fast lookup table mapping pattern to weight
+	\item Plenty of unused space in upper bits for storing extra info
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Results (Self)}
+\begin{frame}{Monte Carlo Tree Search - Playout Policy}
+\begin{itemize}
+	\item Execution time is critical
+	\item Requires deep insight to develop weights, then careful and expensive testing to verify improvement
+	\item Naively ``improving'' the strength of the playout policy can hurt overall performance
+	\begin{itemize}
+		\item Subtle interaction between selection, update, and playout
+		\item Example: fully deterministic policy equivalent to an evaluation function
+	\end{itemize}
+	\item We want a technique to learn weights automatically
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Evolutionary Learning}
+\begin{itemize}
+	\item Idea: Evolve playout policy
+	\item Policy = set of all possible local patterns + weights for those patterns
+	\item Individual policies compete via self-play to propagate
+	\item Best individuals are selected for reproduction
+	\item Mutation/recombination operates on individual's pattern weights
+	\item Individuals play \emph{complete} games against each other using \emph{complete} MCTS system
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Evolution}
+\begin{itemize}
+	\item Init
+	\begin{enumerate}
+		\item Generate $n$ individuals (population)
+	\end{enumerate}
+	\item Each Generation
+	\begin{enumerate}
+		\item Evaluate fitness
+		\item Rank by fitness
+		\item Select top $c$ individuals, $c < n$
+		\item Recombine individuals into $n$ new children
+		\item Mutate children
+	\end{enumerate}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results of learning after training on 7x7)}
 \begin{figure}
+	\caption{Trained on 7x7 board}
 	\begin{center}
 		\begin{tabular}{c | c c c}
 		& \multispan{3}{\hfil opponent \hfil} \\
-		 player & default & uniform & uniform (tenuki) \\
+		 player & default & uniform local & uniform local (tenuki) \\
 		\hline
-		uniform & 70.50\% & & \\
-		uniform (tenuki) & 61.00\% & 50.00\% & \\
-		learned & 90.00\% & 84.00\% & 86.00\% \\
+		uniform local & 70.50\% & & \\
+		uniform local (tenuki) & 61.00\% & 50.00\% & \\
+		learned & \hilight{90.00\%} & \hilight{84.00\%} & \hilight{86.00\%} \\
 		\end{tabular}
 	\label{fig:results}
 	\end{center}
 \end{figure}
-All-play-all tournament of the 4 Hivemind variants.
-
-Each element is the percent win-rate of the row variant versus the column variant.
+\begin{itemize}
+	\item All-play-all tournament of the 4 policy variants.
+	\item Each element is the percent win-rate of the row variant versus the column variant.
+	\item 200 games per pair.
+\end{itemize}
 \end{frame}
 
-\begin{frame}{Results (Self)}
+\begin{frame}{Generalization to Different Board Sizes}
 \centerline{
 \begin{tabular}{c | cc cc}
  & \multispan{2}{\hfil default \hfil} & \multispan{2}{\hfil uniform local\hfil} \\
  & 11x11 & 13x13 & 11x11 & 13x13 \\ \hline
- learned win \%	& 92.5 \% & 94 \%  & 88.5\% & 85\% 
+ learned & 92.5 \% & 94 \%  & 88.5\% & 85\%
  \end{tabular}
 }
-\end{frame}
-
-\begin{frame}{Results (MoHex 7x7)}
-\centerline{
-\begin{tabular}{lccc}
-& Learned policy & Uniform local & Default policy \\
-win \% & 42\% & 26\% & 11.75\%
-\end{tabular}
-}
-\end{frame}
-
-\begin{frame}{Results (MoHex 11x11)}
-\centerline{
-		\begin{tabular}{c  | c c c}
-		Hivemind & Win-rate & Relative CPU \\
+\begin{figure}
+\caption{Trained on 7x7 board}
+	\begin{center}
+		\begin{tabular}{c | c c}
+		& default & uniform local \\
 		\hline
-		Default & 0.5\% & 510\% \\
-		Local & 0.0\% & 545\% \\
-		Learned & 11\% & 620\% \\
+		learned & 90.00\% & 84.00\% \\
 		\end{tabular}
-}
+	\label{fig:results}
+	\end{center}
+\end{figure}
 \end{frame}
 
-\begin{frame}{Future Work}
+\begin{frame}{Results versus MoHex}
+\begin{figure}
+	\begin{center}
+		\begin{tabular}{c | c}
+		& MoHex on 7x7 \\
+		\hline
+		default & 11.75\% \\
+		uniform local & 26\% \\
+		learned & 42\% \\
+		\end{tabular}
+	\end{center}
+\end{figure}
+\begin{figure}
+	\begin{center}
+		\begin{tabular}{c  | c c c}
+		& MoHex on 11x11 & Relative CPU \\
+		\hline
+		default & 0.5\% & 100\% \\
+		uniform local & 0.0\% & 107\% \\
+		learned & 11\% & 122\% \\
+		\end{tabular}
+	\end{center}
+\end{figure}
 \begin{itemize}
-	\item Different encodings
-	\item General game play
-	\item Encode expert knowledge in weights
+	\item MoHex, the current world-champion, uses lots of expert and domain-specific knowledge
+	\item Good results on small board
+	\item Dramatic improvement for modest overhead
 \end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+	\item Computer Hex/Go present a huge problem space
+	\item MCTS is an effective technique to navigate that space
+	\item Shown we can automatically learn to guide MCTS to play computer Hex better
+	\item Future work - apply results to different games
+	\item Source code available at \url{https://github.com/etherealmachine/hivemind}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion}
+\centerline{Thank you for the time}
+\centerline{Questions?}
 \end{frame}
 
 \end{document}
